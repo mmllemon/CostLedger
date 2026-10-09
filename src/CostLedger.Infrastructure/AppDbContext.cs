@@ -1,4 +1,5 @@
 using CostLedger.Domain;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 
@@ -18,6 +19,13 @@ public class AppDbContext : DbContext
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<CostCategory> CostCategories => Set<CostCategory>();
     public DbSet<CostEntry> CostEntries => Set<CostEntry>();
+
+    // M2-A 元数据层（配置中心地基）
+    public DbSet<LookupDef> LookupDefs => Set<LookupDef>();
+    public DbSet<LookupItem> LookupItems => Set<LookupItem>();
+    public DbSet<EntityDef> EntityDefs => Set<EntityDef>();
+    public DbSet<FieldDef> FieldDefs => Set<FieldDef>();
+    public DbSet<CustomFieldValue> CustomFieldValues => Set<CustomFieldValue>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -42,7 +50,8 @@ public class AppDbContext : DbContext
         {
             b.HasKey(x => x.Id);
             b.Property(x => x.Name).HasMaxLength(120);
-            b.HasIndex(x => x.Role);
+            b.Property(x => x.RoleCode).HasMaxLength(32);
+            b.HasIndex(x => x.RoleCode);
         });
 
         mb.Entity<CostCategory>(b =>
@@ -114,6 +123,48 @@ public class AppDbContext : DbContext
             b.HasOne(x => x.Measurement).WithMany(x => x.CostEntries)
                 .HasForeignKey(x => x.MeasurementId).OnDelete(DeleteBehavior.SetNull);
         });
+
+        // ---- M2-A 元数据层配置 ----
+        mb.Entity<LookupDef>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).HasMaxLength(48);
+            b.Property(x => x.Name).HasMaxLength(80);
+            b.HasIndex(x => x.Code).IsUnique();
+        });
+        mb.Entity<LookupItem>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).HasMaxLength(48);
+            b.Property(x => x.Name).HasMaxLength(80);
+            b.HasOne(x => x.LookupDef).WithMany(x => x.Items)
+                .HasForeignKey(x => x.LookupDefId).OnDelete(DeleteBehavior.Cascade);
+        });
+        mb.Entity<EntityDef>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).HasMaxLength(48);
+            b.Property(x => x.Name).HasMaxLength(80);
+            b.HasIndex(x => x.Code).IsUnique();
+        });
+        mb.Entity<FieldDef>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.EntityDefCode).HasMaxLength(48);
+            b.Property(x => x.Name).HasMaxLength(80);
+            b.Property(x => x.LookupDefCode).HasMaxLength(48);
+            b.HasOne(x => x.EntityDef).WithMany(x => x.Fields)
+                .HasForeignKey(x => x.EntityDefId).OnDelete(DeleteBehavior.Cascade);
+        });
+        mb.Entity<CustomFieldValue>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.EntityDefCode).HasMaxLength(48);
+            b.Property(x => x.Value).HasMaxLength(512);
+            b.HasIndex(x => new { x.EntityDefCode, x.OwnerId });
+            b.HasOne(x => x.FieldDef).WithMany()
+                .HasForeignKey(x => x.FieldDefId).OnDelete(DeleteBehavior.Cascade);
+        });
     }
 }
 
@@ -128,6 +179,17 @@ public static class DbBootstrap
     public static void EnsureCreatedAndSeed(AppDbContext db)
     {
         db.Database.EnsureCreated();
-        SeedData.SeedIfEmpty(db);
+        try
+        {
+            SeedData.SeedIfEmpty(db);
+        }
+        catch (Microsoft.Data.Sqlite.SqliteException ex)
+            when (ex.Message.Contains("no such table", StringComparison.OrdinalIgnoreCase))
+        {
+            // M1 旧库缺 M2-A 元数据表：重建数据库并重种子（演示数据确定可重建）
+            db.Database.EnsureDeleted();
+            db.Database.EnsureCreated();
+            SeedData.SeedIfEmpty(db);
+        }
     }
 }

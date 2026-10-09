@@ -1,24 +1,9 @@
 namespace CostLedger.Domain;
 
-/// <summary>往来单位角色</summary>
-public enum PartyRole
-{
-    Owner,          // 甲方 / 建设单位
-    Contractor,     // 施工方（上级或总包）
-    Supplier,       // 供方 / 材料设备
-    Subcontractor,  // 分包
-    Supervisor,     // 监理
-    Other
-}
-
-/// <summary>合同类型</summary>
-public enum ContractType
-{
-    Main,           // 总包 / 主合同
-    Subcontract,    // 分包
-    Purchase,       // 采购
-    Service         // 服务 / 咨询
-}
+/// <summary>
+/// 往来单位角色 / 合同类型 已改为字典驱动（LookupDef：PartyRole / ContractType），
+/// 见 Metadata.cs，不再使用硬编码枚举。
+/// </summary>
 
 /// <summary>计量与签证类型</summary>
 public enum MeasurementType

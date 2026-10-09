@@ -9,7 +9,8 @@ public class Contract
     public Project? Project { get; set; }
     public int PartyId { get; set; }
     public Party? Party { get; set; }
-    public ContractType Type { get; set; }
+    /// <summary>合同类型代码，引用 LookupDef "ContractType" 的 LookupItem.Code（字典驱动，取代原硬编码枚举）</summary>
+    public string TypeCode { get; set; } = string.Empty;
     public string? Title { get; set; }
     public decimal Amount { get; set; }   // 合同金额（含税）
     public decimal TaxRate { get; set; }  // 税率 0.09 / 0.13 / 0.03

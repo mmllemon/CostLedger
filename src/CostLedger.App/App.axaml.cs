@@ -26,8 +26,9 @@ public partial class App : Application
             var db = new AppDbContext(options);
             DbBootstrap.EnsureCreatedAndSeed(db);
             ICostSpineService spine = new CostSpineService(db);
+            var metadata = new MetadataService(db);
 
-            desktop.MainWindow = new MainWindow(spine, db);
+            desktop.MainWindow = new MainWindow(spine, db, metadata);
         }
 
         base.OnFrameworkInitializationCompleted();

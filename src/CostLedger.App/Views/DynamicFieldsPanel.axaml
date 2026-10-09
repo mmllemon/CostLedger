@@ -1,0 +1,6 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="CostLedger.App.Views.DynamicFieldsPanel"
+             Margin="0">
+  <StackPanel x:Name="Host" Spacing="12"/>
+</UserControl>

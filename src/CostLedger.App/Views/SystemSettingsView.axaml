@@ -1,0 +1,46 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="CostLedger.App.Views.SystemSettingsView"
+             Margin="0,16,18,16">
+  <StackPanel Spacing="12">
+    <TextBlock Text="系统设置 / 配置中心" Classes="label"/>
+    <TextBlock Text="字典与字段管理" FontSize="22" FontWeight="Bold"/>
+
+    <TabControl Classes="card" Padding="18">
+      <!-- 字典管理 -->
+      <TabItem Header="字典管理">
+        <Grid RowDefinitions="Auto,*" ColumnDefinitions="220,1*" Margin="4,8,0,0">
+          <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
+            <Button Classes="primary" Content="新增字典" Click="OnAddLookupDef"/>
+          </StackPanel>
+          <ListBox x:Name="LookupDefList" Grid.Row="1" Grid.Column="0" SelectionChanged="OnLookupDefSelected" Margin="0,0,10,0"/>
+
+          <StackPanel Grid.Row="0" Grid.Column="1" Grid.RowSpan="2" Spacing="10">
+            <Grid ColumnDefinitions="1*,Auto" VerticalAlignment="Center">
+              <TextBlock x:Name="LookupDefTitle" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
+              <Button Grid.Column="1" Classes="pill" Content="新增字典值" Click="OnAddLookupItem"/>
+            </Grid>
+            <Border Classes="sidecard">
+              <StackPanel x:Name="LookupItemPanel" Spacing="8"/>
+            </Border>
+            <Button Classes="primary" Content="保存字典值" HorizontalAlignment="Right" Click="OnSaveLookupItems"/>
+          </StackPanel>
+        </Grid>
+      </TabItem>
+
+      <!-- 字段管理 -->
+      <TabItem Header="字段管理">
+        <StackPanel Spacing="10" Margin="4,8,0,0">
+          <Grid ColumnDefinitions="1*,Auto" VerticalAlignment="Center">
+            <ComboBox x:Name="EntityCombo" SelectionChanged="OnEntitySelected" MinWidth="200" PlaceholderText="选择业务模块"/>
+            <Button Grid.Column="1" Classes="primary" Content="新增字段" Click="OnAddField"/>
+          </Grid>
+          <Border Classes="sidecard">
+            <StackPanel x:Name="FieldPanel" Spacing="8"/>
+          </Border>
+          <Button Classes="primary" Content="保存字段" HorizontalAlignment="Right" Click="OnSaveFields"/>
+        </StackPanel>
+      </TabItem>
+    </TabControl>
+  </StackPanel>
+</UserControl>

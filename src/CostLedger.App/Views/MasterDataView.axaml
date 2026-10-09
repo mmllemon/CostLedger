@@ -1,0 +1,81 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:CostLedger.App.Views"
+             x:Class="CostLedger.App.Views.MasterDataView"
+             Margin="0,16,18,16">
+  <StackPanel Spacing="12">
+    <TextBlock Text="基础资料 / 主数据" Classes="label"/>
+    <TextBlock Text="往来单位与合同（字段可在系统设置扩展）" FontSize="22" FontWeight="Bold"/>
+
+    <TabControl Classes="card" Padding="18">
+      <!-- 往来单位 -->
+      <TabItem Header="往来单位">
+        <Grid ColumnDefinitions="240,1*" RowDefinitions="Auto,1*" Margin="4,8,0,0" Height="520">
+          <ListBox x:Name="PartyList" Grid.Column="0" Grid.Row="0" Grid.RowSpan="2" SelectionChanged="OnPartySelected" Margin="0,0,12,0"/>
+          <StackPanel Grid.Column="1" Grid.Row="0" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,0,0,10">
+            <Button Classes="pill" Content="新增" Click="OnPartyNew"/>
+            <Button Classes="primary" Content="保存" Click="OnPartySave"/>
+            <Button Classes="danger" Content="删除" Click="OnPartyDelete"/>
+          </StackPanel>
+          <Grid Grid.Column="1" Grid.Row="1" ColumnDefinitions="1*,1*" RowDefinitions="Auto,1*">
+            <Border Classes="sidecard" Grid.Column="0" Margin="0,0,8,0">
+              <StackPanel Spacing="10">
+                <TextBlock Text="核心字段" FontWeight="Bold" FontSize="14"/>
+                <StackPanel Spacing="4">
+                  <TextBlock Text="单位名称" Classes="label"/><TextBox x:Name="PartyName" Padding="10,8"/>
+                </StackPanel>
+                <StackPanel Spacing="4">
+                  <TextBlock Text="角色" Classes="label"/><ComboBox x:Name="PartyRole" Padding="10,8"/>
+                </StackPanel>
+                <StackPanel Spacing="4">
+                  <TextBlock Text="税号" Classes="label"/><TextBox x:Name="PartyTaxNo" Padding="10,8"/>
+                </StackPanel>
+                <StackPanel Spacing="4">
+                  <TextBlock Text="联系人" Classes="label"/><TextBox x:Name="PartyContact" Padding="10,8"/>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+            <Border Classes="sidecard" Grid.Column="1" Margin="8,0,0,0">
+              <StackPanel Spacing="10">
+                <TextBlock Text="扩展字段（后台可增删）" FontWeight="Bold" FontSize="14"/>
+                <views:DynamicFieldsPanel x:Name="PartyExt"/>
+              </StackPanel>
+            </Border>
+          </Grid>
+        </Grid>
+      </TabItem>
+
+      <!-- 合同 -->
+      <TabItem Header="合同">
+        <Grid ColumnDefinitions="240,1*" RowDefinitions="Auto,1*" Margin="4,8,0,0" Height="520">
+          <ListBox x:Name="ContractList" Grid.Column="0" Grid.Row="0" Grid.RowSpan="2" SelectionChanged="OnContractSelected" Margin="0,0,12,0"/>
+          <StackPanel Grid.Column="1" Grid.Row="0" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,0,0,10">
+            <Button Classes="pill" Content="新增" Click="OnContractNew"/>
+            <Button Classes="primary" Content="保存" Click="OnContractSave"/>
+            <Button Classes="danger" Content="删除" Click="OnContractDelete"/>
+          </StackPanel>
+          <Grid Grid.Column="1" Grid.Row="1" ColumnDefinitions="1*,1*" RowDefinitions="Auto,1*">
+            <Border Classes="sidecard" Grid.Column="0" Margin="0,0,8,0">
+              <StackPanel Spacing="8">
+                <TextBlock Text="核心字段" FontWeight="Bold" FontSize="14"/>
+                <StackPanel Spacing="4"><TextBlock Text="合同编号" Classes="label"/><TextBox x:Name="ConCode" Padding="10,8"/></StackPanel>
+                <StackPanel Spacing="4"><TextBlock Text="合同类型" Classes="label"/><ComboBox x:Name="ConType" Padding="10,8"/></StackPanel>
+                <StackPanel Spacing="4"><TextBlock Text="合同名称" Classes="label"/><TextBox x:Name="ConTitle" Padding="10,8"/></StackPanel>
+                <StackPanel Spacing="4"><TextBlock Text="合同金额" Classes="label"/><NumericUpDown x:Name="ConAmount" Padding="10,8" FormatString="N2"/></StackPanel>
+                <StackPanel Spacing="4"><TextBlock Text="税率" Classes="label"/><ComboBox x:Name="ConTax" Padding="10,8"/></StackPanel>
+                <StackPanel Spacing="4"><TextBlock Text="签约日期" Classes="label"/><DatePicker x:Name="ConSignDate"/></StackPanel>
+                <StackPanel Spacing="4"><TextBlock Text="状态" Classes="label"/><TextBox x:Name="ConStatus" Padding="10,8"/></StackPanel>
+              </StackPanel>
+            </Border>
+            <Border Classes="sidecard" Grid.Column="1" Margin="8,0,0,0">
+              <StackPanel Spacing="10">
+                <TextBlock Text="扩展字段（后台可增删）" FontWeight="Bold" FontSize="14"/>
+                <views:DynamicFieldsPanel x:Name="ConExt"/>
+              </StackPanel>
+            </Border>
+          </Grid>
+        </Grid>
+      </TabItem>
+    </TabControl>
+  </StackPanel>
+</UserControl>
