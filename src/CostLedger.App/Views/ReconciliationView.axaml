@@ -34,6 +34,20 @@
 
       <Border Classes="card">
         <StackPanel Spacing="10">
+          <TextBlock Classes="label" Text="收款台账（对甲方：合同额 / 累计收款 / 比例 / 未收）"/>
+          <Grid x:Name="ReceiveHost"/>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Classes="label" Text="付款台账（对下游：合同额 / 累计付款 / 比例 / 未付）"/>
+          <Grid x:Name="PayHost"/>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
           <TextBlock Classes="label" Text="合同 vs 成本（Diff&gt;0 = 成本已超合同额）"/>
           <Grid x:Name="ContractHost"/>
         </StackPanel>

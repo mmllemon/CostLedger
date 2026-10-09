@@ -86,7 +86,6 @@ public class AppDbContext : DbContext
         {
             b.HasKey(x => x.Id);
             b.Property(x => x.Code).HasMaxLength(32);
-            b.Property(x => x.AdvanceDeductionMethod).HasMaxLength(32);
             b.HasOne(x => x.Project).WithMany(x => x.Contracts)
                 .HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
             b.HasOne(x => x.Party).WithMany(x => x.Contracts)

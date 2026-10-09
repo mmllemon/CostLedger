@@ -17,13 +17,9 @@ public class Contract
     public DateOnly SignDate { get; set; }
     public string? Status { get; set; }
 
-    // —— 合同级可配（2026-10-09 用户确认：质保/预付款不写死全局默认，逐合同独立） ——
-    /// <summary>质保金比例（0~1，逐合同可配）</summary>
+    // —— 合同级可配 ——
+    /// <summary>质保金比例（0~1，逐合同可配；仅作台账信息，系统不做抵扣计算）</summary>
     public decimal RetentionRate { get; set; }
-    /// <summary>预付款比例（0~1，逐合同可配）</summary>
-    public decimal AdvanceRate { get; set; }
-    /// <summary>预付款抵扣方式（如"按比例抵扣"/"一次性抵扣"）</summary>
-    public string? AdvanceDeductionMethod { get; set; }
 
     public ICollection<ContractLine> Lines { get; set; } = new List<ContractLine>();
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();

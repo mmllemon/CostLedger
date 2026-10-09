@@ -249,7 +249,7 @@
           <Border Classes="card" HorizontalAlignment="Left">
             <StackPanel Spacing="10" Width="520">
               <TextBlock Classes="label" Text="收付款（资金流；不写成本）"/>
-              <Grid ColumnDefinitions="90,*,90,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+              <Grid ColumnDefinitions="90,*,90,*" RowDefinitions="Auto,Auto,Auto,Auto">
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="编号" VerticalAlignment="Center"/>
                 <TextBox x:Name="PayCode" Grid.Row="0" Grid.Column="1" Margin="6,0,14,6"/>
                 <TextBlock Grid.Row="0" Grid.Column="2" Text="方向" VerticalAlignment="Center"/>
@@ -265,20 +265,11 @@
                 <TextBlock Grid.Row="2" Grid.Column="2" Text="日期" VerticalAlignment="Center"/>
                 <DatePicker x:Name="PayDate" Grid.Row="2" Grid.Column="3" HorizontalAlignment="Stretch" Margin="6,0,0,6"/>
 
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="本期完成额" VerticalAlignment="Center"/>
-                <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="6,0,14,0">
-                  <NumericUpDown x:Name="PayGross" Minimum="0" Maximum="99999999" Width="130"/>
-                  <Button Classes="pill" Content="试算" Click="OnPayCompute"/>
-                </StackPanel>
-                <TextBlock Grid.Row="3" Grid.Column="2" Text="质保扣留" VerticalAlignment="Center"/>
-                <NumericUpDown x:Name="PayRetention" Grid.Row="3" Grid.Column="3" Minimum="0" Maximum="99999999" Margin="6,0,0,0"/>
-
-                <TextBlock Grid.Row="4" Grid.Column="0" Text="预付款抵扣" VerticalAlignment="Center"/>
-                <NumericUpDown x:Name="PayAdvance" Grid.Row="4" Grid.Column="1" Minimum="0" Maximum="99999999" Margin="6,0,14,0"/>
-                <TextBlock Grid.Row="4" Grid.Column="2" Text="实付/实收" VerticalAlignment="Center"/>
-                <NumericUpDown x:Name="PayAmount" Grid.Row="4" Grid.Column="3" Minimum="0" Maximum="99999999" Margin="6,0,0,0"/>
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="金额" VerticalAlignment="Center"/>
+                <NumericUpDown x:Name="PayAmount" Grid.Row="3" Grid.Column="1" Minimum="0" Maximum="99999999" Margin="6,0,14,0"/>
+                <TextBlock Grid.Row="3" Grid.Column="2" Text="含农民工工资" VerticalAlignment="Center"/>
+                <CheckBox x:Name="PayMigrant" Grid.Row="3" Grid.Column="3" Margin="6,0,0,0"/>
               </Grid>
-              <CheckBox x:Name="PayMigrant" Content="含农民工工资（仅标记）"/>
               <TextBlock Classes="label" Text="备注"/>
               <TextBox x:Name="PayRemark" AcceptsReturn="True" Height="48"/>
               <StackPanel Orientation="Horizontal" Spacing="10">

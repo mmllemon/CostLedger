@@ -22,6 +22,7 @@ public partial class ReconciliationView : UserControl
 {
     private readonly AppDbContext _db = null!;
     private readonly ReconciliationService _recon = null!;
+    private readonly PaymentService _pay = null!;
 
     public ReconciliationView()
     {
@@ -32,6 +33,7 @@ public partial class ReconciliationView : UserControl
     {
         _db = db;
         _recon = new ReconciliationService(db, new CostSpineService(db));
+        _pay = new PaymentService(db);
         _ = InitAsync();
     }
 
@@ -82,6 +84,11 @@ public partial class ReconciliationView : UserControl
             fund.Select(r => (new[] { r.Kind, Money(r.Should), Money(r.Actual), Money(r.Gap) }, r.Gap > 0)).ToList(),
             breachColumn: 3);
 
+        // 收款台账（对甲方）
+        await FillFundLedgerAsync(ReceiveHost, projectId, PaymentDirection.Receive);
+        // 付款台账（对下游）
+        await FillFundLedgerAsync(PayHost, projectId, PaymentDirection.Pay);
+
         var contractRows = await _recon.ContractVsCostAsync(projectId);
         Fill(ContractHost,
             new[] { "合同编号", "名称", "合同额", "已发生", "差异" },
@@ -100,6 +107,20 @@ public partial class ReconciliationView : UserControl
     }
 
     private static string Money(decimal v) => v.ToString("N2", CultureInfo.CurrentCulture);
+
+    /// <summary>收款/付款台账：合同额 / 累计 / 比例 / 未收(付)。</summary>
+    private async Task FillFundLedgerAsync(Grid host, int projectId, PaymentDirection direction)
+    {
+        var rows = await _pay.FundLedgerAsync(projectId, direction);
+        Fill(host,
+            new[] { "合同编号", "往来单位", "合同额", "累计", "比例", "未收(付)" },
+            rows.Select(r => (new[]
+            {
+                r.ContractCode, r.PartyName, Money(r.ContractAmount), Money(r.Cumulative),
+                (r.Ratio * 100m).ToString("0.0", CultureInfo.CurrentCulture) + "%", Money(r.Outstanding)
+            }, false)).ToList(),
+            breachColumn: -1);
+    }
 
     /// <summary>把表头 + 行数据渲染进一个 Grid；Breach 行在 breachColumn 列以红色显示。</summary>
     private void Fill(Grid host, string[] headers, List<(string[] Cells, bool Breach)> rows, int breachColumn)

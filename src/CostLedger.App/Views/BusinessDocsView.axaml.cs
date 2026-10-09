@@ -406,9 +406,6 @@ public partial class BusinessDocsView : UserControl
         PayType.SelectedIndex = Array.IndexOf(PayTypes, p.Type);
         PayContract.SelectedItem = _contracts.FirstOrDefault(c => c.Id == p.ContractId);
         PayParty.SelectedItem = _parties.FirstOrDefault(x => x.Id == p.PartyId);
-        PayGross.Value = 0;
-        PayRetention.Value = p.RetentionDeduction ?? 0m;
-        PayAdvance.Value = p.AdvanceDeduction ?? 0m;
         PayAmount.Value = p.Amount;
         PayMigrant.IsChecked = p.ContainsMigrantWage;
         SetDate(PayDate, p.Date);
@@ -423,7 +420,7 @@ public partial class BusinessDocsView : UserControl
         PayType.SelectedIndex = 1;
         PayContract.SelectedItem = null;
         PayParty.SelectedItem = null;
-        PayGross.Value = 0; PayRetention.Value = 0; PayAdvance.Value = 0; PayAmount.Value = 0;
+        PayAmount.Value = 0;
         PayMigrant.IsChecked = false;
         SetDate(PayDate, DateOnly.FromDateTime(DateTime.Today));
         PayRemark.Text = "";
@@ -438,8 +435,6 @@ public partial class BusinessDocsView : UserControl
         p.Type = PayTypes[Math.Clamp(PayType.SelectedIndex, 0, 3)];
         p.ContractId = Pick<Contract>(PayContract)?.Id;
         p.PartyId = Pick<Party>(PayParty)?.Id ?? _parties.FirstOrDefault()?.Id ?? 0;
-        p.RetentionDeduction = Val(PayRetention);
-        p.AdvanceDeduction = Val(PayAdvance);
         p.Amount = Val(PayAmount);
         p.ContainsMigrantWage = PayMigrant.IsChecked == true;
         p.Date = AsDate(PayDate);
@@ -455,16 +450,5 @@ public partial class BusinessDocsView : UserControl
         _payId = 0;
         await ReloadPayAsync();
         OnPayNew(null, new RoutedEventArgs());
-    }
-
-    /// <summary>按合同参数试算本期净付：填 质保扣留 / 预付款抵扣 / 实付额。</summary>
-    private async void OnPayCompute(object? sender, RoutedEventArgs e)
-    {
-        var contractId = Pick<Contract>(PayContract)?.Id;
-        if (contractId is null) { PayRemark.Text = "请先选择合同"; return; }
-        var b = await _paySvc.ComputeAsync(contractId, Val(PayGross));
-        PayRetention.Value = b.Retention;
-        PayAdvance.Value = b.AdvanceDeduction;
-        PayAmount.Value = b.Net;
     }
 }
