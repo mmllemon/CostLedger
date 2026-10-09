@@ -3,19 +3,21 @@ using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using CostLedger.Domain;
 using CostLedger.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace CostLedger.App.Views;
 
 /// <summary>
-/// 台账中心：7 类台账（合同/收款/付款/变更签证/材料/发票/结算）统一为"明细 + 合计"视图；
-/// 每张台账可"打印此台账"（正式版式）。所有台账复用 LedgerService，结果与打印共用。
+/// 台账中心：7 类台账统一为"明细 + 合计"；支持关键字筛选、打印（正式版式）、导出/导入 CSV。
 /// </summary>
 public partial class LedgerCenterView : UserControl
 {
@@ -34,9 +36,10 @@ public partial class LedgerCenterView : UserControl
 
     private readonly AppDbContext _db = null!;
     private readonly LedgerService _ledger = null!;
+    private readonly LedgerImportService _import = null!;
     private int _projectId;
-    private LedgerResult? _current;
     private string _projectName = "";
+    private LedgerResult? _current;
 
     public LedgerCenterView()
     {
@@ -47,6 +50,7 @@ public partial class LedgerCenterView : UserControl
     {
         _db = db;
         _ledger = new LedgerService(db);
+        _import = new LedgerImportService(db);
         _ = InitAsync();
     }
 
@@ -55,10 +59,11 @@ public partial class LedgerCenterView : UserControl
         var projects = await _db.Projects.OrderBy(p => p.Code).ToListAsync();
         ProjCombo.ItemsSource = projects;
         ProjCombo.DisplayMemberBinding = new Binding("Name");
-        ProjCombo.SelectedIndex = projects.Count > 0 ? 0 : -1;
 
         LedgerList.ItemsSource = Items.ToList();
         LedgerList.DisplayMemberBinding = new Binding("Name");
+
+        ProjCombo.SelectedIndex = projects.Count > 0 ? 0 : -1;
         LedgerList.SelectedIndex = 0;
     }
 
@@ -77,8 +82,21 @@ public partial class LedgerCenterView : UserControl
         if (_projectId == 0 || LedgerList.SelectedItem is not Item it) return;
         _current = await _ledger.BuildAsync(_projectId, it.Kind);
         LedgerTitle.Text = _current.Title;
-        Render(_current);
+        RenderCurrent();
     }
+
+    // ---------- 渲染（含关键字筛选） ----------
+    private void RenderCurrent()
+    {
+        if (_current is null) return;
+        var kw = FilterBox.Text?.Trim() ?? "";
+        IReadOnlyList<string[]> rows = string.IsNullOrEmpty(kw)
+            ? _current.Rows
+            : _current.Rows.Where(r => r.Any(c => c.Contains(kw, StringComparison.OrdinalIgnoreCase))).ToList();
+        Render(new LedgerResult(_current.Title, _current.Headers, rows, _current.Footers));
+    }
+
+    private void OnFilterChanged(object? sender, TextChangedEventArgs e) => RenderCurrent();
 
     private void Render(LedgerResult r)
     {
@@ -106,12 +124,7 @@ public partial class LedgerCenterView : UserControl
 
     private TextBlock Cell(string text, int row, int col, bool header, bool footer)
     {
-        var tb = new TextBlock
-        {
-            Text = text,
-            FontSize = 12.5,
-            Margin = new Thickness(0, 0, 26, 8)
-        };
+        var tb = new TextBlock { Text = text, FontSize = 12.5, Margin = new Thickness(0, 0, 26, 8) };
         if (header)
         {
             tb.FontWeight = FontWeight.Bold;
@@ -127,9 +140,64 @@ public partial class LedgerCenterView : UserControl
         return tb;
     }
 
+    // ---------- 打印 ----------
     private void OnPrint(object? sender, RoutedEventArgs e)
     {
         if (_current is null) return;
         PrintService.OpenInBrowser(PrintService.BuildHtml(_projectName, _current, DateTime.Now), _current.Title);
+    }
+
+    // ---------- 导出 CSV ----------
+    private async void OnExport(object? sender, RoutedEventArgs e)
+    {
+        if (_current is null) return;
+        var top = TopLevel.GetTopLevel(this);
+        if (top is null) return;
+
+        var all = new List<string[]>();
+        all.AddRange(_current.Rows);
+        all.AddRange(_current.Footers);
+        var csv = CsvUtil.Write(_current.Headers, all);
+
+        var file = await top.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            SuggestedFileName = $"{_current.Title}_{_projectName}.csv",
+            FileTypeChoices = new[] { new FilePickerFileType("CSV") { Patterns = new[] { "*.csv" } } }
+        });
+        if (file is null) return;
+
+        await using var stream = await file.OpenWriteAsync();
+        await using var writer = new StreamWriter(stream, new UTF8Encoding(true)); // BOM：Excel 中文不乱码
+        await writer.WriteAsync(csv);
+        StatusText.Text = $"已导出 CSV（Excel 可直接打开）";
+    }
+
+    // ---------- 导入 CSV ----------
+    private async void OnImport(object? sender, RoutedEventArgs e)
+    {
+        if (_projectId == 0 || LedgerList.SelectedItem is not Item it) return;
+        if (it.Kind is not (LedgerKind.ChangeOrder or LedgerKind.Material or LedgerKind.Receipt or LedgerKind.Payment))
+        {
+            StatusText.Text = "该台账暂不支持导入（支持：变更签证 / 材料 / 收款 / 付款）";
+            return;
+        }
+
+        var top = TopLevel.GetTopLevel(this);
+        if (top is null) return;
+        var files = await top.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            AllowMultiple = false,
+            FileTypeFilter = new[] { new FilePickerFileType("CSV") { Patterns = new[] { "*.csv" } } }
+        });
+        if (files.Count == 0) return;
+
+        await using var stream = await files[0].OpenReadAsync();
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        var text = await reader.ReadToEndAsync();
+
+        var res = await _import.ImportAsync(_projectId, it.Kind, text);
+        StatusText.Text = $"导入完成：成功 {res.Created}，跳过 {res.Skipped}"
+            + (res.Errors.Count > 0 ? $"；首条错误：{res.Errors[0]}" : "");
+        await ReloadAsync();
     }
 }

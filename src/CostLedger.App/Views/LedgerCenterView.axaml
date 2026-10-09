@@ -14,12 +14,19 @@
     <StackPanel Grid.Column="1" Spacing="12">
       <StackPanel Orientation="Horizontal" Spacing="10">
         <TextBlock Text="项目" VerticalAlignment="Center" Foreground="{StaticResource Txt2Brush}"/>
-        <ComboBox x:Name="ProjCombo" Width="280" SelectionChanged="OnProjectChanged"/>
+        <ComboBox x:Name="ProjCombo" Width="260" SelectionChanged="OnProjectChanged"/>
+        <TextBlock x:Name="LedgerTitle" VerticalAlignment="Center" FontWeight="Bold" FontSize="15"/>
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <TextBox x:Name="FilterBox" Width="200" Watermark="筛选（关键字）" TextChanged="OnFilterChanged" VerticalAlignment="Center"/>
         <Button Classes="primary" Content="打印此台账" Click="OnPrint"/>
-        <TextBlock x:Name="LedgerTitle" VerticalAlignment="Center" FontWeight="Bold"/>
+        <Button Classes="pill" Content="导出 CSV" Click="OnExport"/>
+        <Button Classes="pill" Content="导入 CSV" Click="OnImport"/>
+        <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12.5"
+                   Foreground="{StaticResource AccentDeepBrush}"/>
       </StackPanel>
       <Border Classes="card">
-        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="560">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="520">
           <Grid x:Name="LedgerHost" Margin="0,4,0,0"/>
         </ScrollViewer>
       </Border>
