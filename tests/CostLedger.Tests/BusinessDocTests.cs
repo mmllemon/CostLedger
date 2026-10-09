@@ -11,8 +11,8 @@ using Xunit;
 namespace CostLedger.Tests;
 
 /// <summary>
-/// 业务单据链路测试：变更令/材料收料的凭证式回写（幂等、甲供不回写、冲销），
-/// 以及发票价税分离、结算金额推导（M2-E P0 缺口）。
+/// 业务单据链路测试：变更令调整目标成本（确认幂等/反确认回落）、材料收料的凭证式回写
+/// （乙供回写/甲供不回写），以及发票价税分离、结算金额推导（M2-E P0 缺口）。
 /// </summary>
 public class BusinessDocTests
 {
@@ -31,11 +31,10 @@ public class BusinessDocTests
         => db.CostCategories.Single(c => c.Code == "M-CABLE").Id;
 
     [Fact]
-    public async Task 变更令确认_回写成本且幂等()
+    public async Task 变更令确认_调整目标成本且幂等()
     {
         using var db = CreateSeededContext();
-        var writer = new CostWriteBackService(db);
-        var svc = new ChangeOrderService(db, writer);
+        var svc = new ChangeOrderService(db);
         var catId = CableCategoryId(db);
 
         var id = await svc.SaveAsync(new ChangeOrder
@@ -46,18 +45,18 @@ public class BusinessDocTests
         });
 
         (await svc.ConfirmAsync(id)).Should().BeTrue();
-        (await svc.ConfirmAsync(id)).Should().BeFalse(); // 幂等：不重复记账
+        (await svc.ConfirmAsync(id)).Should().BeFalse(); // 幂等：重复确认不再计入
 
         var cable = (await new CostSpineService(db).GetSpineAsync(1)).Single(l => l.CostCategoryName == "电力电缆");
-        cable.Incurred.Should().Be(2_050_000m); // 原 2,000,000 + 50,000
+        cable.Target.Should().Be(1_913_000m);   // 目标：1,863,000 + 50,000
+        cable.Incurred.Should().Be(2_000_000m); // 已发生不受影响
     }
 
     [Fact]
-    public async Task 变更令反确认_冲销成本()
+    public async Task 变更令反确认_目标回落()
     {
         using var db = CreateSeededContext();
-        var writer = new CostWriteBackService(db);
-        var svc = new ChangeOrderService(db, writer);
+        var svc = new ChangeOrderService(db);
         var catId = CableCategoryId(db);
 
         var id = await svc.SaveAsync(new ChangeOrder
@@ -70,7 +69,7 @@ public class BusinessDocTests
         (await svc.ReopenAsync(id)).Should().BeTrue();
 
         var cable = (await new CostSpineService(db).GetSpineAsync(1)).Single(l => l.CostCategoryName == "电力电缆");
-        cable.Incurred.Should().Be(2_000_000m); // 冲销后回到原值
+        cable.Target.Should().Be(1_863_000m); // 回落至原目标
     }
 
     [Fact]
