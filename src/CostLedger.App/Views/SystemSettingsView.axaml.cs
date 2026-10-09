@@ -53,6 +53,68 @@ public partial class SystemSettingsView : UserControl
         _ = InitAsync();
     }
 
+    public SystemSettingsView(MetadataService metadata, AppDbContext db) : this(metadata)
+    {
+        _audit = new AuditService(db);
+        _ = LoadAuditAsync();
+    }
+
+    private AuditService? _audit;
+
+    private async Task LoadAuditAsync()
+    {
+        if (_audit is null) return;
+        var logs = await _audit.ListAsync(AuditFilter.Text);
+        RenderAudit(logs);
+        AuditStatus.Text = $"共 {logs.Count} 条（最近 500 条）";
+    }
+
+    private void RenderAudit(System.Collections.Generic.List<AuditLog> logs)
+    {
+        AuditHost.Children.Clear();
+        AuditHost.ColumnDefinitions.Clear();
+        AuditHost.RowDefinitions.Clear();
+
+        var headers = new[] { "时间", "实体", "ID", "动作", "操作人" };
+        for (int c = 0; c < headers.Length; c++)
+            AuditHost.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+        for (int i = 0; i < logs.Count + 1; i++)
+            AuditHost.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+        for (int c = 0; c < headers.Length; c++)
+            AuditHost.Children.Add(AuditCell(headers[c], 0, c, head: true));
+
+        for (int i = 0; i < logs.Count; i++)
+        {
+            var a = logs[i];
+            var cells = new[]
+            {
+                a.At.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"),
+                a.EntityName,
+                a.EntityId.ToString(),
+                a.Action switch { AuditAction.Create => "新增", AuditAction.Update => "修改", _ => "删除" },
+                a.By ?? ""
+            };
+            for (int c = 0; c < headers.Length; c++)
+                AuditHost.Children.Add(AuditCell(cells[c], i + 1, c, head: false));
+        }
+    }
+
+    private TextBlock AuditCell(string text, int row, int col, bool head)
+    {
+        var tb = new TextBlock { Text = text, FontSize = 12.5, Margin = new Thickness(0, 0, 22, 6) };
+        if (head)
+        {
+            tb.FontWeight = FontWeight.Bold;
+            tb.Foreground = (SolidColorBrush)this.FindResource("Txt3Brush")!;
+        }
+        Grid.SetRow(tb, row);
+        Grid.SetColumn(tb, col);
+        return tb;
+    }
+
+    private async void OnAuditQuery(object? sender, RoutedEventArgs e) => await LoadAuditAsync();
+
     private void InitBackupInfo()
     {
         DbPathText.Text = DbBootstrap.CurrentDbPath ?? "(未知)";

@@ -62,6 +62,22 @@
                      Text="说明：系统结构升级时，旧账套会自动整份备份到 backups/ 目录（保留最近 10 份），不会静默丢失数据。建议定期「立即备份」到公司网盘或 U 盘。"/>
         </StackPanel>
       </TabItem>
+      <!-- 审计日志 -->
+      <TabItem Header="审计日志">
+        <StackPanel Spacing="10" Margin="4,8,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBox x:Name="AuditFilter" Width="220" Watermark="按实体 / 操作人筛选"/>
+            <Button Classes="pill" Content="查询" Click="OnAuditQuery"/>
+            <TextBlock x:Name="AuditStatus" VerticalAlignment="Center" FontSize="12.5"
+                       Foreground="{StaticResource Txt3Brush}"/>
+          </StackPanel>
+          <Border Classes="sidecard">
+            <ScrollViewer MaxHeight="440" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+              <Grid x:Name="AuditHost"/>
+            </ScrollViewer>
+          </Border>
+        </StackPanel>
+      </TabItem>
     </TabControl>
   </StackPanel>
 </UserControl>

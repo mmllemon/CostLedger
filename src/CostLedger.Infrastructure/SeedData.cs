@@ -12,12 +12,20 @@ public static class SeedData
 {
     public static void SeedIfEmpty(AppDbContext db)
     {
-        SeedMetadata(db);
-        SeedReports(db);
-        SeedDashboard(db);
-        SeedAlerts(db);
-        if (db.Projects.Any()) return;
-        SeedDemoData(db);
+        db.SuppressAudit = true;   // 种子/系统初始化不写审计
+        try
+        {
+            SeedMetadata(db);
+            SeedReports(db);
+            SeedDashboard(db);
+            SeedAlerts(db);
+            if (db.Projects.Any()) return;
+            SeedDemoData(db);
+        }
+        finally
+        {
+            db.SuppressAudit = false;
+        }
     }
 
     // ---------- M3-A 预警规则与计划任务（幂等） ----------

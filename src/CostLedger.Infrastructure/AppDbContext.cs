@@ -49,6 +49,15 @@ public class AppDbContext : DbContext
     public DbSet<AlertRecord> AlertRecords => Set<AlertRecord>();
     public DbSet<ScheduledTask> ScheduledTasks => Set<ScheduledTask>();
 
+    // 审计（只追加）
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
+    /// <summary>为 true 时不写审计（用于种子/系统初始化）。</summary>
+    public bool SuppressAudit { get; set; }
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        => optionsBuilder.AddInterceptors(new AuditInterceptor());
+
     protected override void OnModelCreating(ModelBuilder mb)
     {
         // 全局 decimal(18,2)，避免 SQLite 默认无精度
@@ -288,6 +297,16 @@ public class AppDbContext : DbContext
             b.HasKey(x => x.Id);
             b.Property(x => x.Name).HasMaxLength(80);
         });
+
+        // 审计日志（只追加）
+        mb.Entity<AuditLog>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.EntityName).HasMaxLength(64);
+            b.Property(x => x.By).HasMaxLength(64);
+            b.HasIndex(x => new { x.EntityName, x.EntityId });
+            b.HasIndex(x => x.At);
+        });
     }
 }
 
@@ -298,7 +317,7 @@ public class AppDbContext : DbContext
 public static class DbBootstrap
 {
     /// <summary>当前库结构版本。每次变更模型后 +1，旧库会自动备份并重建。</summary>
-    public const int SchemaVersion = 1;
+    public const int SchemaVersion = 2;
 
     /// <summary>当前账套文件路径（Configure 时记录，供备份等使用）。</summary>
     public static string? CurrentDbPath { get; private set; }

@@ -126,7 +126,7 @@ public partial class MainWindow : Window
                 break;
             case "NavSettings":
                 NavSettings.Classes.Add("on");
-                MainArea.Content = new SystemSettingsView(_metadata);
+                MainArea.Content = new SystemSettingsView(_metadata, _db);
                 break;
             default:
                 NavDashboard.Classes.Add("on");
