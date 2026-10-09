@@ -68,7 +68,7 @@ public partial class MainWindow : Window
         {
             case "NavOverview":
                 NavOverview.Classes.Add("on");
-                MainArea.Content = new ProjectOverviewView(_db);
+                MainArea.Content = new ProjectOverviewView(_db, _alerts);
                 break;
             case "NavLedgers":
                 NavLedgers.Classes.Add("on");

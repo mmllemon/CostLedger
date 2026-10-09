@@ -30,18 +30,18 @@ public class AlertServiceTests
         => new(db, new DashboardService(db, new CostSpineService(db)));
 
     [Fact]
-    public async Task 评估_触发两条规则_重复评估不重复堆积()
+    public async Task 评估_触发规则_重复评估不重复堆积()
     {
         using var db = CreateSeededContext();
         var svc = CreateAlertService(db);
 
         var first = await svc.EvaluateAsync();
-        first.Should().Be(2); // 超支科目数≥1 与 总偏差≥3万 均触发
+        first.Should().Be(3); // 超支科目数≥1 / 总偏差≥3万 / 未收≥100万 均触发（变更占比为0不触发）
 
         var second = await svc.EvaluateAsync();
         second.Should().Be(0); // 去重：同规则+项目未确认记录不重复新增
 
-        (await svc.ListAlertsAsync(onlyUnacknowledged: true)).Should().HaveCount(2);
+        (await svc.ListAlertsAsync(onlyUnacknowledged: true)).Should().HaveCount(3);
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public class AlertServiceTests
         var created = await svc.EvaluateAsync();
         created.Should().Be(1); // 被确认的那条不再是"未确认"，重新触发
 
-        (await svc.ListAlertsAsync(onlyUnacknowledged: true)).Should().HaveCount(2);
+        (await svc.ListAlertsAsync(onlyUnacknowledged: true)).Should().HaveCount(3);
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public class AlertServiceTests
 
         var task = (await scheduler.ListTasksAsync()).Single();
         task.LastRunAt.Should().NotBeNull();
-        task.LastRunCount.Should().Be(2); // 本次产出 2 条预警
+        task.LastRunCount.Should().Be(3); // 本次产出 3 条预警
 
         var again = await scheduler.RunDueAsync(DateTime.UtcNow);
         again.Should().Be(0); // 未到间隔期，不再运行

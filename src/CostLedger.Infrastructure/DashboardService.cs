@@ -41,6 +41,11 @@ public class DashboardService
         new("EstimatedFinal", "预计最终", "N0", "元", false),
         new("Variance", "偏差", "N0", "元", true),
         new("OverCount", "超支科目数", "N0", "个", true),
+        new("Receivable", "未收（对甲方）", "N0", "元", true),
+        new("ReceivedRatio", "收款比例", "P0", "", false),
+        new("Payable", "未付（对下游）", "N0", "元", true),
+        new("ChangeNet", "变更净额", "N0", "元", true),
+        new("ChangeRatio", "变更净额占比", "P0", "", true),
         new("ContractAmount", "合同总额", "N0", "元", true),
         new("PartyCount", "往来单位数", "N0", "个", false),
         new("ProjectCount", "项目数", "N0", "个", false),
@@ -76,10 +81,25 @@ public class DashboardService
     }
 
     // ---------- 指标计算（单一来源，供看板与预警共用） ----------
-    /// <summary>一次算出某项目的全部指标值。</summary>
+    /// <summary>一次算出某项目的全部指标值（含台账派生指标，供看板与预警共用）。</summary>
     public async Task<Dictionary<string, decimal>> ComputeMetricsAsync(int projectId)
     {
         var spine = (await _spine.GetSpineAsync(projectId)).ToList();
+
+        var contracts = await _db.Contracts.Where(c => c.ProjectId == projectId).ToListAsync();
+        var upstream = contracts.Where(c => c.TypeCode == "Main").Sum(c => c.Amount);
+        var downstream = contracts.Where(c => c.TypeCode != "Main").Sum(c => c.Amount);
+
+        var payments = await _db.Payments
+            .Where(p => p.Contract != null && p.Contract.ProjectId == projectId)
+            .ToListAsync();
+        var received = payments.Where(p => p.Direction == PaymentDirection.Receive).Sum(p => p.Amount);
+        var paid = payments.Where(p => p.Direction == PaymentDirection.Pay).Sum(p => p.Amount);
+
+        var changeNet = await _db.ChangeOrders
+            .Where(c => c.ProjectId == projectId && c.Status == DocStatus.Confirmed)
+            .SumAsync(c => c.Amount);
+
         return new Dictionary<string, decimal>
         {
             ["Target"] = spine.Sum(l => l.Target),
@@ -90,6 +110,11 @@ public class DashboardService
             ["EstimatedFinal"] = spine.Sum(l => l.EstimatedFinal),
             ["Variance"] = spine.Sum(l => l.Variance),
             ["OverCount"] = spine.Count(l => l.IsOver),
+            ["Receivable"] = upstream - received,
+            ["ReceivedRatio"] = upstream == 0 ? 0m : received / upstream,
+            ["Payable"] = downstream - paid,
+            ["ChangeNet"] = changeNet,
+            ["ChangeRatio"] = upstream == 0 ? 0m : changeNet / upstream,
             ["ContractAmount"] = _db.Contracts.Sum(c => c.Amount),
             ["PartyCount"] = _db.Parties.Count(),
             ["ProjectCount"] = _db.Projects.Count(),

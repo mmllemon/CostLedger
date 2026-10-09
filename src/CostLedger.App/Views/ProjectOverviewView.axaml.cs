@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace CostLedger.App.Views;
@@ -22,6 +23,7 @@ public partial class ProjectOverviewView : UserControl
 {
     private readonly AppDbContext _db = null!;
     private readonly ProjectOverviewService _overview = null!;
+    private readonly AlertService _alerts = null!;
     private ProjectOverview? _current;
 
     public ProjectOverviewView()
@@ -29,10 +31,11 @@ public partial class ProjectOverviewView : UserControl
         InitializeComponent();
     }
 
-    public ProjectOverviewView(AppDbContext db) : this()
+    public ProjectOverviewView(AppDbContext db, AlertService alerts) : this()
     {
         _db = db;
         _overview = new ProjectOverviewService(db, new CostSpineService(db));
+        _alerts = alerts;
         _ = InitAsync();
     }
 
@@ -49,6 +52,38 @@ public partial class ProjectOverviewView : UserControl
         if (ProjCombo.SelectedItem is not Project p) return;
         _current = await _overview.BuildAsync(p.Id);
         Render(_current);
+        await RenderAlertsAsync(p.Id);
+    }
+
+    /// <summary>待办提醒：该项目未确认的预警（按级别着色）。</summary>
+    private async Task RenderAlertsAsync(int projectId)
+    {
+        AlertHost.Children.Clear();
+        var list = (await _alerts.ListAlertsAsync(onlyUnacknowledged: true))
+            .Where(a => a.ProjectId == projectId).ToList();
+
+        if (list.Count == 0)
+        {
+            AlertHost.Children.Add(new TextBlock
+            {
+                Text = "暂无未确认预警",
+                Foreground = (SolidColorBrush)this.FindResource("Txt3Brush")!
+            });
+            return;
+        }
+
+        foreach (var a in list)
+        {
+            var brush = (SolidColorBrush)this.FindResource(
+                a.Severity == KpiSeverity.Danger ? "RedBrush" : "AccentDeepBrush")!;
+            AlertHost.Children.Add(new TextBlock
+            {
+                Text = "• " + a.Message,
+                Foreground = brush,
+                FontSize = 12.5,
+                TextWrapping = TextWrapping.Wrap
+            });
+        }
     }
 
     private void Render(ProjectOverview o)

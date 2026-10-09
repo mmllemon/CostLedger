@@ -13,6 +13,13 @@
 
       <Border Classes="card">
         <StackPanel Spacing="10">
+          <TextBlock Classes="label" Text="待办提醒（未确认预警）"/>
+          <StackPanel x:Name="AlertHost" Spacing="6"/>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
           <TextBlock Classes="label" Text="资金（合同 / 收付 / 变更）"/>
           <WrapPanel x:Name="MoneyHost"/>
         </StackPanel>

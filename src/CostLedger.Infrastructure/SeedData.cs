@@ -26,7 +26,9 @@ public static class SeedData
         if (db.AlertRules.Any()) return;
         db.AlertRules.AddRange(
             new AlertRule { Name = "超支科目预警", MetricKey = "OverCount", Operator = FilterOperator.GreaterOrEqual, Threshold = 1, Severity = KpiSeverity.Danger, Enabled = true, DisplayOrder = 1 },
-            new AlertRule { Name = "总偏差预警", MetricKey = "Variance", Operator = FilterOperator.GreaterOrEqual, Threshold = 30_000m, Severity = KpiSeverity.Danger, Enabled = true, DisplayOrder = 2 });
+            new AlertRule { Name = "总偏差预警", MetricKey = "Variance", Operator = FilterOperator.GreaterOrEqual, Threshold = 30_000m, Severity = KpiSeverity.Danger, Enabled = true, DisplayOrder = 2 },
+            new AlertRule { Name = "未收金额预警", MetricKey = "Receivable", Operator = FilterOperator.GreaterOrEqual, Threshold = 1_000_000m, Severity = KpiSeverity.Warn, Enabled = true, DisplayOrder = 3 },
+            new AlertRule { Name = "变更净额占比预警", MetricKey = "ChangeRatio", Operator = FilterOperator.GreaterOrEqual, Threshold = 0.10m, Severity = KpiSeverity.Danger, Enabled = true, DisplayOrder = 4 });
         db.ScheduledTasks.Add(new ScheduledTask { Name = "预警评估", Kind = ScheduledTaskKind.RunAlerts, IntervalMinutes = 60, Enabled = true });
         db.SaveChanges();
     }
