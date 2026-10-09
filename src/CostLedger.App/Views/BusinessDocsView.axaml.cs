@@ -25,13 +25,14 @@ public partial class BusinessDocsView : UserControl
     private readonly MaterialReceiptService _mrSvc = null!;
     private readonly InvoiceService _invSvc = null!;
     private readonly SettlementService _stSvc = null!;
+    private readonly PaymentService _paySvc = null!;
 
     private List<Project> _projects = new();
     private List<Contract> _contracts = new();
     private List<CostCategory> _categories = new();
     private List<Party> _parties = new();
 
-    private int _coId, _mrId, _invId, _stId;
+    private int _coId, _mrId, _invId, _stId, _payId;
 
     public BusinessDocsView()
     {
@@ -45,6 +46,7 @@ public partial class BusinessDocsView : UserControl
         _mrSvc = new MaterialReceiptService(db, new CostWriteBackService(db));
         _invSvc = new InvoiceService(db);
         _stSvc = new SettlementService(db);
+        _paySvc = new PaymentService(db);
         _ = InitAsync();
     }
 
@@ -57,22 +59,26 @@ public partial class BusinessDocsView : UserControl
 
         foreach (var cb in new[] { CoProject, MrProject, InvProject, StProject })
             Wire(cb, _projects, "Name");
-        foreach (var cb in new[] { CoContract, MrContract, InvContract, StContract })
+        foreach (var cb in new[] { CoContract, MrContract, InvContract, StContract, PayContract })
             Wire(cb, _contracts, "Code");
         foreach (var cb in new[] { CoCategory, MrCategory })
             Wire(cb, _categories, "Name");
         Wire(InvParty, _parties, "Name");
+        Wire(PayParty, _parties, "Name");
 
         CoType.ItemsSource = Enum.GetNames<ChangeOrderType>();
         MrSource.ItemsSource = new[] { "乙供（我方采购）", "甲供（甲方供应）" };
         InvDirection.ItemsSource = new[] { "进项", "销项" };
         InvCategory.ItemsSource = new[] { "专用发票", "普通发票" };
         StStatus.ItemsSource = new[] { "草稿", "已审定" };
+        PayDirection.ItemsSource = new[] { "付款", "收款" };
+        PayType.ItemsSource = new[] { "预付款", "进度款", "结算款", "质保返还" };
 
         await ReloadCoAsync();
         await ReloadMrAsync();
         await ReloadInvAsync();
         await ReloadStAsync();
+        await ReloadPayAsync();
     }
 
     private static void Wire(ComboBox cb, System.Collections.IEnumerable items, string member)
@@ -377,5 +383,88 @@ public partial class BusinessDocsView : UserControl
         _stId = 0;
         await ReloadStAsync();
         OnStNew(null, new RoutedEventArgs());
+    }
+
+    // ==================== 收付款（资金流） ====================
+    private static readonly PaymentDirection[] PayDirs = { PaymentDirection.Pay, PaymentDirection.Receive };
+    private static readonly PaymentType[] PayTypes = { PaymentType.Advance, PaymentType.Progress, PaymentType.Settlement, PaymentType.Retention };
+
+    private async Task ReloadPayAsync(int selectId = 0)
+    {
+        var list = await _paySvc.ListAsync(DefaultProjectId);
+        PayList.ItemsSource = list;
+        PayList.DisplayMemberBinding = new Binding("Code");
+        PayList.SelectedItem = selectId > 0 ? list.FirstOrDefault(x => x.Id == selectId) : list.FirstOrDefault();
+    }
+
+    private void OnPaySelected(object? sender, SelectionChangedEventArgs e)
+    {
+        if (PayList.SelectedItem is not Payment p) return;
+        _payId = p.Id;
+        PayCode.Text = p.Code;
+        PayDirection.SelectedIndex = Array.IndexOf(PayDirs, p.Direction);
+        PayType.SelectedIndex = Array.IndexOf(PayTypes, p.Type);
+        PayContract.SelectedItem = _contracts.FirstOrDefault(c => c.Id == p.ContractId);
+        PayParty.SelectedItem = _parties.FirstOrDefault(x => x.Id == p.PartyId);
+        PayGross.Value = 0;
+        PayRetention.Value = p.RetentionDeduction ?? 0m;
+        PayAdvance.Value = p.AdvanceDeduction ?? 0m;
+        PayAmount.Value = p.Amount;
+        PayMigrant.IsChecked = p.ContainsMigrantWage;
+        SetDate(PayDate, p.Date);
+        PayRemark.Text = p.Remark;
+    }
+
+    private void OnPayNew(object? sender, RoutedEventArgs e)
+    {
+        _payId = 0;
+        PayCode.Text = "";
+        PayDirection.SelectedIndex = 0;
+        PayType.SelectedIndex = 1;
+        PayContract.SelectedItem = null;
+        PayParty.SelectedItem = null;
+        PayGross.Value = 0; PayRetention.Value = 0; PayAdvance.Value = 0; PayAmount.Value = 0;
+        PayMigrant.IsChecked = false;
+        SetDate(PayDate, DateOnly.FromDateTime(DateTime.Today));
+        PayRemark.Text = "";
+        PayList.SelectedItem = null;
+    }
+
+    private async void OnPaySave(object? sender, RoutedEventArgs e)
+    {
+        var p = _payId == 0 ? new Payment() : await _db.Payments.FindAsync(_payId) ?? new Payment();
+        p.Code = PayCode.Text?.Trim() ?? "";
+        p.Direction = PayDirs[Math.Clamp(PayDirection.SelectedIndex, 0, 1)];
+        p.Type = PayTypes[Math.Clamp(PayType.SelectedIndex, 0, 3)];
+        p.ContractId = Pick<Contract>(PayContract)?.Id;
+        p.PartyId = Pick<Party>(PayParty)?.Id ?? _parties.FirstOrDefault()?.Id ?? 0;
+        p.RetentionDeduction = Val(PayRetention);
+        p.AdvanceDeduction = Val(PayAdvance);
+        p.Amount = Val(PayAmount);
+        p.ContainsMigrantWage = PayMigrant.IsChecked == true;
+        p.Date = AsDate(PayDate);
+        p.Remark = PayRemark.Text;
+        var id = await _paySvc.SaveAsync(p);
+        await ReloadPayAsync(id);
+    }
+
+    private async void OnPayDelete(object? sender, RoutedEventArgs e)
+    {
+        if (_payId == 0) return;
+        await _paySvc.DeleteAsync(_payId);
+        _payId = 0;
+        await ReloadPayAsync();
+        OnPayNew(null, new RoutedEventArgs());
+    }
+
+    /// <summary>按合同参数试算本期净付：填 质保扣留 / 预付款抵扣 / 实付额。</summary>
+    private async void OnPayCompute(object? sender, RoutedEventArgs e)
+    {
+        var contractId = Pick<Contract>(PayContract)?.Id;
+        if (contractId is null) { PayRemark.Text = "请先选择合同"; return; }
+        var b = await _paySvc.ComputeAsync(contractId, Val(PayGross));
+        PayRetention.Value = b.Retention;
+        PayAdvance.Value = b.AdvanceDeduction;
+        PayAmount.Value = b.Net;
     }
 }

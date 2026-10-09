@@ -44,6 +44,8 @@ public partial class MasterDataView : UserControl
         WireCombo(PartyRole, _roleItems);
         WireCombo(ConType, _typeItems);
         WireCombo(ConTax, _taxItems);
+        ConDeduction.ItemsSource = new[] { "按比例抵扣", "一次性抵扣" };
+        ConDeduction.SelectedIndex = 0;
 
         PartyList.ItemsSource = await _db.Parties.OrderBy(p => p.Name).ToListAsync();
         PartyList.DisplayMemberBinding = new Binding("Name");
@@ -133,6 +135,9 @@ public partial class MasterDataView : UserControl
         ConTax.SelectedValue = c.TaxRate switch { 0.13m => "T13", 0.09m => "T09", 0.03m => "T03", 0.06m => "T06", _ => _taxItems.Count > 0 ? _taxItems[0].Code : null };
         ConSignDate.SelectedDate = new DateTimeOffset(c.SignDate.ToDateTime(TimeOnly.MinValue));
         ConStatus.Text = c.Status;
+        ConRetention.Value = c.RetentionRate;
+        ConAdvance.Value = c.AdvanceRate;
+        ConDeduction.SelectedItem = string.IsNullOrEmpty(c.AdvanceDeductionMethod) ? "按比例抵扣" : c.AdvanceDeductionMethod;
         await ConExt.LoadAsync("Contract", c.Id);
     }
 
@@ -146,6 +151,9 @@ public partial class MasterDataView : UserControl
         ConTax.SelectedValue = _taxItems.Count > 0 ? _taxItems[0].Code : null;
         ConSignDate.SelectedDate = null;
         ConStatus.Text = "执行中";
+        ConRetention.Value = 0;
+        ConAdvance.Value = 0;
+        ConDeduction.SelectedIndex = 0;
         ContractList.SelectedItem = null;
         _ = ConExt.LoadAsync("Contract", 0);
     }
@@ -167,6 +175,9 @@ public partial class MasterDataView : UserControl
             ? DateOnly.FromDateTime(ConSignDate.SelectedDate.Value.DateTime)
             : DateOnly.FromDateTime(DateTime.Today);
         c.Status = ConStatus.Text;
+        c.RetentionRate = ConRetention.Value ?? 0m;
+        c.AdvanceRate = ConAdvance.Value ?? 0m;
+        c.AdvanceDeductionMethod = ConDeduction.SelectedItem as string;
         await _db.SaveChangesAsync();
 
         if (_currentContractId == 0)

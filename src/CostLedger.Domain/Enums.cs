@@ -38,3 +38,12 @@ public enum PaymentDirection
     Pay,      // 付款（我方对下，支出）
     Receive   // 收款（我方对上，收入）
 }
+
+/// <summary>付款类型（2026-10-09 业务口径：预付款/进度款/结算款/质保返还）</summary>
+public enum PaymentType
+{
+    Advance,     // 预付款
+    Progress,    // 进度款
+    Settlement,  // 结算款
+    Retention    // 质保返还
+}

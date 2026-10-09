@@ -86,6 +86,7 @@ public class AppDbContext : DbContext
         {
             b.HasKey(x => x.Id);
             b.Property(x => x.Code).HasMaxLength(32);
+            b.Property(x => x.AdvanceDeductionMethod).HasMaxLength(32);
             b.HasOne(x => x.Project).WithMany(x => x.Contracts)
                 .HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
             b.HasOne(x => x.Party).WithMany(x => x.Contracts)
@@ -126,6 +127,8 @@ public class AppDbContext : DbContext
                 .HasForeignKey(x => x.PartyId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne(x => x.Contract).WithMany(x => x.Payments)
                 .HasForeignKey(x => x.ContractId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.Measurement).WithMany()
+                .HasForeignKey(x => x.MeasurementId).OnDelete(DeleteBehavior.SetNull);
         });
 
         mb.Entity<CostEntry>(b =>

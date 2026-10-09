@@ -56,16 +56,21 @@
           </StackPanel>
           <Grid Grid.Column="1" Grid.Row="1" ColumnDefinitions="1*,1*" RowDefinitions="Auto,1*">
             <Border Classes="sidecard" Grid.Column="0" Margin="0,0,8,0">
-              <StackPanel Spacing="8">
-                <TextBlock Text="核心字段" FontWeight="Bold" FontSize="14"/>
-                <StackPanel Spacing="4"><TextBlock Text="合同编号" Classes="label"/><TextBox x:Name="ConCode" Padding="10,8"/></StackPanel>
-                <StackPanel Spacing="4"><TextBlock Text="合同类型" Classes="label"/><ComboBox x:Name="ConType" Padding="10,8"/></StackPanel>
-                <StackPanel Spacing="4"><TextBlock Text="合同名称" Classes="label"/><TextBox x:Name="ConTitle" Padding="10,8"/></StackPanel>
-                <StackPanel Spacing="4"><TextBlock Text="合同金额" Classes="label"/><NumericUpDown x:Name="ConAmount" Padding="10,8" FormatString="N2"/></StackPanel>
-                <StackPanel Spacing="4"><TextBlock Text="税率" Classes="label"/><ComboBox x:Name="ConTax" Padding="10,8"/></StackPanel>
-                <StackPanel Spacing="4"><TextBlock Text="签约日期" Classes="label"/><DatePicker x:Name="ConSignDate"/></StackPanel>
-                <StackPanel Spacing="4"><TextBlock Text="状态" Classes="label"/><TextBox x:Name="ConStatus" Padding="10,8"/></StackPanel>
-              </StackPanel>
+              <ScrollViewer>
+                <StackPanel Spacing="8">
+                  <TextBlock Text="核心字段" FontWeight="Bold" FontSize="14"/>
+                  <StackPanel Spacing="4"><TextBlock Text="合同编号" Classes="label"/><TextBox x:Name="ConCode" Padding="10,8"/></StackPanel>
+                  <StackPanel Spacing="4"><TextBlock Text="合同类型" Classes="label"/><ComboBox x:Name="ConType" Padding="10,8"/></StackPanel>
+                  <StackPanel Spacing="4"><TextBlock Text="合同名称" Classes="label"/><TextBox x:Name="ConTitle" Padding="10,8"/></StackPanel>
+                  <StackPanel Spacing="4"><TextBlock Text="合同金额" Classes="label"/><NumericUpDown x:Name="ConAmount" Padding="10,8" FormatString="N2"/></StackPanel>
+                  <StackPanel Spacing="4"><TextBlock Text="税率" Classes="label"/><ComboBox x:Name="ConTax" Padding="10,8"/></StackPanel>
+                  <StackPanel Spacing="4"><TextBlock Text="签约日期" Classes="label"/><DatePicker x:Name="ConSignDate"/></StackPanel>
+                  <StackPanel Spacing="4"><TextBlock Text="状态" Classes="label"/><TextBox x:Name="ConStatus" Padding="10,8"/></StackPanel>
+                  <StackPanel Spacing="4"><TextBlock Text="质保金比例" Classes="label"/><NumericUpDown x:Name="ConRetention" Padding="10,8" Minimum="0" Maximum="1" Increment="0.01" FormatString="P0"/></StackPanel>
+                  <StackPanel Spacing="4"><TextBlock Text="预付款比例" Classes="label"/><NumericUpDown x:Name="ConAdvance" Padding="10,8" Minimum="0" Maximum="1" Increment="0.01" FormatString="P0"/></StackPanel>
+                  <StackPanel Spacing="4"><TextBlock Text="预付款抵扣方式" Classes="label"/><ComboBox x:Name="ConDeduction" Padding="10,8"/></StackPanel>
+                </StackPanel>
+              </ScrollViewer>
             </Border>
             <Border Classes="sidecard" Grid.Column="1" Margin="8,0,0,0">
               <StackPanel Spacing="10">
