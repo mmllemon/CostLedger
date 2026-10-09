@@ -43,7 +43,7 @@ public partial class MainWindow : Window
 
     private void NavigateTo(string key)
     {
-        foreach (var b in new[] { NavDashboard, NavMaster, NavProject, NavCategory, NavReports, NavBoardDesign, NavSettings })
+        foreach (var b in new[] { NavDashboard, NavMaster, NavDocs, NavProject, NavCategory, NavReports, NavBoardDesign, NavSettings })
             b.Classes.Remove("on");
 
         switch (key)
@@ -51,6 +51,10 @@ public partial class MainWindow : Window
             case "NavMaster":
                 NavMaster.Classes.Add("on");
                 MainArea.Content = new MasterDataView(_db, _metadata);
+                break;
+            case "NavDocs":
+                NavDocs.Classes.Add("on");
+                MainArea.Content = new BusinessDocsView(_db);
                 break;
             case "NavProject":
                 NavProject.Classes.Add("on");

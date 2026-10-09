@@ -1,0 +1,234 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="CostLedger.App.Views.BusinessDocsView"
+             Background="{StaticResource BgBrush}"
+             FontFamily="Microsoft YaHei, Segoe UI, sans-serif">
+  <TabControl Margin="14,14,14,14">
+    <!-- ================= 变更令 ================= -->
+    <TabItem Header="变更令">
+      <Grid ColumnDefinitions="240,1*" Margin="0,10,0,0">
+        <Border Grid.Column="0" Classes="sidecard" Margin="0,0,10,0">
+          <Grid RowDefinitions="Auto,1*,Auto">
+            <TextBlock Grid.Row="0" Classes="label" Text="变更令列表"/>
+            <ListBox x:Name="CoList" Grid.Row="1" Margin="0,10,0,0" Background="Transparent"
+                     BorderThickness="0" SelectionChanged="OnCoSelected"/>
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
+              <Button Classes="primary" Content="新增" Click="OnCoNew"/>
+              <Button Classes="danger" Content="删除" Click="OnCoDelete"/>
+            </StackPanel>
+          </Grid>
+        </Border>
+        <ScrollViewer Grid.Column="1">
+          <Border Classes="card" HorizontalAlignment="Left">
+            <StackPanel Spacing="10" Width="520">
+              <TextBlock Classes="label" Text="变更令（确认后计入目标成本）"/>
+              <Grid ColumnDefinitions="90,*,90,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="编号" VerticalAlignment="Center"/>
+                <TextBox x:Name="CoCode" Grid.Row="0" Grid.Column="1" Margin="6,0,14,6"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="类型" VerticalAlignment="Center"/>
+                <ComboBox x:Name="CoType" Grid.Row="0" Grid.Column="3" HorizontalAlignment="Stretch" Margin="6,0,0,6"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="项目" VerticalAlignment="Center"/>
+                <ComboBox x:Name="CoProject" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" Margin="6,0,14,6"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="合同" VerticalAlignment="Center"/>
+                <ComboBox x:Name="CoContract" Grid.Row="1" Grid.Column="3" HorizontalAlignment="Stretch" Margin="6,0,0,6" PlaceholderText="（可选）"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="成本科目" VerticalAlignment="Center"/>
+                <ComboBox x:Name="CoCategory" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" Margin="6,0,14,6" PlaceholderText="（可选）"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="金额(±)" VerticalAlignment="Center"/>
+                <NumericUpDown x:Name="CoAmount" Grid.Row="2" Grid.Column="3" Minimum="-99999999" Maximum="99999999" Margin="6,0,0,6"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="标题" VerticalAlignment="Center"/>
+                <TextBox x:Name="CoTitle" Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="3" Margin="6,0,0,6"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="日期" VerticalAlignment="Center"/>
+                <DatePicker x:Name="CoDate" Grid.Row="4" Grid.Column="1" HorizontalAlignment="Stretch" Margin="6,0,14,0"/>
+                <TextBlock Grid.Row="4" Grid.Column="2" Text="状态" VerticalAlignment="Center"/>
+                <TextBlock x:Name="CoStatus" Grid.Row="4" Grid.Column="3" VerticalAlignment="Center" FontWeight="SemiBold"/>
+              </Grid>
+              <TextBlock Classes="label" Text="备注"/>
+              <TextBox x:Name="CoNote" AcceptsReturn="True" Height="54"/>
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Classes="primary" Content="保存" Click="OnCoSave"/>
+                <Button Classes="pill" Content="确认" Click="OnCoConfirm"/>
+                <Button Classes="pill" Content="反确认" Click="OnCoReopen"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </ScrollViewer>
+      </Grid>
+    </TabItem>
+
+    <!-- ================= 材料收料 ================= -->
+    <TabItem Header="材料收料">
+      <Grid ColumnDefinitions="240,1*" Margin="0,10,0,0">
+        <Border Grid.Column="0" Classes="sidecard" Margin="0,0,10,0">
+          <Grid RowDefinitions="Auto,1*,Auto">
+            <TextBlock Grid.Row="0" Classes="label" Text="收料单列表"/>
+            <ListBox x:Name="MrList" Grid.Row="1" Margin="0,10,0,0" Background="Transparent"
+                     BorderThickness="0" SelectionChanged="OnMrSelected"/>
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
+              <Button Classes="primary" Content="新增" Click="OnMrNew"/>
+              <Button Classes="danger" Content="删除" Click="OnMrDelete"/>
+            </StackPanel>
+          </Grid>
+        </Border>
+        <ScrollViewer Grid.Column="1">
+          <Border Classes="card" HorizontalAlignment="Left">
+            <StackPanel Spacing="10" Width="520">
+              <TextBlock Classes="label" Text="材料收料（乙供确认回写成本；甲供仅登记）"/>
+              <Grid ColumnDefinitions="90,*,90,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="编号" VerticalAlignment="Center"/>
+                <TextBox x:Name="MrCode" Grid.Row="0" Grid.Column="1" Margin="6,0,14,6"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="来源" VerticalAlignment="Center"/>
+                <ComboBox x:Name="MrSource" Grid.Row="0" Grid.Column="3" HorizontalAlignment="Stretch" Margin="6,0,0,6"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="项目" VerticalAlignment="Center"/>
+                <ComboBox x:Name="MrProject" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" Margin="6,0,14,6"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="合同" VerticalAlignment="Center"/>
+                <ComboBox x:Name="MrContract" Grid.Row="1" Grid.Column="3" HorizontalAlignment="Stretch" Margin="6,0,0,6" PlaceholderText="（可选）"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="材料名称" VerticalAlignment="Center"/>
+                <TextBox x:Name="MrName" Grid.Row="2" Grid.Column="1" Margin="6,0,14,6"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="成本科目" VerticalAlignment="Center"/>
+                <ComboBox x:Name="MrCategory" Grid.Row="2" Grid.Column="3" HorizontalAlignment="Stretch" Margin="6,0,0,6" PlaceholderText="（可选）"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="规格" VerticalAlignment="Center"/>
+                <TextBox x:Name="MrSpec" Grid.Row="3" Grid.Column="1" Margin="6,0,14,6"/>
+                <TextBlock Grid.Row="3" Grid.Column="2" Text="单位" VerticalAlignment="Center"/>
+                <TextBox x:Name="MrUnit" Grid.Row="3" Grid.Column="3" Margin="6,0,0,6"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="数量/单价" VerticalAlignment="Center"/>
+                <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="6,0,14,0">
+                  <NumericUpDown x:Name="MrQty" Minimum="0" Maximum="99999999" Width="110"/>
+                  <NumericUpDown x:Name="MrPrice" Minimum="0" Maximum="99999999" Width="130"/>
+                </StackPanel>
+                <TextBlock Grid.Row="4" Grid.Column="2" Text="金额" VerticalAlignment="Center"/>
+                <NumericUpDown x:Name="MrAmount" Grid.Row="4" Grid.Column="3" Minimum="0" Maximum="99999999" Margin="6,0,0,0"/>
+              </Grid>
+              <Grid ColumnDefinitions="90,*,90,*">
+                <TextBlock Grid.Column="0" Text="收料日期" VerticalAlignment="Center"/>
+                <DatePicker x:Name="MrDate" Grid.Column="1" HorizontalAlignment="Stretch" Margin="6,0,14,0"/>
+                <TextBlock Grid.Column="2" Text="状态" VerticalAlignment="Center"/>
+                <TextBlock x:Name="MrStatus" Grid.Column="3" VerticalAlignment="Center" FontWeight="SemiBold"/>
+              </Grid>
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Classes="primary" Content="保存" Click="OnMrSave"/>
+                <Button Classes="pill" Content="确认" Click="OnMrConfirm"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </ScrollViewer>
+      </Grid>
+    </TabItem>
+
+    <!-- ================= 发票 ================= -->
+    <TabItem Header="发票">
+      <Grid ColumnDefinitions="240,1*" Margin="0,10,0,0">
+        <Border Grid.Column="0" Classes="sidecard" Margin="0,0,10,0">
+          <Grid RowDefinitions="Auto,1*,Auto">
+            <TextBlock Grid.Row="0" Classes="label" Text="发票列表"/>
+            <ListBox x:Name="InvList" Grid.Row="1" Margin="0,10,0,0" Background="Transparent"
+                     BorderThickness="0" SelectionChanged="OnInvSelected"/>
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
+              <Button Classes="primary" Content="新增" Click="OnInvNew"/>
+              <Button Classes="danger" Content="删除" Click="OnInvDelete"/>
+            </StackPanel>
+          </Grid>
+        </Border>
+        <ScrollViewer Grid.Column="1">
+          <Border Classes="card" HorizontalAlignment="Left">
+            <StackPanel Spacing="10" Width="520">
+              <TextBlock Classes="label" Text="发票税务台账（价税分离，不写成本）"/>
+              <Grid ColumnDefinitions="90,*,90,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="发票号" VerticalAlignment="Center"/>
+                <TextBox x:Name="InvCode" Grid.Row="0" Grid.Column="1" Margin="6,0,14,6"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="方向" VerticalAlignment="Center"/>
+                <ComboBox x:Name="InvDirection" Grid.Row="0" Grid.Column="3" HorizontalAlignment="Stretch" Margin="6,0,0,6"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="项目" VerticalAlignment="Center"/>
+                <ComboBox x:Name="InvProject" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" Margin="6,0,14,6"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="种类" VerticalAlignment="Center"/>
+                <ComboBox x:Name="InvCategory" Grid.Row="1" Grid.Column="3" HorizontalAlignment="Stretch" Margin="6,0,0,6"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="合同" VerticalAlignment="Center"/>
+                <ComboBox x:Name="InvContract" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" Margin="6,0,14,6" PlaceholderText="（可选）"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="往来单位" VerticalAlignment="Center"/>
+                <ComboBox x:Name="InvParty" Grid.Row="2" Grid.Column="3" HorizontalAlignment="Stretch" Margin="6,0,0,6" PlaceholderText="（可选）"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="税率" VerticalAlignment="Center"/>
+                <NumericUpDown x:Name="InvRate" Grid.Row="3" Grid.Column="1" Minimum="0" Maximum="1" Increment="0.01" Margin="6,0,14,6"/>
+                <TextBlock Grid.Row="3" Grid.Column="2" Text="不含税" VerticalAlignment="Center"/>
+                <NumericUpDown x:Name="InvNet" Grid.Row="3" Grid.Column="3" Minimum="0" Maximum="99999999" Margin="6,0,0,6"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="税额" VerticalAlignment="Center"/>
+                <NumericUpDown x:Name="InvTax" Grid.Row="4" Grid.Column="1" Minimum="0" Maximum="99999999" Margin="6,0,14,0"/>
+                <TextBlock Grid.Row="4" Grid.Column="2" Text="价税合计" VerticalAlignment="Center"/>
+                <NumericUpDown x:Name="InvTotal" Grid.Row="4" Grid.Column="3" Minimum="0" Maximum="99999999" Margin="6,0,0,0"/>
+              </Grid>
+              <Grid ColumnDefinitions="90,*,90,*">
+                <TextBlock Grid.Column="0" Text="开票日期" VerticalAlignment="Center"/>
+                <DatePicker x:Name="InvDate" Grid.Column="1" HorizontalAlignment="Stretch" Margin="6,0,14,0"/>
+                <TextBlock Grid.Column="2" Text="状态" VerticalAlignment="Center"/>
+                <TextBox x:Name="InvStatus" Grid.Column="3" Margin="6,0,0,0"/>
+              </Grid>
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Classes="primary" Content="保存" Click="OnInvSave"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </ScrollViewer>
+      </Grid>
+    </TabItem>
+
+    <!-- ================= 竣工结算 ================= -->
+    <TabItem Header="竣工结算">
+      <Grid ColumnDefinitions="240,1*" Margin="0,10,0,0">
+        <Border Grid.Column="0" Classes="sidecard" Margin="0,0,10,0">
+          <Grid RowDefinitions="Auto,1*,Auto">
+            <TextBlock Grid.Row="0" Classes="label" Text="结算列表"/>
+            <ListBox x:Name="StList" Grid.Row="1" Margin="0,10,0,0" Background="Transparent"
+                     BorderThickness="0" SelectionChanged="OnStSelected"/>
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
+              <Button Classes="primary" Content="新增" Click="OnStNew"/>
+              <Button Classes="danger" Content="删除" Click="OnStDelete"/>
+            </StackPanel>
+          </Grid>
+        </Border>
+        <ScrollViewer Grid.Column="1">
+          <Border Classes="card" HorizontalAlignment="Left">
+            <StackPanel Spacing="10" Width="520">
+              <TextBlock Classes="label" Text="竣工结算（锁定预计最终）"/>
+              <Grid ColumnDefinitions="90,*,90,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="编号" VerticalAlignment="Center"/>
+                <TextBox x:Name="StCode" Grid.Row="0" Grid.Column="1" Margin="6,0,14,6"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="状态" VerticalAlignment="Center"/>
+                <ComboBox x:Name="StStatus" Grid.Row="0" Grid.Column="3" HorizontalAlignment="Stretch" Margin="6,0,0,6"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="项目" VerticalAlignment="Center"/>
+                <ComboBox x:Name="StProject" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" Margin="6,0,14,6"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="合同" VerticalAlignment="Center"/>
+                <ComboBox x:Name="StContract" Grid.Row="1" Grid.Column="3" HorizontalAlignment="Stretch" Margin="6,0,0,6" PlaceholderText="（可选）"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="原合同额" VerticalAlignment="Center"/>
+                <NumericUpDown x:Name="StOriginal" Grid.Row="2" Grid.Column="1" Minimum="0" Maximum="99999999" Margin="6,0,14,6"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="调整额" VerticalAlignment="Center"/>
+                <NumericUpDown x:Name="StAdjust" Grid.Row="2" Grid.Column="3" Minimum="-99999999" Maximum="99999999" Margin="6,0,0,6"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="结算金额" VerticalAlignment="Center"/>
+                <NumericUpDown x:Name="StSettled" Grid.Row="3" Grid.Column="1" Minimum="0" Maximum="99999999" Margin="6,0,14,0"/>
+                <TextBlock Grid.Row="3" Grid.Column="2" Text="结算日期" VerticalAlignment="Center"/>
+                <DatePicker x:Name="StDate" Grid.Row="3" Grid.Column="3" HorizontalAlignment="Stretch" Margin="6,0,0,0"/>
+              </Grid>
+              <TextBlock Classes="label" Text="备注"/>
+              <TextBox x:Name="StNote" AcceptsReturn="True" Height="54"/>
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Classes="primary" Content="保存" Click="OnStSave"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </ScrollViewer>
+      </Grid>
+    </TabItem>
+  </TabControl>
+</UserControl>
