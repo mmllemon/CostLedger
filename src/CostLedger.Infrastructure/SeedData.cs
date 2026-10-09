@@ -15,8 +15,20 @@ public static class SeedData
         SeedMetadata(db);
         SeedReports(db);
         SeedDashboard(db);
+        SeedAlerts(db);
         if (db.Projects.Any()) return;
         SeedDemoData(db);
+    }
+
+    // ---------- M3-A 预警规则与计划任务（幂等） ----------
+    private static void SeedAlerts(AppDbContext db)
+    {
+        if (db.AlertRules.Any()) return;
+        db.AlertRules.AddRange(
+            new AlertRule { Name = "超支科目预警", MetricKey = "OverCount", Operator = FilterOperator.GreaterOrEqual, Threshold = 1, Severity = KpiSeverity.Danger, Enabled = true, DisplayOrder = 1 },
+            new AlertRule { Name = "总偏差预警", MetricKey = "Variance", Operator = FilterOperator.GreaterOrEqual, Threshold = 30_000m, Severity = KpiSeverity.Danger, Enabled = true, DisplayOrder = 2 });
+        db.ScheduledTasks.Add(new ScheduledTask { Name = "预警评估", Kind = ScheduledTaskKind.RunAlerts, IntervalMinutes = 60, Enabled = true });
+        db.SaveChanges();
     }
 
     // ---------- M2-D 看板默认部件（幂等） ----------

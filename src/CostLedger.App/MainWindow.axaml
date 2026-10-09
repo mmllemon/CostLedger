@@ -20,6 +20,7 @@
       <Button x:Name="NavCategory" Classes="nav" Content="成本科目" Click="OnNavClick"/>
       <Button x:Name="NavReports" Classes="nav" Content="报表中心" Click="OnNavClick"/>
       <Button x:Name="NavBoardDesign" Classes="nav" Content="看板设计" Click="OnNavClick"/>
+      <Button x:Name="NavAlerts" Classes="nav" Content="预警中心" Click="OnNavClick"/>
       <Button x:Name="NavSettings" Classes="nav" Content="系统设置" Click="OnNavClick"/>
     </StackPanel>
 

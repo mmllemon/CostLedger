@@ -16,7 +16,8 @@ public record KpiCard(string Title, string ValueText, KpiSeverity Severity);
 
 /// <summary>
 /// M2-D 看板服务：KPI 指标注册表 + 按配置计算卡片 + 阈值判级。
-/// 只读展示，不写回、不参与成本脊柱算账（铁律）。新增指标只需在 Catalog 加一行。
+/// 同时向预警引擎（AlertService）暴露 GetMetricAsync，避免指标算法重复实现（DRY）。
+/// 只读展示，不写回、不参与成本脊柱算账（铁律）。
 /// </summary>
 public class DashboardService
 {
@@ -29,7 +30,7 @@ public class DashboardService
         _spine = spine;
     }
 
-    /// <summary>可用 KPI 指标目录（看板设计器据此列出可选项）。</summary>
+    /// <summary>可用 KPI 指标目录（看板设计器 / 预警规则据此列出可选项）。</summary>
     public static IReadOnlyList<KpiMetric> Catalog { get; } = new List<KpiMetric>
     {
         new("Target", "目标成本", "N0", "元", false),
@@ -72,33 +73,43 @@ public class DashboardService
         await _db.SaveChangesAsync();
     }
 
-    // ---------- 计算 ----------
-    public async Task<List<KpiCard>> GetCardsAsync(int projectId)
+    // ---------- 指标计算（单一来源，供看板与预警共用） ----------
+    /// <summary>一次算出某项目的全部指标值。</summary>
+    public async Task<Dictionary<string, decimal>> ComputeMetricsAsync(int projectId)
     {
         var spine = (await _spine.GetSpineAsync(projectId)).ToList();
-
-        // 指标值（spine 派生 + 实体计数）。新增指标在此补一行 switch 即可。
-        decimal MetricValue(string key) => key switch
+        return new Dictionary<string, decimal>
         {
-            "Target" => spine.Sum(l => l.Target),
-            "Committed" => spine.Sum(l => l.Committed),
-            "Incurred" => spine.Sum(l => l.Incurred),
-            "Remaining" => spine.Sum(l => l.Remaining),
-            "Variance" => spine.Sum(l => l.Variance),
-            "OverCount" => spine.Count(l => l.IsOver),
-            "ContractAmount" => _db.Contracts.Sum(c => c.Amount),
-            "PartyCount" => _db.Parties.Count(),
-            "ProjectCount" => _db.Projects.Count(),
-            _ => 0m
+            ["Target"] = spine.Sum(l => l.Target),
+            ["Committed"] = spine.Sum(l => l.Committed),
+            ["Incurred"] = spine.Sum(l => l.Incurred),
+            ["Remaining"] = spine.Sum(l => l.Remaining),
+            ["Variance"] = spine.Sum(l => l.Variance),
+            ["OverCount"] = spine.Count(l => l.IsOver),
+            ["ContractAmount"] = _db.Contracts.Sum(c => c.Amount),
+            ["PartyCount"] = _db.Parties.Count(),
+            ["ProjectCount"] = _db.Projects.Count(),
         };
+    }
 
+    /// <summary>取单个指标值（未知键返回 0）。</summary>
+    public async Task<decimal> GetMetricAsync(int projectId, string key)
+    {
+        var values = await ComputeMetricsAsync(projectId);
+        return values.TryGetValue(key, out var v) ? v : 0m;
+    }
+
+    // ---------- 计算卡片 ----------
+    public async Task<List<KpiCard>> GetCardsAsync(int projectId)
+    {
+        var values = await ComputeMetricsAsync(projectId);
         var widgets = await _db.DashboardWidgets.Where(w => w.Visible).OrderBy(w => w.DisplayOrder).ToListAsync();
         var cards = new List<KpiCard>();
         foreach (var w in widgets)
         {
             var metric = Metric(w.WidgetKey);
             if (metric is null) continue;
-            var value = MetricValue(w.WidgetKey);
+            var value = values.TryGetValue(w.WidgetKey, out var v) ? v : 0m;
             var text = value.ToString(metric.Format, CultureInfo.CurrentCulture);
             if (!string.IsNullOrEmpty(metric.Unit)) text += " " + metric.Unit;
             cards.Add(new KpiCard(

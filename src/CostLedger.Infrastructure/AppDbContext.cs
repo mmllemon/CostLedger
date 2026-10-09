@@ -41,6 +41,11 @@ public class AppDbContext : DbContext
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<Settlement> Settlements => Set<Settlement>();
 
+    // M3-A 预警与调度层
+    public DbSet<AlertRule> AlertRules => Set<AlertRule>();
+    public DbSet<AlertRecord> AlertRecords => Set<AlertRecord>();
+    public DbSet<ScheduledTask> ScheduledTasks => Set<ScheduledTask>();
+
     protected override void OnModelCreating(ModelBuilder mb)
     {
         // 全局 decimal(18,2)，避免 SQLite 默认无精度
@@ -255,6 +260,28 @@ public class AppDbContext : DbContext
             b.HasIndex(x => x.Code).IsUnique();
             b.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
             b.HasOne(x => x.Contract).WithMany().HasForeignKey(x => x.ContractId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ---- M3-A 预警与调度层配置 ----
+        mb.Entity<AlertRule>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Name).HasMaxLength(80);
+            b.Property(x => x.MetricKey).HasMaxLength(48);
+        });
+        mb.Entity<AlertRecord>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.RuleName).HasMaxLength(80);
+            b.Property(x => x.MetricKey).HasMaxLength(48);
+            b.Property(x => x.Title).HasMaxLength(120);
+            b.Property(x => x.Message).HasMaxLength(300);
+            b.HasIndex(x => new { x.RuleId, x.ProjectId });
+        });
+        mb.Entity<ScheduledTask>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Name).HasMaxLength(80);
         });
     }
 }

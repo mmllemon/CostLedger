@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Threading;
 using CostLedger.App.ViewModels;
 using CostLedger.App.Views;
 using CostLedger.Domain;
@@ -16,6 +17,8 @@ public partial class MainWindow : Window
     private readonly MetadataService _metadata = null!;
     private readonly ReportService _reports = null!;
     private readonly DashboardService _dashboard = null!;
+    private readonly AlertService _alerts = null!;
+    private readonly SchedulerService _scheduler = null!;
 
     public MainWindow()
     {
@@ -29,9 +32,24 @@ public partial class MainWindow : Window
         _metadata = metadata;
         _reports = new ReportService(db);
         _dashboard = new DashboardService(db, spine);
+        _alerts = new AlertService(db, _dashboard);
+        _scheduler = new SchedulerService(db, _alerts);
         InitializeComponent();
         Closed += (_, _) => _db.Dispose();
+        StartScheduler();
         NavigateTo("dashboard");
+    }
+
+    /// <summary>每 60 秒检查一次到期计划任务（预警评估等）；失败不阻塞 UI。</summary>
+    private void StartScheduler()
+    {
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
+        timer.Tick += async (_, _) =>
+        {
+            try { await _scheduler.RunDueAsync(DateTime.UtcNow); }
+            catch (Exception ex) { Console.WriteLine($"[scheduler] {ex.Message}"); }
+        };
+        timer.Start();
     }
 
     private void OnNavClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -43,7 +61,7 @@ public partial class MainWindow : Window
 
     private void NavigateTo(string key)
     {
-        foreach (var b in new[] { NavDashboard, NavMaster, NavDocs, NavProject, NavCategory, NavReports, NavBoardDesign, NavSettings })
+        foreach (var b in new[] { NavDashboard, NavMaster, NavDocs, NavProject, NavCategory, NavReports, NavBoardDesign, NavAlerts, NavSettings })
             b.Classes.Remove("on");
 
         switch (key)
@@ -89,6 +107,10 @@ public partial class MainWindow : Window
             case "NavBoardDesign":
                 NavBoardDesign.Classes.Add("on");
                 MainArea.Content = new DashboardSettingsView(_dashboard);
+                break;
+            case "NavAlerts":
+                NavAlerts.Classes.Add("on");
+                MainArea.Content = new AlertCenterView(_alerts, _scheduler);
                 break;
             case "NavSettings":
                 NavSettings.Classes.Add("on");
