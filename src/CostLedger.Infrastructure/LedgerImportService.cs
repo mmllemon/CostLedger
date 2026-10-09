@@ -28,6 +28,8 @@ public class LedgerImportService
         var header = rows[0].Select(h => h.Trim().Trim('\uFEFF')).ToArray();
         var contracts = await _db.Contracts.ToDictionaryAsync(c => c.Code, c => c.Id);
         var parties = await _db.Parties.ToDictionaryAsync(p => p.Name, p => p.Id);
+        var categories = await _db.CostCategories.ToDictionaryAsync(c => c.Code, c => c.Id);
+        var wbs = await _db.WbsItems.Where(w => w.ProjectId == projectId).ToDictionaryAsync(w => w.Code, w => w.Id);
 
         int created = 0, skipped = 0;
         var errors = new List<string>();
@@ -43,6 +45,7 @@ public class LedgerImportService
                     LedgerKind.Material => AddMaterial(projectId, header, cells, errors, r + 1),
                     LedgerKind.Receipt => AddPayment(projectId, PaymentDirection.Receive, header, cells, contracts, parties, errors, r + 1),
                     LedgerKind.Payment => AddPayment(projectId, PaymentDirection.Pay, header, cells, contracts, parties, errors, r + 1),
+                    LedgerKind.Boq => AddBoq(projectId, header, cells, categories, wbs, errors, r + 1),
                     _ => throw new InvalidOperationException($"该台账不支持导入：{kind}")
                 };
                 if (ok) created++; else skipped++;
@@ -123,9 +126,39 @@ public class LedgerImportService
         return true;
     }
 
-    // ---------- 工具 ----------
-    private static string Get(string[] header, string[] cells, params string[] names)
+    private bool AddBoq(int projectId, string[] header, string[] cells,
+        Dictionary<string, int> categories, Dictionary<string, int> wbs, List<string> errors, int line)
     {
+        var code = Get(header, cells, "项目编码", "编号", "Code");
+        if (string.IsNullOrEmpty(code)) { errors.Add($"第 {line} 行：项目编码为空"); return false; }
+
+        var qty = ParseMoney(Get(header, cells, "工程量", "数量", "Quantity"));
+        var price = ParseMoney(Get(header, cells, "综合单价", "单价", "UnitPrice"));
+        var amount = ParseMoney(Get(header, cells, "合价", "金额", "Amount"));
+        if (amount == 0 && qty != 0 && price != 0) amount = qty * price;
+
+        _db.BoqLines.Add(new BoqLine
+        {
+            ProjectId = projectId,
+            Code = code,
+            ItemName = Get(header, cells, "项目名称", "名称", "ItemName"),
+            Feature = Get(header, cells, "项目特征", "特征"),
+            Unit = Get(header, cells, "计量单位", "单位"),
+            Quantity = qty,
+            UnitPrice = price,
+            Amount = amount,
+            TaxRate = ParseMoney(Get(header, cells, "税率")),
+            CostCategoryId = ResolveCode(Get(header, cells, "成本科目", "科目"), categories),
+            WbsItemId = ResolveCode(Get(header, cells, "部位", "WBS"), wbs)
+        });
+        return true;
+    }
+
+    private static int? ResolveCode(string code, Dictionary<string, int> map)
+        => !string.IsNullOrEmpty(code) && map.TryGetValue(code, out var id) ? id : null;
+
+    // ---------- 工具 ----------
+    private static string Get(string[] header, string[] cells, params string[] names)    {
         foreach (var n in names)
         {
             int idx = Array.IndexOf(header, n);

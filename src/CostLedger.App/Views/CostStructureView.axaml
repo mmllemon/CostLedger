@@ -1,0 +1,112 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="CostLedger.App.Views.CostStructureView"
+             Background="{StaticResource BgBrush}"
+             FontFamily="Microsoft YaHei, Segoe UI, sans-serif">
+  <TabControl Margin="14,14,14,14">
+    <!-- ===== 部位与清单 ===== -->
+    <TabItem Header="部位与清单">
+      <Grid ColumnDefinitions="300,1*" Margin="0,10,0,0">
+        <!-- 左：部位 -->
+        <Border Grid.Column="0" Classes="sidecard" Margin="0,0,10,0">
+          <Grid RowDefinitions="Auto,1*,Auto,Auto">
+            <TextBlock Grid.Row="0" Classes="label" Text="部位（分部分项）"/>
+            <ListBox x:Name="WbsList" Grid.Row="1" Margin="0,8,0,0" Background="Transparent"
+                     BorderThickness="0" SelectionChanged="OnWbsSelected"/>
+            <StackPanel Grid.Row="2" Spacing="6" Margin="0,8,0,8">
+              <Grid ColumnDefinitions="60,*"><TextBlock Grid.Column="0" Text="编码" VerticalAlignment="Center"/><TextBox x:Name="WbsCode" Grid.Column="1"/></Grid>
+              <Grid ColumnDefinitions="60,*"><TextBlock Grid.Column="0" Text="名称" VerticalAlignment="Center"/><TextBox x:Name="WbsName" Grid.Column="1"/></Grid>
+              <Grid ColumnDefinitions="60,*"><TextBlock Grid.Column="0" Text="上级" VerticalAlignment="Center"/><ComboBox x:Name="WbsParent" Grid.Column="1" HorizontalAlignment="Stretch" PlaceholderText="（顶级）"/></Grid>
+            </StackPanel>
+            <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8">
+              <Button Classes="pill" Content="新增" Click="OnWbsNew"/>
+              <Button Classes="primary" Content="保存" Click="OnWbsSave"/>
+              <Button Classes="danger" Content="删除" Click="OnWbsDelete"/>
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <!-- 右：清单 -->
+        <Border Grid.Column="1" Classes="sidecard">
+          <Grid RowDefinitions="Auto,150,Auto,1*">
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*">
+              <TextBlock Classes="label" Text="工程量清单（目标成本）" VerticalAlignment="Center"/>
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <TextBlock x:Name="BoqTotal" VerticalAlignment="Center" FontWeight="SemiBold"
+                           Foreground="{StaticResource AccentDeepBrush}"/>
+                <Button Classes="pill" Content="导出 CSV" Click="OnBoqExport"/>
+                <Button Classes="pill" Content="导入 CSV" Click="OnBoqImport"/>
+              </StackPanel>
+            </Grid>
+            <ListBox x:Name="BoqList" Grid.Row="1" Margin="0,8,0,0" Background="Transparent"
+                     BorderThickness="0" SelectionChanged="OnBoqSelected">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel Orientation="Horizontal" Spacing="10">
+                    <TextBlock Text="{Binding Code}" FontWeight="SemiBold" Width="110"/>
+                    <TextBlock Text="{Binding ItemName}"/>
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock Grid.Row="2" Classes="label" Text="清单行编辑" Margin="0,10,0,6"/>
+            <ScrollViewer Grid.Row="3">
+              <StackPanel Spacing="8" MaxWidth="620" HorizontalAlignment="Left">
+                <Grid ColumnDefinitions="70,*,70,*" RowDefinitions="Auto,Auto,Auto">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="项目编码" VerticalAlignment="Center"/>
+                  <TextBox x:Name="BoqCode" Grid.Row="0" Grid.Column="1" Margin="6,0,12,6"/>
+                  <TextBlock Grid.Row="0" Grid.Column="2" Text="计量单位" VerticalAlignment="Center"/>
+                  <TextBox x:Name="BoqUnit" Grid.Row="0" Grid.Column="3" Margin="6,0,0,6"/>
+
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="项目名称" VerticalAlignment="Center"/>
+                  <TextBox x:Name="BoqName" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Margin="6,0,0,6"/>
+
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="项目特征" VerticalAlignment="Center"/>
+                  <TextBox x:Name="BoqFeature" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" Margin="6,0,0,0"/>
+                </Grid>
+                <Grid ColumnDefinitions="70,*,70,*" RowDefinitions="Auto,Auto,Auto">
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="工程量" VerticalAlignment="Center"/>
+                  <NumericUpDown x:Name="BoqQty" Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="99999999" Margin="6,0,12,6"/>
+                  <TextBlock Grid.Row="0" Grid.Column="2" Text="综合单价" VerticalAlignment="Center"/>
+                  <NumericUpDown x:Name="BoqPrice" Grid.Row="0" Grid.Column="3" Minimum="0" Maximum="99999999" Margin="6,0,0,6"/>
+
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="合价" VerticalAlignment="Center"/>
+                  <NumericUpDown x:Name="BoqAmount" Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="99999999" Margin="6,0,12,6"/>
+                  <TextBlock Grid.Row="1" Grid.Column="2" Text="税率" VerticalAlignment="Center"/>
+                  <NumericUpDown x:Name="BoqTax" Grid.Row="1" Grid.Column="3" Minimum="0" Maximum="1" Increment="0.01" Margin="6,0,0,6" FormatString="P0"/>
+
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="成本科目" VerticalAlignment="Center"/>
+                  <ComboBox x:Name="BoqCategory" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" Margin="6,0,12,0" PlaceholderText="（可选）"/>
+                  <TextBlock Grid.Row="2" Grid.Column="2" Text="部位" VerticalAlignment="Center"/>
+                  <ComboBox x:Name="BoqWbs" Grid.Row="2" Grid.Column="3" HorizontalAlignment="Stretch" Margin="6,0,0,0" PlaceholderText="（可选）"/>
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <Button Classes="pill" Content="新增" Click="OnBoqNew"/>
+                  <Button Classes="primary" Content="保存" Click="OnBoqSave"/>
+                  <Button Classes="danger" Content="删除" Click="OnBoqDelete"/>
+                </StackPanel>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+        </Border>
+      </Grid>
+    </TabItem>
+
+    <!-- ===== 按部位成本 ===== -->
+    <TabItem Header="按部位成本">
+      <StackPanel Spacing="12" Margin="0,10,0,0">
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBlock Text="项目" VerticalAlignment="Center" Foreground="{StaticResource Txt2Brush}"/>
+          <ComboBox x:Name="ProjCombo" Width="280" SelectionChanged="OnProjectChanged"/>
+          <Button Classes="primary" Content="刷新" Click="OnRefreshWbsCost"/>
+          <Button Classes="pill" Content="打印" Click="OnPrintWbsCost"/>
+        </StackPanel>
+        <Border Classes="card">
+          <ScrollViewer HorizontalScrollBarVisibility="Auto" MaxHeight="520">
+            <Grid x:Name="WbsCostHost"/>
+          </ScrollViewer>
+        </Border>
+      </StackPanel>
+    </TabItem>
+  </TabControl>
+</UserControl>

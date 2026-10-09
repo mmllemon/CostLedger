@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 namespace CostLedger.Infrastructure;
 
 /// <summary>台账种类</summary>
-public enum LedgerKind { Contract, Receipt, Payment, ChangeOrder, Material, Invoice, Settlement }
+public enum LedgerKind { Contract, Receipt, Payment, ChangeOrder, Material, Invoice, Settlement, Boq }
 
 /// <summary>一张台账：标题 + 明细行 + 合计行（可多行）。供界面显示与"正式版式"打印共用。</summary>
 public record LedgerResult(string Title, IReadOnlyList<string> Headers, IReadOnlyList<string[]> Rows, IReadOnlyList<string[]> Footers);
@@ -32,6 +32,7 @@ public class LedgerService
         LedgerKind.Material => await MaterialAsync(projectId),
         LedgerKind.Invoice => await InvoiceAsync(projectId),
         LedgerKind.Settlement => await SettlementAsync(projectId),
+        LedgerKind.Boq => await BoqLedgerAsync(projectId),
         _ => new LedgerResult("台账", Array.Empty<string>(), Array.Empty<string[]>(), Array.Empty<string[]>())
     };
 
@@ -127,6 +128,26 @@ public class LedgerService
             new[] { "发票号", "方向", "种类", "不含税", "税额", "价税合计", "日期", "状态" },
             data,
             new[] { Blank(8, 5, Money(rows.Sum(x => x.TotalAmount))) });
+    }
+
+    // ---------- 工程量清单台账（目标成本） ----------
+    private async Task<LedgerResult> BoqLedgerAsync(int projectId)
+    {
+        var cats = await _db.CostCategories.ToDictionaryAsync(c => c.Id, c => c.Name);
+        var wbs = await _db.WbsItems.ToDictionaryAsync(w => w.Id, w => w.FullPath);
+        var rows = await _db.BoqLines.Where(b => b.ProjectId == projectId).OrderBy(b => b.Code).ToListAsync();
+        var data = rows.Select(b => new[]
+        {
+            b.Code, b.ItemName, b.Feature ?? "", b.Unit ?? "",
+            b.Quantity.ToString("0.####", CultureInfo.CurrentCulture),
+            Money(b.UnitPrice), Money(b.Amount),
+            b.CostCategoryId is null ? "" : cats.GetValueOrDefault(b.CostCategoryId.Value, ""),
+            b.WbsItemId is null ? "" : wbs.GetValueOrDefault(b.WbsItemId.Value, "")
+        }).ToList();
+        return new LedgerResult("工程量清单（目标成本）",
+            new[] { "项目编码", "项目名称", "项目特征", "单位", "工程量", "综合单价", "合价", "成本科目", "部位" },
+            data,
+            new[] { Blank(9, 6, Money(rows.Sum(x => x.Amount))) });
     }
 
     // ---------- 竣工结算台账 ----------

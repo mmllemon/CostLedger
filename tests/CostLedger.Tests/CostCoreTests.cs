@@ -82,4 +82,20 @@ public class CostCoreTests
         var lay = (await new WbsService(db).ListAsync(1)).Single(w => w.Code == "W12");
         lay.FullPath.Should().Be("电缆工程/电缆敷设");
     }
+
+    [Fact]
+    public async Task 清单导入_按科目与部位解析()
+    {
+        using var db = CreateSeededContext();
+        var csv = "项目编码,项目名称,项目特征,计量单位,工程量,综合单价,合价,成本科目,部位\n" +
+                  "030408002,新增测试清单项,特征描述,m,10,100,1000,M-CABLE,W12\n";
+
+        var res = await new LedgerImportService(db).ImportAsync(1, LedgerKind.Boq, csv);
+        res.Created.Should().Be(1);
+
+        var line = db.BoqLines.Single(b => b.Code == "030408002");
+        line.Amount.Should().Be(1000m);
+        line.CostCategoryId.Should().NotBeNull();   // M-CABLE
+        line.WbsItemId.Should().NotBeNull();        // W12
+    }
 }
