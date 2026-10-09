@@ -61,7 +61,7 @@ public partial class MainWindow : Window
 
     private void NavigateTo(string key)
     {
-        foreach (var b in new[] { NavDashboard, NavOverview, NavLedgers, NavMaster, NavDocs, NavProject, NavCategory, NavReports, NavBoardDesign, NavAlerts, NavRecon, NavSettings })
+        foreach (var b in new[] { NavDashboard, NavOverview, NavLedgers, NavParties, NavMaster, NavDocs, NavProject, NavCategory, NavReports, NavBoardDesign, NavAlerts, NavRecon, NavSettings })
             b.Classes.Remove("on");
 
         switch (key)
@@ -73,6 +73,10 @@ public partial class MainWindow : Window
             case "NavLedgers":
                 NavLedgers.Classes.Add("on");
                 MainArea.Content = new LedgerCenterView(_db);
+                break;
+            case "NavParties":
+                NavParties.Classes.Add("on");
+                MainArea.Content = new PartyLedgerView(_db);
                 break;
             case "NavMaster":
                 NavMaster.Classes.Add("on");
