@@ -61,7 +61,7 @@ public partial class MainWindow : Window
 
     private void NavigateTo(string key)
     {
-        foreach (var b in new[] { NavDashboard, NavMaster, NavDocs, NavProject, NavCategory, NavReports, NavBoardDesign, NavAlerts, NavSettings })
+        foreach (var b in new[] { NavDashboard, NavMaster, NavDocs, NavProject, NavCategory, NavReports, NavBoardDesign, NavAlerts, NavRecon, NavSettings })
             b.Classes.Remove("on");
 
         switch (key)
@@ -111,6 +111,10 @@ public partial class MainWindow : Window
             case "NavAlerts":
                 NavAlerts.Classes.Add("on");
                 MainArea.Content = new AlertCenterView(_alerts, _scheduler);
+                break;
+            case "NavRecon":
+                NavRecon.Classes.Add("on");
+                MainArea.Content = new ReconciliationView(_db);
                 break;
             case "NavSettings":
                 NavSettings.Classes.Add("on");

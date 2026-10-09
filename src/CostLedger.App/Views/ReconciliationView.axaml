@@ -1,0 +1,35 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="CostLedger.App.Views.ReconciliationView"
+             Background="{StaticResource BgBrush}"
+             FontFamily="Microsoft YaHei, Segoe UI, sans-serif">
+  <ScrollViewer Margin="16,16,16,16">
+    <StackPanel Spacing="14" MaxWidth="980" HorizontalAlignment="Left">
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <TextBlock Text="项目" VerticalAlignment="Center" Foreground="{StaticResource Txt2Brush}"/>
+        <ComboBox x:Name="ProjCombo" Width="260" SelectionChanged="OnProjectChanged"/>
+      </StackPanel>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Classes="label" Text="三算对比（目标 / 实际 / 结算）"/>
+          <Grid x:Name="ThreeWayHost"/>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Classes="label" Text="合同 vs 成本（Diff&gt;0 = 成本已超合同额）"/>
+          <Grid x:Name="ContractHost"/>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Classes="label" Text="按成本科目 目标 vs 实际"/>
+          <Grid x:Name="CategoryHost"/>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

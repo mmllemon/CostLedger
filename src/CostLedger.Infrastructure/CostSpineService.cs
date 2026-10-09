@@ -38,9 +38,25 @@ public class CostSpineService : ICostSpineService
             .Select(g => new { Cat = g.Key, Sum = g.Sum(e => e.Amount) })
             .ToListAsync(ct);
 
+        // 已完未结：已签认计量明细（按科目）− 已按"计量来源"回写的成本
+        var wdnsRaw = await (
+            from ml in _db.MeasurementLines
+            join m in _db.Measurements on ml.MeasurementId equals m.Id
+            where m.ProjectId == projectId && m.IsSigned && ml.CostCategoryId != null
+            group ml by ml.CostCategoryId!.Value into g
+            select new { Cat = g.Key, Sum = g.Sum(x => x.Amount) }
+        ).ToListAsync(ct);
+
+        var postedFromMeasurement = await _db.CostEntries
+            .Where(e => e.ProjectId == projectId && e.CostCategoryId != null && e.SourceVoucherType == VoucherType.Measurement)
+            .GroupBy(e => e.CostCategoryId!.Value)
+            .Select(g => new { Cat = g.Key, Sum = g.Sum(e => e.Amount) })
+            .ToListAsync(ct);
+
         var catIds = baseTarget.Select(x => x.Cat)
             .Concat(adjust.Select(x => x.Cat))
             .Concat(incurred.Select(x => x.Cat))
+            .Concat(wdnsRaw.Select(x => x.Cat))
             .Distinct().ToList();
         var cats = await _db.CostCategories
             .Where(c => catIds.Contains(c.Id))
@@ -52,6 +68,8 @@ public class CostSpineService : ICostSpineService
             var t = (baseTarget.FirstOrDefault(x => x.Cat == id)?.Sum ?? 0m)
                     + (adjust.FirstOrDefault(x => x.Cat == id)?.Sum ?? 0m);
             var i = incurred.FirstOrDefault(x => x.Cat == id)?.Sum ?? 0m;
+            var wdns = (wdnsRaw.FirstOrDefault(x => x.Cat == id)?.Sum ?? 0m)
+                       - (postedFromMeasurement.FirstOrDefault(x => x.Cat == id)?.Sum ?? 0m);
             return new CostSpineLine
             {
                 CostCategoryId = id,
@@ -59,7 +77,8 @@ public class CostSpineService : ICostSpineService
                 CategoryType = cat.Type,
                 Target = t,
                 Committed = t,   // M1：承诺额与目标同源（合同明细 + 已确认变更）
-                Incurred = i
+                Incurred = i,
+                WorkDoneNotSettled = wdns > 0 ? wdns : 0m
             };
         }).OrderBy(x => x.CostCategoryName).ToList();
     }
