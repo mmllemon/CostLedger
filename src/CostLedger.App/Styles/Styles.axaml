@@ -1,0 +1,195 @@
+<!--
+  设计系统 · 版本 C（Claude / Anthropic 暖色极简风）— Avalonia 样式文件
+  用法（App.axaml）：<StyleInclude Source="avares://CostLedger.App/Styles/Styles.axaml" />
+  根必须是 <Style>（IStyle），资源置于 <Style.Resources> 供 StaticResource 引用。
+  给元素加 Classes 即可：<Border Classes="card"/> / <Button Classes="primary"/> / <ProgressBar Classes="line" .../>
+-->
+<Style xmlns="https://github.com/avaloniaui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <Style.Resources>
+    <!-- ============ 画刷 / 颜色 ============ -->
+    <SolidColorBrush x:Key="BgBrush"        Color="#F4EEE5"/>
+    <SolidColorBrush x:Key="CardBrush"      Color="#FFFDFA"/>
+    <SolidColorBrush x:Key="LineBrush"      Color="#ECE3D6"/>
+    <SolidColorBrush x:Key="InkBrush"       Color="#211E1A"/>
+    <SolidColorBrush x:Key="Txt2Brush"      Color="#6B635A"/>
+    <SolidColorBrush x:Key="Txt3Brush"      Color="#A89E90"/>
+    <SolidColorBrush x:Key="AccentBrush"    Color="#CC785C"/>
+    <SolidColorBrush x:Key="AccentDeepBrush" Color="#A24E30"/>
+    <SolidColorBrush x:Key="AccentSoftBrush" Color="#F0DFD2"/>
+    <SolidColorBrush x:Key="AccentMidBrush"  Color="#D9A98C"/>
+    <SolidColorBrush x:Key="TrackBrush"     Color="#ECE2D4"/>
+    <SolidColorBrush x:Key="BarBrush"       Color="#E7DAC9"/>
+    <SolidColorBrush x:Key="RedBrush"       Color="#BE4A3C"/>
+    <SolidColorBrush x:Key="RedSoftBrush"   Color="#F6E2DD"/>
+    <SolidColorBrush x:Key="WhiteBrush"     Color="#FFFFFF"/>
+
+    <!-- ============ 圆角 ============ -->
+    <CornerRadius x:Key="CardRadius">18</CornerRadius>
+    <CornerRadius x:Key="PillRadius">12</CornerRadius>
+    <CornerRadius x:Key="BlockRadius">10</CornerRadius>
+    <CornerRadius x:Key="BarRadius">7</CornerRadius>
+    <CornerRadius x:Key="PillRadiusFull">99</CornerRadius>
+
+    <!-- ============ 阴影（暖调极浅） ============ -->
+    <BoxShadows x:Key="CardShadow">0 1 2 #5037230D</BoxShadows>
+
+    <!-- ============ 字号 / 字体 ============ -->
+    <x:Double x:Key="H1FontSize">24</x:Double>
+    <x:Double x:Key="HeroFontSize">44</x:Double>
+    <x:Double x:Key="MiniFontSize">22</x:Double>
+    <x:Double x:Key="BodyFontSize">13.5</x:Double>
+    <x:Double x:Key="LabelFontSize">11</x:Double>
+    <FontFamily x:Key="AppFontFamily">Microsoft YaHei, Segoe UI, sans-serif</FontFamily>
+  </Style.Resources>
+
+  <!-- ============ 卡片 ============ -->
+  <Style Selector="Border.card">
+    <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+    <Setter Property="CornerRadius" Value="{StaticResource CardRadius}"/>
+    <Setter Property="Padding" Value="20"/>
+  </Style>
+  <Style Selector="Border.sidecard">
+    <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+    <Setter Property="CornerRadius" Value="{StaticResource CardRadius}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Padding" Value="15"/>
+  </Style>
+
+  <!-- ============ 标签文字 ============ -->
+  <Style Selector="TextBlock.label">
+    <Setter Property="FontSize" Value="{StaticResource LabelFontSize}"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+    <Setter Property="Foreground" Value="{StaticResource Txt3Brush}"/>
+    <Setter Property="LetterSpacing" Value="1.6"/>
+  </Style>
+
+  <!-- ============ 按钮 ============ -->
+  <Style Selector="Button.pill">
+    <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="{StaticResource PillRadius}"/>
+    <Setter Property="Padding" Value="13,9"/>
+    <Setter Property="FontSize" Value="{StaticResource BodyFontSize}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="{StaticResource Txt2Brush}"/>
+  </Style>
+  <Style Selector="Button.pill:pointerover">
+    <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+  </Style>
+
+  <Style Selector="Button.primary">
+    <Setter Property="Background" Value="{StaticResource AccentDeepBrush}"/>
+    <Setter Property="Foreground" Value="{StaticResource WhiteBrush}"/>
+    <Setter Property="CornerRadius" Value="{StaticResource PillRadius}"/>
+    <Setter Property="Padding" Value="14,10"/>
+    <Setter Property="FontSize" Value="{StaticResource BodyFontSize}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+  <Style Selector="Button.primary:pointerover">
+    <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+  </Style>
+
+  <Style Selector="Button.danger">
+    <Setter Property="Background" Value="{StaticResource WhiteBrush}"/>
+    <Setter Property="Foreground" Value="{StaticResource RedBrush}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource RedBrush}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="{StaticResource PillRadius}"/>
+    <Setter Property="Padding" Value="14,10"/>
+    <Setter Property="FontSize" Value="{StaticResource BodyFontSize}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+
+  <Style Selector="Button.icon">
+    <Setter Property="Width" Value="36"/>
+    <Setter Property="Height" Value="36"/>
+    <Setter Property="CornerRadius" Value="{StaticResource PillRadius}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+    <Setter Property="Foreground" Value="{StaticResource Txt2Brush}"/>
+  </Style>
+  <Style Selector="Button.icon:pointerover">
+    <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+  </Style>
+
+  <!-- ============ 侧栏导航 ============ -->
+  <Style Selector="Button.nav">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Foreground" Value="{StaticResource Txt2Brush}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="FontSize" Value="13.5"/>
+    <Setter Property="Padding" Value="12,10"/>
+    <Setter Property="CornerRadius" Value="12"/>
+    <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    <Setter Property="HorizontalContentAlignment" Value="Left"/>
+  </Style>
+  <Style Selector="Button.nav:pointerover">
+    <Setter Property="Background" Value="#0000000A"/>
+    <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+  </Style>
+  <Style Selector="Button.nav.on">
+    <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+    <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+  </Style>
+
+  <!-- ============ 状态标签 Badge ============ -->
+  <Style Selector="Border.badge">
+    <Setter Property="CornerRadius" Value="{StaticResource BlockRadius}"/>
+    <Setter Property="Padding" Value="8,4"/>
+    <Setter Property="Background" Value="{StaticResource AccentSoftBrush}"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Border.badge TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource AccentDeepBrush}"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+  <Style Selector="Border.badge.danger">
+    <Setter Property="Background" Value="{StaticResource RedSoftBrush}"/>
+  </Style>
+  <Style Selector="Border.badge.danger TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource RedBrush}"/>
+  </Style>
+
+  <!-- ============ 进度条（圆角线形） ============ -->
+  <Style Selector="ProgressBar.line">
+    <Setter Property="Background" Value="{StaticResource TrackBrush}"/>
+    <Setter Property="Foreground" Value="{StaticResource AccentDeepBrush}"/>
+    <Setter Property="Height" Value="8"/>
+    <Setter Property="CornerRadius" Value="{StaticResource PillRadiusFull}"/>
+  </Style>
+
+  <!-- ============ 品牌块 / 头像 ============ -->
+  <Style Selector="Border.brandmark">
+    <Setter Property="Width" Value="32"/>
+    <Setter Property="Height" Value="32"/>
+    <Setter Property="CornerRadius" Value="{StaticResource BlockRadius}"/>
+    <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="HorizontalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Border.brandmark TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource WhiteBrush}"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+    <Setter Property="FontSize" Value="14"/>
+  </Style>
+  <Style Selector="Border.avatar">
+    <Setter Property="Width" Value="36"/>
+    <Setter Property="Height" Value="36"/>
+    <Setter Property="CornerRadius" Value="18"/>
+    <Setter Property="Background" Value="{StaticResource AccentDeepBrush}"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+    <Setter Property="HorizontalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Border.avatar TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource WhiteBrush}"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+    <Setter Property="FontSize" Value="13"/>
+  </Style>
+
+</Style>

@@ -1,0 +1,12 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:CostLedger.App"
+             x:Class="CostLedger.App.App">
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://CostLedger.App/Styles/Styles.axaml" />
+  </Application.Styles>
+  <Application.Resources>
+    <local:OverForegroundConverter x:Key="OverForeground" />
+  </Application.Resources>
+</Application>

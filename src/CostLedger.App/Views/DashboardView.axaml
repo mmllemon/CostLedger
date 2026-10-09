@@ -1,0 +1,52 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="CostLedger.App.Views.DashboardView"
+             Margin="0,16,18,16">
+  <StackPanel Spacing="14">
+    <!-- KPI -->
+    <Grid ColumnDefinitions="1*,1*,1*">
+      <Border Classes="card" Grid.Column="0" Margin="0,0,7,0">
+        <StackPanel>
+          <TextBlock Text="目标成本" Classes="label"/>
+          <TextBlock Text="{Binding TotalTarget, StringFormat='{}{0:N0} 元'}" FontSize="22" FontWeight="Bold" Margin="0,6,0,0"/>
+        </StackPanel>
+      </Border>
+      <Border Classes="card" Grid.Column="1" Margin="7,0">
+        <StackPanel>
+          <TextBlock Text="已发生" Classes="label"/>
+          <TextBlock Text="{Binding TotalIncurred, StringFormat='{}{0:N0} 元'}" FontSize="22" FontWeight="Bold" Margin="0,6,0,0"/>
+        </StackPanel>
+      </Border>
+      <Border Classes="card" Grid.Column="2" Margin="7,0,0,0">
+        <StackPanel>
+          <TextBlock Text="总偏差" Classes="label"/>
+          <TextBlock Text="{Binding TotalVariance, StringFormat='{}{0:N0} 元'}" FontSize="22" FontWeight="Bold" Margin="0,6,0,0"
+                     Foreground="{Binding TotalVariance, Converter={StaticResource OverForeground}}"/>
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <!-- 成本脊柱列表 -->
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Text="成本脊柱（按科目归集）" FontSize="14.5" FontWeight="Bold" Margin="0,0,0,10"/>
+        <ItemsControl ItemsSource="{Binding Lines}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Grid ColumnDefinitions="1.4*,1*,1*,1.2*,1.6*" Margin="0,8">
+                <TextBlock Grid.Column="0" Text="{Binding CostCategoryName}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="{Binding Target, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" Foreground="{StaticResource Txt2Brush}"/>
+                <TextBlock Grid.Column="2" Text="{Binding Incurred, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" Foreground="{StaticResource Txt2Brush}"/>
+                <TextBlock Grid.Column="3" VerticalAlignment="Center"
+                           Text="{Binding Variance, StringFormat='{}{0:N0}'}"
+                           Foreground="{Binding IsOver, Converter={StaticResource OverForeground}}"
+                           FontWeight="Bold"/>
+                <ProgressBar Grid.Column="4" Classes="line" Value="{Binding Progress}" Margin="10,0,0,0" VerticalAlignment="Center"/>
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

@@ -1,0 +1,23 @@
+## .NET / Avalonia
+bin/
+obj/
+*.user
+.vs/
+.idea/
+## NuGet
+.nuget/
+## 本地 SQLite 数据库（由 EnsureCreated 自动生成，不入库）
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+## 密钥 / 凭据 / 本地配置
+*.secret
+secrets.json
+appsettings.Local.json
+userSecrets/
+## 构建产物
+artifacts/
+publish/
+## Rider / VS 临时
+*.sln.docstates

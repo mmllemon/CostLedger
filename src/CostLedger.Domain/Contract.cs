@@ -1,0 +1,38 @@
+namespace CostLedger.Domain;
+
+/// <summary>合同（合并原合同管理 + 合同台账，统一模型）</summary>
+public class Contract
+{
+    public int Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public int ProjectId { get; set; }
+    public Project? Project { get; set; }
+    public int PartyId { get; set; }
+    public Party? Party { get; set; }
+    public ContractType Type { get; set; }
+    public string? Title { get; set; }
+    public decimal Amount { get; set; }   // 合同金额（含税）
+    public decimal TaxRate { get; set; }  // 税率 0.09 / 0.13 / 0.03
+    public DateOnly SignDate { get; set; }
+    public string? Status { get; set; }
+
+    public ICollection<ContractLine> Lines { get; set; } = new List<ContractLine>();
+    public ICollection<Payment> Payments { get; set; } = new List<Payment>();
+    public ICollection<CostEntry> CostEntries { get; set; } = new List<CostEntry>();
+}
+
+/// <summary>合同明细行（金额映射到成本科目，是目标成本的来源）</summary>
+public class ContractLine
+{
+    public int Id { get; set; }
+    public int ContractId { get; set; }
+    public Contract? Contract { get; set; }
+    public int? CostCategoryId { get; set; }
+    public CostCategory? CostCategory { get; set; }
+    public string ItemName { get; set; } = string.Empty;
+    public decimal Quantity { get; set; }
+    public string? Unit { get; set; }
+    public decimal UnitPrice { get; set; }
+    public decimal Amount { get; set; }   // 含税金额
+    public decimal TaxRate { get; set; }
+}
