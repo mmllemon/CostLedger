@@ -15,6 +15,7 @@ public partial class MainWindow : Window
     private readonly ICostSpineService _spine = null!;
     private readonly MetadataService _metadata = null!;
     private readonly ReportService _reports = null!;
+    private readonly DashboardService _dashboard = null!;
 
     public MainWindow()
     {
@@ -27,6 +28,7 @@ public partial class MainWindow : Window
         _spine = spine;
         _metadata = metadata;
         _reports = new ReportService(db);
+        _dashboard = new DashboardService(db, spine);
         InitializeComponent();
         Closed += (_, _) => _db.Dispose();
         NavigateTo("dashboard");
@@ -41,7 +43,7 @@ public partial class MainWindow : Window
 
     private void NavigateTo(string key)
     {
-        foreach (var b in new[] { NavDashboard, NavMaster, NavProject, NavCategory, NavReports, NavSettings })
+        foreach (var b in new[] { NavDashboard, NavMaster, NavProject, NavCategory, NavReports, NavBoardDesign, NavSettings })
             b.Classes.Remove("on");
 
         switch (key)
@@ -80,13 +82,17 @@ public partial class MainWindow : Window
                 NavReports.Classes.Add("on");
                 MainArea.Content = new ReportCenterView(_reports);
                 break;
+            case "NavBoardDesign":
+                NavBoardDesign.Classes.Add("on");
+                MainArea.Content = new DashboardSettingsView(_dashboard);
+                break;
             case "NavSettings":
                 NavSettings.Classes.Add("on");
                 MainArea.Content = new SystemSettingsView(_metadata);
                 break;
             default:
                 NavDashboard.Classes.Add("on");
-                var vm = new DashboardViewModel(_spine);
+                var vm = new DashboardViewModel(_spine, _dashboard);
                 var dash = new DashboardView { DataContext = vm };
                 MainArea.Content = dash;
                 _ = vm.LoadAsync();

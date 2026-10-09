@@ -8,5 +8,6 @@
   </Application.Styles>
   <Application.Resources>
     <local:OverForegroundConverter x:Key="OverForeground" />
+    <local:KpiSeverityBrushConverter x:Key="KpiBrush" />
   </Application.Resources>
 </Application>

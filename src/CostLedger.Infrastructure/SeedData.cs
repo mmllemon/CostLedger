@@ -14,8 +14,20 @@ public static class SeedData
     {
         SeedMetadata(db);
         SeedReports(db);
+        SeedDashboard(db);
         if (db.Projects.Any()) return;
         SeedDemoData(db);
+    }
+
+    // ---------- M2-D 看板默认部件（幂等） ----------
+    private static void SeedDashboard(AppDbContext db)
+    {
+        if (db.DashboardWidgets.Any()) return;
+        db.DashboardWidgets.AddRange(
+            new DashboardWidget { WidgetKey = "Target", Title = "目标成本", Visible = true, DisplayOrder = 1 },
+            new DashboardWidget { WidgetKey = "Incurred", Title = "已发生", Visible = true, DisplayOrder = 2 },
+            new DashboardWidget { WidgetKey = "Variance", Title = "总偏差", Visible = true, DisplayOrder = 3, WarnThreshold = 0m, DangerThreshold = 30_000m });
+        db.SaveChanges();
     }
 
     // ---------- M2-C 报表定义（幂等，独立于元数据，便于既有库补种） ----------

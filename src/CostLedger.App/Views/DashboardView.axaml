@@ -3,28 +3,25 @@
              x:Class="CostLedger.App.Views.DashboardView"
              Margin="0,16,18,16">
   <StackPanel Spacing="14">
-    <!-- KPI -->
-    <Grid ColumnDefinitions="1*,1*,1*">
-      <Border Classes="card" Grid.Column="0" Margin="0,0,7,0">
-        <StackPanel>
-          <TextBlock Text="目标成本" Classes="label"/>
-          <TextBlock Text="{Binding TotalTarget, StringFormat='{}{0:N0} 元'}" FontSize="22" FontWeight="Bold" Margin="0,6,0,0"/>
-        </StackPanel>
-      </Border>
-      <Border Classes="card" Grid.Column="1" Margin="7,0">
-        <StackPanel>
-          <TextBlock Text="已发生" Classes="label"/>
-          <TextBlock Text="{Binding TotalIncurred, StringFormat='{}{0:N0} 元'}" FontSize="22" FontWeight="Bold" Margin="0,6,0,0"/>
-        </StackPanel>
-      </Border>
-      <Border Classes="card" Grid.Column="2" Margin="7,0,0,0">
-        <StackPanel>
-          <TextBlock Text="总偏差" Classes="label"/>
-          <TextBlock Text="{Binding TotalVariance, StringFormat='{}{0:N0} 元'}" FontSize="22" FontWeight="Bold" Margin="0,6,0,0"
-                     Foreground="{Binding TotalVariance, Converter={StaticResource OverForeground}}"/>
-        </StackPanel>
-      </Border>
-    </Grid>
+    <!-- KPI 卡片（数据驱动：显隐/顺序/阈值由「看板设计」配置） -->
+    <ItemsControl ItemsSource="{Binding Cards}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <WrapPanel/>
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate>
+          <Border Classes="card" Width="220" Margin="0,0,12,12">
+            <StackPanel>
+              <TextBlock Text="{Binding Title}" Classes="label"/>
+              <TextBlock Text="{Binding ValueText}" FontSize="22" FontWeight="Bold" Margin="0,6,0,0"
+                         Foreground="{Binding Severity, Converter={StaticResource KpiBrush}}"/>
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
 
     <!-- 成本脊柱列表 -->
     <Border Classes="card">

@@ -32,6 +32,9 @@ public class AppDbContext : DbContext
     public DbSet<ReportColumn> ReportColumns => Set<ReportColumn>();
     public DbSet<ReportFilter> ReportFilters => Set<ReportFilter>();
 
+    // M2-D 看板层
+    public DbSet<DashboardWidget> DashboardWidgets => Set<DashboardWidget>();
+
     protected override void OnModelCreating(ModelBuilder mb)
     {
         // 全局 decimal(18,2)，避免 SQLite 默认无精度
@@ -197,6 +200,15 @@ public class AppDbContext : DbContext
             b.Property(x => x.Value).HasMaxLength(200);
             b.HasOne(x => x.ReportDef).WithMany(r => r.Filters)
                 .HasForeignKey(x => x.ReportDefId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ---- M2-D 看板层配置 ----
+        mb.Entity<DashboardWidget>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.WidgetKey).HasMaxLength(48);
+            b.Property(x => x.Title).HasMaxLength(80);
+            b.HasIndex(x => x.WidgetKey).IsUnique();
         });
     }
 }
