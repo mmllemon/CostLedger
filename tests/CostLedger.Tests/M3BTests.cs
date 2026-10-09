@@ -51,7 +51,7 @@ public class M3BTests
         using var db = CreateSeededContext();
         var rows = await new ReconciliationService(db, new CostSpineService(db)).ContractVsCostAsync(1);
 
-        rows.Should().HaveCount(4);
+        rows.Should().HaveCount(5); // 上游 MAIN + 4 份下游合同
         var cable = rows.Single(r => r.ContractCode == "PO-FAR-001");
         cable.ContractAmount.Should().Be(1_863_000m);
         cable.Incurred.Should().Be(2_000_000m);

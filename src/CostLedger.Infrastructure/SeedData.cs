@@ -178,10 +178,20 @@ public static class SeedData
         };
         db.Projects.Add(project);
 
+        var owner = new Party { Name = "残疾人项目建设单位", RoleCode = "Owner" };
         var farEast = new Party { Name = "远东电缆", RoleCode = "Supplier" };
         var beiYuan = new Party { Name = "重庆北源", RoleCode = "Subcontractor" };
         var jiChu = new Party { Name = "某基础公司", RoleCode = "Subcontractor" };
-        db.Parties.AddRange(farEast, beiYuan, jiChu);
+        db.Parties.AddRange(owner, farEast, beiYuan, jiChu);
+
+        // 上游合同（我方对甲方，TypeCode=Main）——用于"对上 vs 对下"对账
+        var cUp = new Contract
+        {
+            Code = "MAIN-CZR-001", Project = project, Party = owner, TypeCode = "Main",
+            Title = "残疾人项目 10KV 外线电缆工程（总承包）", Amount = 12_480_000m, TaxRate = 0.09m,
+            SignDate = new DateOnly(2025, 3, 1), Status = "执行中"
+        };
+        db.Contracts.Add(cUp);
 
         var c1 = new Contract
         {

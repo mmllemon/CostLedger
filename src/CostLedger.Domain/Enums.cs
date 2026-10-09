@@ -31,3 +31,10 @@ public enum CostCategoryType
     Labor,             // 人工
     Other
 }
+
+/// <summary>资金方向（蓝图规划：Payment 资金层含收入/支出方向）</summary>
+public enum PaymentDirection
+{
+    Pay,      // 付款（我方对下，支出）
+    Receive   // 收款（我方对上，收入）
+}

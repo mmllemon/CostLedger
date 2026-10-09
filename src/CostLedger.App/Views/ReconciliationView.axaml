@@ -14,6 +14,21 @@
         <StackPanel Spacing="10">
           <TextBlock Classes="label" Text="三算对比（目标 / 实际 / 结算）"/>
           <Grid x:Name="ThreeWayHost"/>
+          <TextBlock x:Name="TargetCapital" Foreground="{StaticResource Txt2Brush}" FontSize="12.5"/>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Classes="label" Text="对上 vs 对下（差额 = 对上 − 对下）"/>
+          <Grid x:Name="UpDownHost"/>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Classes="label" Text="资金 vs 应付应收（缺口 = 应 − 实）"/>
+          <Grid x:Name="FundHost"/>
         </StackPanel>
       </Border>
 

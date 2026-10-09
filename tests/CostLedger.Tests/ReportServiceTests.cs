@@ -36,9 +36,9 @@ public class ReportServiceTests
         var result = svc.Run(def);
 
         result.Headers.Should().Contain("合同编号").And.Contain("合同金额");
-        result.Rows.Should().HaveCount(4); // 种子 4 份合同
+        result.Rows.Should().HaveCount(5); // 种子：上游 MAIN + 4 份下游合同
         var total = decimal.Parse(result.Footers[3].Replace(",", ""), CultureInfo.InvariantCulture);
-        total.Should().Be(4_633_000m); // 186.3w + 129w + 98w + 50w
+        total.Should().Be(17_113_000m); // 12,480,000 + 186.3w + 129w + 98w + 50w
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public class ReportServiceTests
 
         var result = svc.Run(def);
 
-        result.Rows.Should().HaveCount(2);
+        result.Rows.Should().HaveCount(3); // 12,480,000 / 1,863,000 / 1,290,000
     }
 
     [Fact]

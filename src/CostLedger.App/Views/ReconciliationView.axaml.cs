@@ -63,6 +63,24 @@ public partial class ReconciliationView : UserControl
                 }, summary.TargetVsIncurred > 0)
             },
             breachColumn: 3);
+        TargetCapital.Text = "目标成本大写：" + MoneyUtil.ToChineseCapital(summary.Target);
+
+        // 对上 vs 对下
+        var updown = await _recon.UpDownVarianceAsync(projectId);
+        var upRows = updown.Rows
+            .Select(r => (new[] { r.TypeCode, r.IsUpstream ? "对上" : "对下", Money(r.Amount) }, false))
+            .ToList();
+        upRows.Add((new[] { "—", "对上合计", Money(updown.Upstream) }, false));
+        upRows.Add((new[] { "—", "对下合计", Money(updown.Downstream) }, false));
+        upRows.Add((new[] { "—", "差额", Money(updown.Diff) }, updown.Diff < 0));
+        Fill(UpDownHost, new[] { "合同类型", "方向", "金额" }, upRows, breachColumn: 2);
+
+        // 资金 vs 应付应收
+        var fund = await _recon.FundReconAsync(projectId);
+        Fill(FundHost,
+            new[] { "类别", "应", "实", "缺口" },
+            fund.Select(r => (new[] { r.Kind, Money(r.Should), Money(r.Actual), Money(r.Gap) }, r.Gap > 0)).ToList(),
+            breachColumn: 3);
 
         var contractRows = await _recon.ContractVsCostAsync(projectId);
         Fill(ContractHost,
