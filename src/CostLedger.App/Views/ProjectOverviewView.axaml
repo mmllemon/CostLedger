@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="CostLedger.App.Views.ProjectOverviewView"
+             Background="{StaticResource BgBrush}"
+             FontFamily="Microsoft YaHei, Segoe UI, sans-serif">
+  <ScrollViewer Margin="16,16,16,16">
+    <StackPanel Spacing="14">
+      <StackPanel Orientation="Horizontal" Spacing="10">
+        <TextBlock Text="项目" VerticalAlignment="Center" Foreground="{StaticResource Txt2Brush}"/>
+        <ComboBox x:Name="ProjCombo" Width="300" SelectionChanged="OnProjectChanged"/>
+        <Button Classes="pill" Content="打印项目总览" Click="OnPrint"/>
+      </StackPanel>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Classes="label" Text="资金（合同 / 收付 / 变更）"/>
+          <WrapPanel x:Name="MoneyHost"/>
+        </StackPanel>
+      </Border>
+
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Classes="label" Text="成本（六类口径）"/>
+          <WrapPanel x:Name="CostHost"/>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

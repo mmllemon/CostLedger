@@ -61,11 +61,19 @@ public partial class MainWindow : Window
 
     private void NavigateTo(string key)
     {
-        foreach (var b in new[] { NavDashboard, NavMaster, NavDocs, NavProject, NavCategory, NavReports, NavBoardDesign, NavAlerts, NavRecon, NavSettings })
+        foreach (var b in new[] { NavDashboard, NavOverview, NavLedgers, NavMaster, NavDocs, NavProject, NavCategory, NavReports, NavBoardDesign, NavAlerts, NavRecon, NavSettings })
             b.Classes.Remove("on");
 
         switch (key)
         {
+            case "NavOverview":
+                NavOverview.Classes.Add("on");
+                MainArea.Content = new ProjectOverviewView(_db);
+                break;
+            case "NavLedgers":
+                NavLedgers.Classes.Add("on");
+                MainArea.Content = new LedgerCenterView(_db);
+                break;
             case "NavMaster":
                 NavMaster.Classes.Add("on");
                 MainArea.Content = new MasterDataView(_db, _metadata);

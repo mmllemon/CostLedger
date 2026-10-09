@@ -14,6 +14,8 @@
         <TextBlock Text="诺亨成本" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
       </StackPanel>
       <Button x:Name="NavDashboard" Classes="nav on" Content="成本看板" Click="OnNavClick"/>
+      <Button x:Name="NavOverview" Classes="nav" Content="项目总览" Click="OnNavClick"/>
+      <Button x:Name="NavLedgers" Classes="nav" Content="台账中心" Click="OnNavClick"/>
       <Button x:Name="NavMaster" Classes="nav" Content="基础资料" Click="OnNavClick"/>
       <Button x:Name="NavDocs" Classes="nav" Content="业务单据" Click="OnNavClick"/>
       <Button x:Name="NavProject" Classes="nav" Content="项目" Click="OnNavClick"/>
