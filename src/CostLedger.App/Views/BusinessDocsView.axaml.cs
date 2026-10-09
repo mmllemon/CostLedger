@@ -2,11 +2,14 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Media;
 using CostLedger.Domain;
 using CostLedger.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -26,11 +29,15 @@ public partial class BusinessDocsView : UserControl
     private readonly InvoiceService _invSvc = null!;
     private readonly SettlementService _stSvc = null!;
     private readonly PaymentService _paySvc = null!;
+    private readonly ManualCostService _manualSvc = null!;
 
     private List<Project> _projects = new();
     private List<Contract> _contracts = new();
     private List<CostCategory> _categories = new();
     private List<Party> _parties = new();
+    private List<WBSItem> _wbsItems = new();
+    private Dictionary<int, CostCategory> _catDict = new();
+    private Dictionary<int, WBSItem> _wbsDict = new();
 
     private int _coId, _mrId, _invId, _stId, _payId;
 
@@ -47,6 +54,7 @@ public partial class BusinessDocsView : UserControl
         _invSvc = new InvoiceService(db);
         _stSvc = new SettlementService(db);
         _paySvc = new PaymentService(db);
+        _manualSvc = new ManualCostService(db, new CostWriteBackService(db));
         _ = InitAsync();
     }
 
@@ -56,13 +64,18 @@ public partial class BusinessDocsView : UserControl
         _contracts = await _db.Contracts.OrderBy(c => c.Code).ToListAsync();
         _categories = await _db.CostCategories.OrderBy(c => c.Name).ToListAsync();
         _parties = await _db.Parties.OrderBy(p => p.Name).ToListAsync();
+        _wbsItems = await _db.WbsItems.OrderBy(w => w.FullPath).ToListAsync();
+        _catDict = _categories.ToDictionary(c => c.Id);
+        _wbsDict = _wbsItems.ToDictionary(w => w.Id);
 
-        foreach (var cb in new[] { CoProject, MrProject, InvProject, StProject })
+        foreach (var cb in new[] { CoProject, MrProject, InvProject, StProject, ManualProject })
             Wire(cb, _projects, "Name");
-        foreach (var cb in new[] { CoContract, MrContract, InvContract, StContract, PayContract })
+        foreach (var cb in new[] { CoContract, MrContract, InvContract, StContract, PayContract, ManualContract })
             Wire(cb, _contracts, "Code");
-        foreach (var cb in new[] { CoCategory, MrCategory })
+        foreach (var cb in new[] { CoCategory, MrCategory, ManualCategory })
             Wire(cb, _categories, "Name");
+        Wire(MrWbs, _wbsItems, "FullPath");
+        Wire(ManualWbs, _wbsItems, "FullPath");
         Wire(InvParty, _parties, "Name");
         Wire(PayParty, _parties, "Name");
 
@@ -79,6 +92,8 @@ public partial class BusinessDocsView : UserControl
         await ReloadInvAsync();
         await ReloadStAsync();
         await ReloadPayAsync();
+        await ReloadManualAsync();
+        OnManualNew(null, new RoutedEventArgs());
     }
 
     private static void Wire(ComboBox cb, System.Collections.IEnumerable items, string member)
@@ -201,6 +216,7 @@ public partial class BusinessDocsView : UserControl
         MrPrice.Value = mr.UnitPrice;
         MrAmount.Value = mr.Amount;
         SetDate(MrDate, mr.ReceiptDate);
+        MrWbs.SelectedItem = _wbsItems.FirstOrDefault(x => x.Id == mr.WbsItemId);
         MrStatus.Text = mr.Status == DocStatus.Confirmed ? "已确认" : "草稿";
     }
 
@@ -212,6 +228,7 @@ public partial class BusinessDocsView : UserControl
         MrProject.SelectedItem = _projects.FirstOrDefault(p => p.Id == DefaultProjectId);
         MrContract.SelectedItem = null;
         MrCategory.SelectedItem = null;
+        MrWbs.SelectedItem = null;
         MrName.Text = ""; MrSpec.Text = ""; MrUnit.Text = "";
         MrQty.Value = 0; MrPrice.Value = 0; MrAmount.Value = 0;
         SetDate(MrDate, DateOnly.FromDateTime(DateTime.Today));
@@ -227,6 +244,7 @@ public partial class BusinessDocsView : UserControl
         mr.ProjectId = Pick<Project>(MrProject)?.Id ?? DefaultProjectId;
         mr.ContractId = Pick<Contract>(MrContract)?.Id;
         mr.CostCategoryId = Pick<CostCategory>(MrCategory)?.Id;
+        mr.WbsItemId = (MrWbs.SelectedItem as WBSItem)?.Id;
         mr.MaterialName = MrName.Text?.Trim() ?? "";
         mr.Spec = MrSpec.Text; mr.Unit = MrUnit.Text;
         mr.Quantity = Val(MrQty);
@@ -450,5 +468,86 @@ public partial class BusinessDocsView : UserControl
         _payId = 0;
         await ReloadPayAsync();
         OnPayNew(null, new RoutedEventArgs());
+    }
+
+    // ==================== 手工成本（非单据成本） ====================
+    private async Task ReloadManualAsync()
+    {
+        var list = await _manualSvc.ListAsync(DefaultProjectId);
+        ManualList.Children.Clear();
+        decimal sum = 0m;
+        foreach (var e in list)
+        {
+            sum += e.Amount;
+            var info = new TextBlock
+            {
+                Text = $"{e.EntryDate:yyyy-MM-dd}　{e.Note ?? "(无摘要)"}\n"
+                     + $"科目：{(_catDict.TryGetValue(e.CostCategoryId ?? 0, out var c) ? c.Name : "—")}"
+                     + (e.WbsItemId.HasValue && _wbsDict.TryGetValue(e.WbsItemId.Value, out var w) ? $"｜部位：{w.FullPath}" : ""),
+                FontSize = 12,
+                TextWrapping = TextWrapping.Wrap,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var amt = new TextBlock
+            {
+                Text = (e.Amount >= 0 ? "+" : "") + e.Amount.ToString("N2", CultureInfo.CurrentCulture),
+                FontWeight = FontWeight.SemiBold,
+                Foreground = (SolidColorBrush)this.FindResource(e.Amount < 0 ? "RedBrush" : "InkBrush")!,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(10, 0, 10, 0)
+            };
+            var btn = new Button { Content = "冲销", Classes = { "pill" }, Tag = e.Id, FontSize = 11.5 };
+            btn.Click += OnManualReverse;
+
+            var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("1*,Auto,Auto") };
+            Grid.SetColumn(info, 0);
+            Grid.SetColumn(amt, 1);
+            Grid.SetColumn(btn, 2);
+            grid.Children.Add(info);
+            grid.Children.Add(amt);
+            grid.Children.Add(btn);
+
+            ManualList.Children.Add(new Border
+            {
+                Child = grid,
+                Background = (SolidColorBrush)this.FindResource("CardBrush")!,
+                BorderBrush = (SolidColorBrush)this.FindResource("LineBrush")!,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(10)
+            });
+        }
+        ManualSum.Text = $"手工成本合计（已发生）：{sum:N2}　共 {list.Count} 笔";
+    }
+
+    private async void OnManualAdd(object? sender, RoutedEventArgs e)
+    {
+        var catId = Pick<CostCategory>(ManualCategory)?.Id;
+        if (catId is null) { ManualSum.Text = "请先选择成本科目"; return; }
+        var amount = Val(ManualAmount);
+        if (amount == 0) { ManualSum.Text = "金额不能为 0"; return; }
+        var projectId = Pick<Project>(ManualProject)?.Id ?? DefaultProjectId;
+        var wbsId = (ManualWbs.SelectedItem as WBSItem)?.Id;
+        var contractId = Pick<Contract>(ManualContract)?.Id;
+        await _manualSvc.RecordAsync(projectId, catId, wbsId, contractId, amount, AsDate(ManualDate), ManualNote.Text);
+        OnManualNew(null, new RoutedEventArgs());
+        await ReloadManualAsync();
+    }
+
+    private void OnManualNew(object? sender, RoutedEventArgs e)
+    {
+        ManualCategory.SelectedItem = null;
+        ManualWbs.SelectedItem = null;
+        ManualContract.SelectedItem = null;
+        ManualAmount.Value = 0;
+        SetDate(ManualDate, DateOnly.FromDateTime(DateTime.Today));
+        ManualNote.Text = "";
+    }
+
+    private async void OnManualReverse(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button b || b.Tag is not int id) return;
+        await _manualSvc.ReverseAsync(id);
+        await ReloadManualAsync();
     }
 }

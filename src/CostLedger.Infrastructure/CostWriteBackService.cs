@@ -24,7 +24,7 @@ public class CostWriteBackService
     public async Task<bool> AppendAsync(
         int projectId, int? costCategoryId, int? contractId,
         VoucherType type, string refNo, decimal amount, DateOnly entryDate,
-        string? note = null, CancellationToken ct = default)
+        string? note = null, int? wbsItemId = null, CancellationToken ct = default)
     {
         if (await ExistsAsync(type, refNo, ct)) return false;
 
@@ -41,6 +41,7 @@ public class CostWriteBackService
             ProjectId = projectId,
             CostCategoryId = cat,
             ContractId = contractId,
+            WbsItemId = wbsItemId,
             SourceVoucherType = type,
             SourceVoucherRef = refNo,
             Amount = amount,
@@ -55,7 +56,7 @@ public class CostWriteBackService
     public async Task<bool> ReverseAsync(
         int projectId, int? costCategoryId, int? contractId,
         VoucherType type, string refNo, decimal amount, DateOnly entryDate,
-        string? note = null, CancellationToken ct = default)
+        string? note = null, int? wbsItemId = null, CancellationToken ct = default)
         => await AppendAsync(projectId, costCategoryId, contractId, type, refNo + "-REV", -amount, entryDate,
-            note ?? $"冲销 {refNo}", ct);
+            note ?? $"冲销 {refNo}", wbsItemId, ct);
 }

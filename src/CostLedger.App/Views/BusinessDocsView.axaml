@@ -106,11 +106,13 @@
                 <TextBlock Grid.Row="4" Grid.Column="2" Text="金额" VerticalAlignment="Center"/>
                 <NumericUpDown x:Name="MrAmount" Grid.Row="4" Grid.Column="3" Minimum="0" Maximum="99999999" Margin="6,0,0,0"/>
               </Grid>
-              <Grid ColumnDefinitions="90,*,90,*">
-                <TextBlock Grid.Column="0" Text="收料日期" VerticalAlignment="Center"/>
-                <DatePicker x:Name="MrDate" Grid.Column="1" HorizontalAlignment="Stretch" Margin="6,0,14,0"/>
-                <TextBlock Grid.Column="2" Text="状态" VerticalAlignment="Center"/>
-                <TextBlock x:Name="MrStatus" Grid.Column="3" VerticalAlignment="Center" FontWeight="SemiBold"/>
+              <Grid ColumnDefinitions="90,*,90,*" RowDefinitions="Auto,Auto">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="收料日期" VerticalAlignment="Center"/>
+                <DatePicker x:Name="MrDate" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" Margin="6,0,14,0"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="部位" VerticalAlignment="Center"/>
+                <ComboBox x:Name="MrWbs" Grid.Row="0" Grid.Column="3" HorizontalAlignment="Stretch" Margin="6,0,0,0" PlaceholderText="（可选）"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="状态" VerticalAlignment="Center"/>
+                <TextBlock x:Name="MrStatus" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" VerticalAlignment="Center" FontWeight="SemiBold"/>
               </Grid>
               <StackPanel Orientation="Horizontal" Spacing="10">
                 <Button Classes="primary" Content="保存" Click="OnMrSave"/>
@@ -275,6 +277,52 @@
               <StackPanel Orientation="Horizontal" Spacing="10">
                 <Button Classes="primary" Content="保存" Click="OnPaySave"/>
               </StackPanel>
+            </StackPanel>
+          </Border>
+        </ScrollViewer>
+      </Grid>
+    </TabItem>
+
+    <!-- ================= 手工成本（非单据成本） ================= -->
+    <TabItem Header="手工成本">
+      <Grid ColumnDefinitions="300,1*" Margin="0,10,0,0">
+        <Border Grid.Column="0" Classes="sidecard" Margin="0,0,10,0">
+          <Grid RowDefinitions="Auto,1*,Auto">
+            <TextBlock Grid.Row="0" Classes="label" Text="手工成本登记（凭证式，只追加）"/>
+            <ScrollViewer Grid.Row="1" Margin="0,10,0,0">
+              <StackPanel x:Name="ManualList" Spacing="6"/>
+            </ScrollViewer>
+            <TextBlock Grid.Row="2" x:Name="ManualSum" Margin="0,10,0,0" FontWeight="SemiBold"/>
+          </Grid>
+        </Border>
+        <ScrollViewer Grid.Column="1">
+          <Border Classes="card" HorizontalAlignment="Left">
+            <StackPanel Spacing="10" Width="520">
+              <TextBlock Classes="label" Text="手工成本（人工/机械/现场经费等非单据成本，确认后计入已发生）"/>
+              <Grid ColumnDefinitions="90,*,90,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="项目" VerticalAlignment="Center"/>
+                <ComboBox x:Name="ManualProject" Grid.Row="0" Grid.Column="1" HorizontalAlignment="Stretch" Margin="6,0,14,6"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="成本科目" VerticalAlignment="Center"/>
+                <ComboBox x:Name="ManualCategory" Grid.Row="0" Grid.Column="3" HorizontalAlignment="Stretch" Margin="6,0,0,6" PlaceholderText="（必选）"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="部位" VerticalAlignment="Center"/>
+                <ComboBox x:Name="ManualWbs" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch" Margin="6,0,14,6" PlaceholderText="（可选）"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="关联合同" VerticalAlignment="Center"/>
+                <ComboBox x:Name="ManualContract" Grid.Row="1" Grid.Column="3" HorizontalAlignment="Stretch" Margin="6,0,0,6" PlaceholderText="（可选）"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="金额" VerticalAlignment="Center"/>
+                <NumericUpDown x:Name="ManualAmount" Grid.Row="2" Grid.Column="1" Minimum="-99999999" Maximum="99999999" Margin="6,0,14,0"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="日期" VerticalAlignment="Center"/>
+                <DatePicker x:Name="ManualDate" Grid.Row="2" Grid.Column="3" HorizontalAlignment="Stretch" Margin="6,0,0,0"/>
+              </Grid>
+              <TextBlock Classes="label" Text="摘要"/>
+              <TextBox x:Name="ManualNote" AcceptsReturn="True" Height="48"/>
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Classes="primary" Content="追加成本" Click="OnManualAdd"/>
+                <Button Classes="pill" Content="清空" Click="OnManualNew"/>
+              </StackPanel>
+              <TextBlock Foreground="{StaticResource Txt3Brush}" FontSize="11.5" TextWrapping="Wrap"
+                         Text="提示：手工成本以凭证方式追加，不可修改；如需更正请对该笔点「冲销」生成反向分录，保留审计轨迹。"/>
             </StackPanel>
           </Border>
         </ScrollViewer>

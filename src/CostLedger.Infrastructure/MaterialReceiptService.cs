@@ -55,6 +55,7 @@ public class MaterialReceiptService
         if (mr.Source == MaterialSource.Owner) return false; // 甲供不计我方成本
 
         return await _writer.AppendAsync(mr.ProjectId, mr.CostCategoryId, mr.ContractId,
-            VoucherType.MaterialReceipt, mr.Code, mr.Amount, mr.ReceiptDate, $"材料 {mr.MaterialName}");
+            VoucherType.MaterialReceipt, mr.Code, mr.Amount, mr.ReceiptDate, $"材料 {mr.MaterialName}",
+            wbsItemId: mr.WbsItemId);
     }
 }

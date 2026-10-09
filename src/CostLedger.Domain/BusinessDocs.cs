@@ -76,6 +76,10 @@ public class MaterialReceipt
     public int? CostCategoryId { get; set; }
     public CostCategory? CostCategory { get; set; }
 
+    /// <summary>成本归集的部位（WBS，可空）。确认回写时携带，用于按部位成本定位。</summary>
+    public int? WbsItemId { get; set; }
+    public WBSItem? WbsItem { get; set; }
+
     public string MaterialName { get; set; } = string.Empty;
     public string? Spec { get; set; }
     public string? Unit { get; set; }

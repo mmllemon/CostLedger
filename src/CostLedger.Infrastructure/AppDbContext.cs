@@ -294,6 +294,7 @@ public class AppDbContext : DbContext
             b.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
             b.HasOne(x => x.Contract).WithMany().HasForeignKey(x => x.ContractId).OnDelete(DeleteBehavior.SetNull);
             b.HasOne(x => x.CostCategory).WithMany().HasForeignKey(x => x.CostCategoryId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.WbsItem).WithMany().HasForeignKey(x => x.WbsItemId).OnDelete(DeleteBehavior.SetNull);
         });
         mb.Entity<Invoice>(b =>
         {
@@ -355,7 +356,7 @@ public class AppDbContext : DbContext
 public static class DbBootstrap
 {
     /// <summary>当前库结构版本。每次变更模型后 +1，旧库会自动备份并重建。</summary>
-    public const int SchemaVersion = 6;
+    public const int SchemaVersion = 7;
 
     /// <summary>当前账套文件路径（Configure 时记录，供备份等使用）。</summary>
     public static string? CurrentDbPath { get; private set; }
