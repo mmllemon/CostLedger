@@ -24,7 +24,7 @@ public partial class App : Application
             var dbPath = Path.Combine(AppContext.BaseDirectory, "costledger.db");
             var options = DbBootstrap.Configure(dbPath);
             var db = new AppDbContext(options);
-            DbBootstrap.EnsureCreatedAndSeed(db);
+            DbBootstrap.EnsureCreatedAndSeed(db, dbPath);
             ICostSpineService spine = new CostSpineService(db);
             var metadata = new MetadataService(db);
 

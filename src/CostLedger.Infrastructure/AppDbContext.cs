@@ -2,6 +2,9 @@ using CostLedger.Domain;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
+using System;
+using System.IO;
+using System.Linq;
 
 namespace CostLedger.Infrastructure;
 
@@ -288,28 +291,91 @@ public class AppDbContext : DbContext
     }
 }
 
-/// <summary>M1 引导：配置 SQLite 连接 + EnsureCreated + 种子</summary>
+/// <summary>
+/// 数据库引导：SQLite 连接 + 结构版本 + 安全升级（升级前自动备份，杜绝静默丢数据）+ 种子。
+/// 结构版本存于 SQLite 的 PRAGMA user_version；每次改动模型（加字段/表）后把 SchemaVersion +1。
+/// </summary>
 public static class DbBootstrap
 {
+    /// <summary>当前库结构版本。每次变更模型后 +1，旧库会自动备份并重建。</summary>
+    public const int SchemaVersion = 1;
+
+    /// <summary>当前账套文件路径（Configure 时记录，供备份等使用）。</summary>
+    public static string? CurrentDbPath { get; private set; }
+
     public static DbContextOptions<AppDbContext> Configure(string dbPath)
-        => new DbContextOptionsBuilder<AppDbContext>()
+    {
+        CurrentDbPath = dbPath;
+        return new DbContextOptionsBuilder<AppDbContext>()
             .UseSqlite($"Data Source={dbPath}")
             .Options;
+    }
 
-    public static void EnsureCreatedAndSeed(AppDbContext db)
+    public static void EnsureCreatedAndSeed(AppDbContext db, string dbPath)
     {
-        db.Database.EnsureCreated();
-        try
+        bool existed = File.Exists(dbPath);
+        int ver = existed ? ReadUserVersion(dbPath) : -1;
+
+        if (!existed)
         {
-            SeedData.SeedIfEmpty(db);
+            db.Database.EnsureCreated();
+            SetUserVersion(dbPath, SchemaVersion);
         }
-        catch (Microsoft.Data.Sqlite.SqliteException ex)
-            when (ex.Message.Contains("no such table", StringComparison.OrdinalIgnoreCase))
+        else if (ver != SchemaVersion)
         {
-            // M1 旧库缺 M2-A 元数据表：重建数据库并重种子（演示数据确定可重建）
+            // 结构升级：先把旧库整份备份到 backups/，再重建，绝不静默丢数据
+            var backup = BackupFile(dbPath, ver);
+            Console.WriteLine($"[db] 结构升级 v{ver} → v{SchemaVersion}，旧库已备份：{backup}");
             db.Database.EnsureDeleted();
             db.Database.EnsureCreated();
-            SeedData.SeedIfEmpty(db);
+            SetUserVersion(dbPath, SchemaVersion);
         }
+
+        SeedData.SeedIfEmpty(db);
+    }
+
+    /// <summary>把账套备份到 backups/ 下（带版本与时间戳），并只保留最近 10 份。</summary>
+    public static string BackupFile(string dbPath, int version)
+    {
+        var dir = Path.Combine(Path.GetDirectoryName(dbPath) ?? ".", "backups");
+        Directory.CreateDirectory(dir);
+        var target = Path.Combine(dir, $"costledger_v{version}_{DateTime.Now:yyyyMMdd_HHmmss}.db");
+        File.Copy(dbPath, target, overwrite: true);
+        PruneBackups(dir, keep: 10);
+        return target;
+    }
+
+    /// <summary>手动备份到用户指定文件。</summary>
+    public static void BackupTo(string dbPath, string targetFile) => File.Copy(dbPath, targetFile, overwrite: true);
+
+    private static void PruneBackups(string dir, int keep)
+    {
+        try
+        {
+            var files = Directory.GetFiles(dir, "*.db").OrderByDescending(f => f).ToList();
+            foreach (var f in files.Skip(keep)) File.Delete(f);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[db] 清理旧备份失败：{ex.Message}");
+        }
+    }
+
+    private static int ReadUserVersion(string path)
+    {
+        using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={path}");
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "PRAGMA user_version;";
+        return Convert.ToInt32(cmd.ExecuteScalar());
+    }
+
+    private static void SetUserVersion(string path, int version)
+    {
+        using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={path}");
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"PRAGMA user_version = {version};";
+        cmd.ExecuteNonQuery();
     }
 }

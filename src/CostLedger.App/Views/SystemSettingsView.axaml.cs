@@ -1,13 +1,17 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
+using Avalonia.Platform.Storage;
 using CostLedger.Domain;
 using CostLedger.Infrastructure;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -45,7 +49,42 @@ public partial class SystemSettingsView : UserControl
     public SystemSettingsView(MetadataService metadata) : this()
     {
         _metadata = metadata;
+        InitBackupInfo();
         _ = InitAsync();
+    }
+
+    private void InitBackupInfo()
+    {
+        DbPathText.Text = DbBootstrap.CurrentDbPath ?? "(未知)";
+        DbVersionText.Text = $"结构版本：v{DbBootstrap.SchemaVersion}";
+    }
+
+    private async void OnBackup(object? sender, RoutedEventArgs e)
+    {
+        var path = DbBootstrap.CurrentDbPath;
+        if (path is null || !File.Exists(path)) { BackupStatus.Text = "未找到账套文件"; return; }
+        var top = TopLevel.GetTopLevel(this);
+        if (top is null) return;
+
+        var file = await top.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            SuggestedFileName = $"costledger_backup_{DateTime.Now:yyyyMMdd_HHmmss}.db",
+            FileTypeChoices = new[] { new FilePickerFileType("SQLite 账套") { Patterns = new[] { "*.db" } } }
+        });
+        if (file is null) return;
+        var target = file.TryGetLocalPath();
+        if (string.IsNullOrEmpty(target)) { BackupStatus.Text = "该位置不支持写入"; return; }
+
+        DbBootstrap.BackupTo(path, target);
+        BackupStatus.Text = "备份完成：" + Path.GetFileName(target);
+    }
+
+    private void OnOpenFolder(object? sender, RoutedEventArgs e)
+    {
+        var path = DbBootstrap.CurrentDbPath;
+        if (path is null) return;
+        var dir = Path.GetDirectoryName(path)!;
+        Process.Start(new ProcessStartInfo("explorer.exe", $"\"{dir}\"") { UseShellExecute = true });
     }
 
     private SolidColorBrush Brush(string key) => (SolidColorBrush)this.FindResource(key)!;

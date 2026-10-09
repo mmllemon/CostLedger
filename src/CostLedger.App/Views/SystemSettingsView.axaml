@@ -41,6 +41,27 @@
           <Button Classes="primary" Content="保存字段" HorizontalAlignment="Right" Click="OnSaveFields"/>
         </StackPanel>
       </TabItem>
+
+      <!-- 数据备份 -->
+      <TabItem Header="数据备份">
+        <StackPanel Spacing="12" Margin="4,8,0,0">
+          <Border Classes="sidecard">
+            <StackPanel Spacing="6">
+              <TextBlock Text="账套文件" Classes="label"/>
+              <TextBlock x:Name="DbPathText" TextWrapping="Wrap" Foreground="{StaticResource Txt2Brush}"/>
+              <TextBlock x:Name="DbVersionText" Foreground="{StaticResource Txt2Brush}"/>
+            </StackPanel>
+          </Border>
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <Button Classes="primary" Content="立即备份…" Click="OnBackup"/>
+            <Button Classes="pill" Content="打开数据目录" Click="OnOpenFolder"/>
+            <TextBlock x:Name="BackupStatus" VerticalAlignment="Center" FontSize="12.5"
+                       Foreground="{StaticResource AccentDeepBrush}"/>
+          </StackPanel>
+          <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource Txt3Brush}"
+                     Text="说明：系统结构升级时，旧账套会自动整份备份到 backups/ 目录（保留最近 10 份），不会静默丢失数据。建议定期「立即备份」到公司网盘或 U 盘。"/>
+        </StackPanel>
+      </TabItem>
     </TabControl>
   </StackPanel>
 </UserControl>
