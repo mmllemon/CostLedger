@@ -18,7 +18,9 @@ public enum VoucherType
     Contract,
     Measurement,
     Payment,
-    Manual
+    Manual,
+    ChangeOrder,      // 设计变更/签证
+    MaterialReceipt   // 材料收料（乙供）
 }
 
 /// <summary>成本科目大类</summary>

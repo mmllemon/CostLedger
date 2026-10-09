@@ -35,6 +35,12 @@ public class AppDbContext : DbContext
     // M2-D 看板层
     public DbSet<DashboardWidget> DashboardWidgets => Set<DashboardWidget>();
 
+    // M2-E 业务单据层（P0 缺口）
+    public DbSet<ChangeOrder> ChangeOrders => Set<ChangeOrder>();
+    public DbSet<MaterialReceipt> MaterialReceipts => Set<MaterialReceipt>();
+    public DbSet<Invoice> Invoices => Set<Invoice>();
+    public DbSet<Settlement> Settlements => Set<Settlement>();
+
     protected override void OnModelCreating(ModelBuilder mb)
     {
         // 全局 decimal(18,2)，避免 SQLite 默认无精度
@@ -209,6 +215,46 @@ public class AppDbContext : DbContext
             b.Property(x => x.WidgetKey).HasMaxLength(48);
             b.Property(x => x.Title).HasMaxLength(80);
             b.HasIndex(x => x.WidgetKey).IsUnique();
+        });
+
+        // ---- M2-E 业务单据层配置 ----
+        mb.Entity<ChangeOrder>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).HasMaxLength(48);
+            b.Property(x => x.Title).HasMaxLength(120);
+            b.HasIndex(x => x.Code).IsUnique();
+            b.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Contract).WithMany().HasForeignKey(x => x.ContractId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.CostCategory).WithMany().HasForeignKey(x => x.CostCategoryId).OnDelete(DeleteBehavior.SetNull);
+        });
+        mb.Entity<MaterialReceipt>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).HasMaxLength(48);
+            b.Property(x => x.MaterialName).HasMaxLength(120);
+            b.HasIndex(x => x.Code).IsUnique();
+            b.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Contract).WithMany().HasForeignKey(x => x.ContractId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.CostCategory).WithMany().HasForeignKey(x => x.CostCategoryId).OnDelete(DeleteBehavior.SetNull);
+        });
+        mb.Entity<Invoice>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).HasMaxLength(48);
+            b.Property(x => x.Status).HasMaxLength(32);
+            b.HasIndex(x => x.Code).IsUnique();
+            b.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Contract).WithMany().HasForeignKey(x => x.ContractId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.Party).WithMany().HasForeignKey(x => x.PartyId).OnDelete(DeleteBehavior.SetNull);
+        });
+        mb.Entity<Settlement>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).HasMaxLength(48);
+            b.HasIndex(x => x.Code).IsUnique();
+            b.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Contract).WithMany().HasForeignKey(x => x.ContractId).OnDelete(DeleteBehavior.SetNull);
         });
     }
 }
