@@ -27,6 +27,11 @@ public class AppDbContext : DbContext
     public DbSet<FieldDef> FieldDefs => Set<FieldDef>();
     public DbSet<CustomFieldValue> CustomFieldValues => Set<CustomFieldValue>();
 
+    // M2-C 报表层
+    public DbSet<ReportDef> ReportDefs => Set<ReportDef>();
+    public DbSet<ReportColumn> ReportColumns => Set<ReportColumn>();
+    public DbSet<ReportFilter> ReportFilters => Set<ReportFilter>();
+
     protected override void OnModelCreating(ModelBuilder mb)
     {
         // 全局 decimal(18,2)，避免 SQLite 默认无精度
@@ -164,6 +169,34 @@ public class AppDbContext : DbContext
             b.HasIndex(x => new { x.EntityDefCode, x.OwnerId });
             b.HasOne(x => x.FieldDef).WithMany()
                 .HasForeignKey(x => x.FieldDefId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ---- M2-C 报表层配置 ----
+        mb.Entity<ReportDef>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).HasMaxLength(48);
+            b.Property(x => x.Name).HasMaxLength(80);
+            b.Property(x => x.Title).HasMaxLength(120);
+            b.Property(x => x.DataSourceCode).HasMaxLength(48);
+            b.HasIndex(x => x.Code).IsUnique();
+        });
+        mb.Entity<ReportColumn>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.FieldKey).HasMaxLength(64);
+            b.Property(x => x.Label).HasMaxLength(80);
+            b.Property(x => x.Format).HasMaxLength(24);
+            b.HasOne(x => x.ReportDef).WithMany(r => r.Columns)
+                .HasForeignKey(x => x.ReportDefId).OnDelete(DeleteBehavior.Cascade);
+        });
+        mb.Entity<ReportFilter>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.FieldKey).HasMaxLength(64);
+            b.Property(x => x.Value).HasMaxLength(200);
+            b.HasOne(x => x.ReportDef).WithMany(r => r.Filters)
+                .HasForeignKey(x => x.ReportDefId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

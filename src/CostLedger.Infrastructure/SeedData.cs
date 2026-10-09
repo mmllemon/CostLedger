@@ -13,8 +13,32 @@ public static class SeedData
     public static void SeedIfEmpty(AppDbContext db)
     {
         SeedMetadata(db);
+        SeedReports(db);
         if (db.Projects.Any()) return;
         SeedDemoData(db);
+    }
+
+    // ---------- M2-C 报表定义（幂等，独立于元数据，便于既有库补种） ----------
+    private static void SeedReports(AppDbContext db)
+    {
+        if (db.ReportDefs.Any()) return;
+
+        var ledger = new ReportDef
+        {
+            Code = "CONTRACT-LEDGER",
+            Name = "合同台账",
+            Title = "合同台账",
+            DataSourceCode = "Contract",
+            Description = "按数据源配置的合同清单（示例）"
+        };
+        ledger.Columns.Add(new ReportColumn { FieldKey = "Code", Label = "合同编号", Visible = true, DisplayOrder = 1 });
+        ledger.Columns.Add(new ReportColumn { FieldKey = "TypeCode", Label = "合同类型", Visible = true, DisplayOrder = 2 });
+        ledger.Columns.Add(new ReportColumn { FieldKey = "Title", Label = "合同名称", Visible = true, DisplayOrder = 3 });
+        ledger.Columns.Add(new ReportColumn { FieldKey = "Amount", Label = "合同金额", Visible = true, DisplayOrder = 4, Format = "N2", Aggregate = AggregateType.Sum });
+        ledger.Columns.Add(new ReportColumn { FieldKey = "Status", Label = "状态", Visible = true, DisplayOrder = 5 });
+
+        db.ReportDefs.Add(ledger);
+        db.SaveChanges();
     }
 
     // ---------- M2-A 元数据（字典 + 实体/字段注册表） ----------

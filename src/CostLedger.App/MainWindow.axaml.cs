@@ -14,6 +14,7 @@ public partial class MainWindow : Window
     private readonly AppDbContext _db = null!;
     private readonly ICostSpineService _spine = null!;
     private readonly MetadataService _metadata = null!;
+    private readonly ReportService _reports = null!;
 
     public MainWindow()
     {
@@ -25,6 +26,7 @@ public partial class MainWindow : Window
         _db = db;
         _spine = spine;
         _metadata = metadata;
+        _reports = new ReportService(db);
         InitializeComponent();
         Closed += (_, _) => _db.Dispose();
         NavigateTo("dashboard");
@@ -39,7 +41,7 @@ public partial class MainWindow : Window
 
     private void NavigateTo(string key)
     {
-        foreach (var b in new[] { NavDashboard, NavMaster, NavProject, NavCategory, NavSettings })
+        foreach (var b in new[] { NavDashboard, NavMaster, NavProject, NavCategory, NavReports, NavSettings })
             b.Classes.Remove("on");
 
         switch (key)
@@ -73,6 +75,10 @@ public partial class MainWindow : Window
                     () => new CostCategory(),
                     m => { var c = (CostCategory)m; return $"{c.Code} · {c.Name}"; },
                     db => db.CostCategories.Cast<object>());
+                break;
+            case "NavReports":
+                NavReports.Classes.Add("on");
+                MainArea.Content = new ReportCenterView(_reports);
                 break;
             case "NavSettings":
                 NavSettings.Classes.Add("on");

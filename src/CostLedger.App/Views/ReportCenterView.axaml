@@ -1,0 +1,78 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="CostLedger.App.Views.ReportCenterView"
+             Background="{StaticResource BgBrush}"
+             FontFamily="Microsoft YaHei, Segoe UI, sans-serif">
+  <Grid ColumnDefinitions="250,1*">
+    <!-- 左侧报表列表 -->
+    <Border Grid.Column="0" Classes="sidecard" Margin="16,16,8,16">
+      <Grid RowDefinitions="Auto,1*,Auto">
+        <TextBlock Grid.Row="0" Classes="label" Text="报表列表"/>
+        <ListBox x:Name="ReportList" Grid.Row="1" SelectionChanged="OnReportSelected"
+                 Margin="0,10,0,0" Background="Transparent" BorderThickness="0"/>
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
+          <Button Classes="primary" Content="＋ 新建" Click="OnNewReport"/>
+          <Button Classes="danger" Content="删除" Click="OnDeleteReport"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- 右侧设计区 -->
+    <ScrollViewer Grid.Column="1" Margin="8,16,16,16">
+      <StackPanel Spacing="14">
+        <Border Classes="card">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="label" Text="基本信息"/>
+            <Grid ColumnDefinitions="80,*,80,*" RowDefinitions="Auto,Auto" Margin="0,6,0,0">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="报表名称" VerticalAlignment="Center"/>
+              <TextBox x:Name="NameBox" Grid.Row="0" Grid.Column="1" Margin="6,0,16,6"/>
+              <TextBlock Grid.Row="0" Grid.Column="2" Text="打印标题" VerticalAlignment="Center"/>
+              <TextBox x:Name="TitleBox" Grid.Row="0" Grid.Column="3" Margin="6,0,0,6"/>
+              <TextBlock Grid.Row="1" Grid.Column="0" Text="数据源" VerticalAlignment="Center"/>
+              <ComboBox x:Name="SourceCombo" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Stretch"
+                        Margin="6,0,16,0" SelectionChanged="OnSourceChanged"/>
+            </Grid>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="label" Text="列配置（勾选=输出；可改列名/顺序/格式/聚合）"/>
+            <Grid ColumnDefinitions="60,*,56,90,120" Margin="0,4,0,4">
+              <TextBlock Grid.Column="0" Classes="label" Text="显示"/>
+              <TextBlock Grid.Column="1" Classes="label" Text="列名"/>
+              <TextBlock Grid.Column="2" Classes="label" Text="序"/>
+              <TextBlock Grid.Column="3" Classes="label" Text="格式"/>
+              <TextBlock Grid.Column="4" Classes="label" Text="聚合"/>
+            </Grid>
+            <StackPanel x:Name="ColumnsHost" Spacing="8"/>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel Spacing="10">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Grid.Column="0" Classes="label" Text="筛选条件（全部满足）"/>
+              <Button Grid.Column="1" Classes="pill" Content="＋ 添加条件" Click="OnAddFilter"/>
+            </Grid>
+            <StackPanel x:Name="FiltersHost" Spacing="8"/>
+          </StackPanel>
+        </Border>
+
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <Button Classes="primary" Content="保存" Click="OnSaveReport"/>
+          <Button Classes="pill" Content="▶ 运行预览" Click="OnRunReport"/>
+        </StackPanel>
+
+        <Border Classes="card">
+          <StackPanel Spacing="10">
+            <TextBlock x:Name="ResultTitle" Classes="label" Text="运行结果"/>
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+              <Grid x:Name="ResultHost" Margin="0,4,0,0"/>
+            </ScrollViewer>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>
