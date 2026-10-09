@@ -229,12 +229,28 @@ public static class SeedData
         };
         db.Contracts.AddRange(c1, c2, c3, cLabor);
 
+        // 部位（WBS / 分部分项）——成本第二维度，用于定位"哪一段超支"
+        var wCable = new WBSItem { Project = project, Code = "W1", Name = "电缆工程", FullPath = "电缆工程", SortOrder = 1 };
+        var wTrench = new WBSItem { Project = project, Code = "W11", Name = "电缆排管土建", FullPath = "电缆工程/电缆排管土建", Parent = wCable, SortOrder = 11 };
+        var wLay = new WBSItem { Project = project, Code = "W12", Name = "电缆敷设", FullPath = "电缆工程/电缆敷设", Parent = wCable, SortOrder = 12 };
+        var wHead = new WBSItem { Project = project, Code = "W13", Name = "电缆终端头", FullPath = "电缆工程/电缆终端头", Parent = wCable, SortOrder = 13 };
+        var wBase = new WBSItem { Project = project, Code = "W2", Name = "基础施工", FullPath = "基础施工", SortOrder = 2 };
+        var wTest = new WBSItem { Project = project, Code = "W3", Name = "试验调试", FullPath = "试验调试", SortOrder = 3 };
+        db.WbsItems.AddRange(wCable, wTrench, wLay, wHead, wBase, wTest);
+
+        // 工程量清单（BOQ）——目标成本来源；合价合计 4,633,000，与原合同口径一致
+        db.BoqLines.AddRange(
+            new BoqLine { Project = project, Code = "030408001", ItemName = "电力电缆 WDZBN-YJY23-B1 8.7/15kV", Unit = "m", Quantity = 1000, UnitPrice = 1863m, Amount = 1_863_000m, TaxRate = 0.13m, CostCategory = catCable, WbsItem = wLay },
+            new BoqLine { Project = project, Code = "030409001", ItemName = "电缆排管土建", Unit = "项", Quantity = 1, UnitPrice = 1_290_000m, Amount = 1_290_000m, TaxRate = 0.09m, CostCategory = catSub, WbsItem = wTrench },
+            new BoqLine { Project = project, Code = "030501001", ItemName = "电缆井 / 基础施工", Unit = "项", Quantity = 1, UnitPrice = 980_000m, Amount = 980_000m, TaxRate = 0.09m, CostCategory = catSub, WbsItem = wBase },
+            new BoqLine { Project = project, Code = "030411001", ItemName = "试验调试劳务", Unit = "项", Quantity = 1, UnitPrice = 500_000m, Amount = 500_000m, TaxRate = 0.03m, CostCategory = catLabor, WbsItem = wTest });
+
         // 成本凭证回写（唯一写入入口）。电缆故意超支。
         db.CostEntries.AddRange(
-            new CostEntry { Project = project, CostCategory = catCable, Contract = c1, SourceVoucherType = VoucherType.Contract, SourceVoucherRef = "PO-FAR-001", Amount = 2_000_000m, EntryDate = new DateOnly(2025, 6, 1), Note = "电缆采购回写（超支）" },
-            new CostEntry { Project = project, CostCategory = catSub, Contract = c2, SourceVoucherType = VoucherType.Contract, SourceVoucherRef = "SUB-BY-001", Amount = 1_290_000m, EntryDate = new DateOnly(2025, 7, 1) },
-            new CostEntry { Project = project, CostCategory = catSub, Contract = c3, SourceVoucherType = VoucherType.Contract, SourceVoucherRef = "SUB-JC-001", Amount = 980_000m, EntryDate = new DateOnly(2025, 7, 1) },
-            new CostEntry { Project = project, CostCategory = catLabor, Contract = cLabor, SourceVoucherType = VoucherType.Contract, SourceVoucherRef = "LAB-001", Amount = 400_000m, EntryDate = new DateOnly(2025, 8, 1) }
+            new CostEntry { Project = project, CostCategory = catCable, Contract = c1, WbsItem = wLay, SourceVoucherType = VoucherType.Contract, SourceVoucherRef = "PO-FAR-001", Amount = 2_000_000m, EntryDate = new DateOnly(2025, 6, 1), Note = "电缆采购回写（超支）" },
+            new CostEntry { Project = project, CostCategory = catSub, Contract = c2, WbsItem = wTrench, SourceVoucherType = VoucherType.Contract, SourceVoucherRef = "SUB-BY-001", Amount = 1_290_000m, EntryDate = new DateOnly(2025, 7, 1) },
+            new CostEntry { Project = project, CostCategory = catSub, Contract = c3, WbsItem = wBase, SourceVoucherType = VoucherType.Contract, SourceVoucherRef = "SUB-JC-001", Amount = 980_000m, EntryDate = new DateOnly(2025, 7, 1) },
+            new CostEntry { Project = project, CostCategory = catLabor, Contract = cLabor, WbsItem = wTest, SourceVoucherType = VoucherType.Contract, SourceVoucherRef = "LAB-001", Amount = 400_000m, EntryDate = new DateOnly(2025, 8, 1) }
         );
 
         db.SaveChanges();

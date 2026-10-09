@@ -20,6 +20,10 @@ public class CostEntry
     public int? MeasurementId { get; set; }
     public Measurement? Measurement { get; set; }
 
+    /// <summary>成本归集的部位（WBS）维度（可空）</summary>
+    public int? WbsItemId { get; set; }
+    public WBSItem? WbsItem { get; set; }
+
     /// <summary>来源单据类型</summary>
     public VoucherType SourceVoucherType { get; set; }
     /// <summary>来源单据号（反查键）</summary>

@@ -52,6 +52,10 @@ public class AppDbContext : DbContext
     // 审计（只追加）
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
+    // 成本管理内核：部位(WBS) 与 工程量清单(BOQ)
+    public DbSet<WBSItem> WbsItems => Set<WBSItem>();
+    public DbSet<BoqLine> BoqLines => Set<BoqLine>();
+
     /// <summary>为 true 时不写审计（用于种子/系统初始化）。</summary>
     public bool SuppressAudit { get; set; }
 
@@ -155,6 +159,29 @@ public class AppDbContext : DbContext
                 .HasForeignKey(x => x.ContractId).OnDelete(DeleteBehavior.SetNull);
             b.HasOne(x => x.Measurement).WithMany(x => x.CostEntries)
                 .HasForeignKey(x => x.MeasurementId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.WbsItem).WithMany()
+                .HasForeignKey(x => x.WbsItemId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ---- 成本管理内核：部位(WBS) 与 工程量清单(BOQ) ----
+        mb.Entity<WBSItem>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).HasMaxLength(32);
+            b.Property(x => x.Name).HasMaxLength(100);
+            b.Property(x => x.FullPath).HasMaxLength(300);
+            b.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.Parent).WithMany().HasForeignKey(x => x.ParentId).OnDelete(DeleteBehavior.SetNull);
+        });
+        mb.Entity<BoqLine>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).HasMaxLength(32);
+            b.Property(x => x.ItemName).HasMaxLength(200);
+            b.Property(x => x.Unit).HasMaxLength(16);
+            b.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.CostCategory).WithMany().HasForeignKey(x => x.CostCategoryId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.WbsItem).WithMany().HasForeignKey(x => x.WbsItemId).OnDelete(DeleteBehavior.SetNull);
         });
 
         // ---- M2-A 元数据层配置 ----
@@ -317,7 +344,7 @@ public class AppDbContext : DbContext
 public static class DbBootstrap
 {
     /// <summary>当前库结构版本。每次变更模型后 +1，旧库会自动备份并重建。</summary>
-    public const int SchemaVersion = 2;
+    public const int SchemaVersion = 3;
 
     /// <summary>当前账套文件路径（Configure 时记录，供备份等使用）。</summary>
     public static string? CurrentDbPath { get; private set; }

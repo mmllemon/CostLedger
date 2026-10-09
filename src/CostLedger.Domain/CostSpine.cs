@@ -42,4 +42,5 @@ public class CostSpineLine
 public interface ICostSpineService
 {
     Task<List<CostSpineLine>> GetSpineAsync(int projectId, CancellationToken ct = default);
+    Task<List<WbsCostLine>> GetSpineByWbsAsync(int projectId, CancellationToken ct = default);
 }
