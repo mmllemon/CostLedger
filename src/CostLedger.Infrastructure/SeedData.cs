@@ -178,6 +178,20 @@ public static class SeedData
         var catLabor = new CostCategory { Code = "L-LABOR", Name = "人工", Type = CostCategoryType.Labor };
         db.CostCategories.AddRange(catCable, catSub, catLabor);
 
+        // 大类（配电项目日常管理粒度）：设备材料（变压器/高压柜/低压柜/高压电缆/低压电缆/配电箱）+ 人工（安装劳务/土建劳务）
+        var rootEquip = new CostCategory { Code = "EQ", Name = "设备材料", Type = CostCategoryType.EquipmentMaterial, FullPath = "设备材料" };
+        var rootLabor = new CostCategory { Code = "LAB", Name = "人工", Type = CostCategoryType.Labor, FullPath = "人工" };
+        db.CostCategories.AddRange(rootEquip, rootLabor);
+        db.CostCategories.AddRange(
+            new CostCategory { Code = "EQ-TR", Name = "变压器", Type = CostCategoryType.EquipmentMaterial, Parent = rootEquip, FullPath = "设备材料/变压器" },
+            new CostCategory { Code = "EQ-HVC", Name = "高压柜", Type = CostCategoryType.EquipmentMaterial, Parent = rootEquip, FullPath = "设备材料/高压柜" },
+            new CostCategory { Code = "EQ-LVC", Name = "低压柜", Type = CostCategoryType.EquipmentMaterial, Parent = rootEquip, FullPath = "设备材料/低压柜" },
+            new CostCategory { Code = "EQ-HVCABLE", Name = "高压电缆", Type = CostCategoryType.EquipmentMaterial, Parent = rootEquip, FullPath = "设备材料/高压电缆" },
+            new CostCategory { Code = "EQ-LVCABLE", Name = "低压电缆", Type = CostCategoryType.EquipmentMaterial, Parent = rootEquip, FullPath = "设备材料/低压电缆" },
+            new CostCategory { Code = "EQ-BOX", Name = "配电箱", Type = CostCategoryType.EquipmentMaterial, Parent = rootEquip, FullPath = "设备材料/配电箱" },
+            new CostCategory { Code = "LAB-INST", Name = "安装劳务", Type = CostCategoryType.Labor, Parent = rootLabor, FullPath = "人工/安装劳务" },
+            new CostCategory { Code = "LAB-CIVIL", Name = "土建劳务", Type = CostCategoryType.Labor, Parent = rootLabor, FullPath = "人工/土建劳务" });
+
         var project = new Project
         {
             Code = "CZR-2026",

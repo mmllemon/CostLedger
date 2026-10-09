@@ -27,6 +27,7 @@ public partial class CostStructureView : UserControl
     private readonly BoqService _boq = null!;
     private readonly LedgerService _ledger = null!;
     private readonly LedgerImportService _import = null!;
+    private readonly CostTargetService _targetSvc = null!;
 
     private List<CostCategory> _categories = new();
     private List<WBSItem> _wbsItems = new();
@@ -46,6 +47,7 @@ public partial class CostStructureView : UserControl
         _boq = new BoqService(db);
         _ledger = new LedgerService(db);
         _import = new LedgerImportService(db);
+        _targetSvc = new CostTargetService(db);
         _ = InitAsync();
     }
 
@@ -78,8 +80,70 @@ public partial class CostStructureView : UserControl
         WbsParent.DisplayMemberBinding = new Binding("FullPath");
         BoqWbs.ItemsSource = _wbsItems;
         BoqWbs.DisplayMemberBinding = new Binding("FullPath");
+        CatList.ItemsSource = _categories;
+        CatList.DisplayMemberBinding = new Binding("FullPath");
         await ReloadBoqAsync();
         await LoadWbsCostAsync();
+        await LoadCatCostAsync();
+    }
+
+    // ==================== 大类成本（科目目标直录） ====================
+    private async Task LoadCatCostAsync()
+    {
+        var lines = await new CostSpineService(_db).GetSpineAsync(_projectId);
+        CatCostHost.Children.Clear();
+        CatCostHost.ColumnDefinitions.Clear();
+        CatCostHost.RowDefinitions.Clear();
+
+        var headers = new[] { "成本科目（大类）", "目标", "已发生", "偏差", "预计最终" };
+        for (int c = 0; c < headers.Length; c++)
+            CatCostHost.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+        for (int i = 0; i < lines.Count + 1; i++)
+            CatCostHost.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+        for (int c = 0; c < headers.Length; c++) CatCostHost.Children.Add(Cell(headers[c], 0, c, head: true, red: false));
+        for (int i = 0; i < lines.Count; i++)
+        {
+            var l = lines[i];
+            var cells = new[] { l.CostCategoryName, Money(l.Target), Money(l.Incurred), Money(l.Variance), Money(l.EstimatedFinal) };
+            for (int c = 0; c < headers.Length; c++)
+                CatCostHost.Children.Add(Cell(cells[c], i + 1, c, head: false, red: l.IsOver && c == 3));
+        }
+    }
+
+    private async void OnCatSelected(object? sender, SelectionChangedEventArgs e)
+    {
+        if (CatList.SelectedItem is not CostCategory c) return;
+        CatTitle.Text = c.Name;
+        var t = (await _targetSvc.ListAsync(_projectId)).FirstOrDefault(x => x.CostCategoryId == c.Id);
+        CatAmount.Value = t?.Amount ?? 0m;
+        CatNote.Text = t?.Note;
+        await ShowCatInfoAsync(c.Id);
+    }
+
+    private async Task ShowCatInfoAsync(int catId)
+    {
+        var line = (await new CostSpineService(_db).GetSpineAsync(_projectId)).FirstOrDefault(l => l.CostCategoryId == catId);
+        CatInfo.Text = line is null
+            ? "（暂无成本数据）"
+            : $"已发生 {Money(line.Incurred)}　偏差 {Money(line.Variance)}　预计最终 {Money(line.EstimatedFinal)}";
+    }
+
+    private async void OnCatSave(object? sender, RoutedEventArgs e)
+    {
+        if (CatList.SelectedItem is not CostCategory c) return;
+        await _targetSvc.SetAsync(_projectId, c.Id, CatAmount.Value ?? 0m, CatNote.Text);
+        await LoadCatCostAsync();
+        await ShowCatInfoAsync(c.Id);
+    }
+
+    private async void OnCatClear(object? sender, RoutedEventArgs e)
+    {
+        if (CatList.SelectedItem is not CostCategory c) return;
+        await _targetSvc.ClearAsync(_projectId, c.Id);
+        CatAmount.Value = 0m;
+        await LoadCatCostAsync();
+        await ShowCatInfoAsync(c.Id);
     }
 
     // ==================== 部位 ====================

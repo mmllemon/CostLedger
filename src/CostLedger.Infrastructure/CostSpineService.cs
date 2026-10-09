@@ -19,9 +19,18 @@ public class CostSpineService : ICostSpineService
 
     public async Task<List<CostSpineLine>> GetSpineAsync(int projectId, CancellationToken ct = default)
     {
-        // 目标基数：优先用工程量清单（BOQ，按科目汇总）；项目无清单行时回退到合同明细。
+        // 目标基数优先级：① 科目目标（大类级直录）→ ② 工程量清单 → ③ 合同明细
         var baseTarget = new List<TargetAgg>();
-        if (await _db.BoqLines.AnyAsync(b => b.ProjectId == projectId, ct))
+        if (await _db.CostTargets.AnyAsync(t => t.ProjectId == projectId, ct))
+        {
+            baseTarget = (await _db.CostTargets
+                .Where(t => t.ProjectId == projectId)
+                .GroupBy(t => t.CostCategoryId)
+                .Select(g => new { Cat = g.Key, Sum = g.Sum(x => x.Amount) })
+                .ToListAsync(ct))
+                .Select(x => new TargetAgg(x.Cat, x.Sum)).ToList();
+        }
+        else if (await _db.BoqLines.AnyAsync(b => b.ProjectId == projectId, ct))
         {
             baseTarget = (await _db.BoqLines
                 .Where(b => b.ProjectId == projectId && b.CostCategoryId != null)

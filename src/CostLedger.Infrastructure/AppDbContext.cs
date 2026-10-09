@@ -55,6 +55,8 @@ public class AppDbContext : DbContext
     // 成本管理内核：部位(WBS) 与 工程量清单(BOQ)
     public DbSet<WBSItem> WbsItems => Set<WBSItem>();
     public DbSet<BoqLine> BoqLines => Set<BoqLine>();
+    /// <summary>大类级目标成本（按科目直接录）</summary>
+    public DbSet<CostTarget> CostTargets => Set<CostTarget>();
 
     /// <summary>为 true 时不写审计（用于种子/系统初始化）。</summary>
     public bool SuppressAudit { get; set; }
@@ -182,6 +184,13 @@ public class AppDbContext : DbContext
             b.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
             b.HasOne(x => x.CostCategory).WithMany().HasForeignKey(x => x.CostCategoryId).OnDelete(DeleteBehavior.SetNull);
             b.HasOne(x => x.WbsItem).WithMany().HasForeignKey(x => x.WbsItemId).OnDelete(DeleteBehavior.SetNull);
+        });
+        mb.Entity<CostTarget>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.CostCategory).WithMany().HasForeignKey(x => x.CostCategoryId).OnDelete(DeleteBehavior.Cascade);
+            b.HasIndex(x => new { x.ProjectId, x.CostCategoryId }).IsUnique();
         });
 
         // ---- M2-A 元数据层配置 ----
@@ -344,7 +353,7 @@ public class AppDbContext : DbContext
 public static class DbBootstrap
 {
     /// <summary>当前库结构版本。每次变更模型后 +1，旧库会自动备份并重建。</summary>
-    public const int SchemaVersion = 4;
+    public const int SchemaVersion = 5;
 
     /// <summary>当前账套文件路径（Configure 时记录，供备份等使用）。</summary>
     public static string? CurrentDbPath { get; private set; }

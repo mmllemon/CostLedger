@@ -117,5 +117,44 @@
         </Border>
       </StackPanel>
     </TabItem>
+
+    <!-- ===== 大类成本（目标可直录） ===== -->
+    <TabItem Header="大类成本">
+      <Grid ColumnDefinitions="280,1*" Margin="0,10,0,0">
+        <Border Grid.Column="0" Classes="sidecard" Margin="0,0,10,0">
+          <Grid RowDefinitions="Auto,1*">
+            <TextBlock Classes="label" Text="成本科目（大类）"/>
+            <ListBox x:Name="CatList" Grid.Row="1" Margin="0,8,0,0" Background="Transparent"
+                     BorderThickness="0" SelectionChanged="OnCatSelected"/>
+          </Grid>
+        </Border>
+        <Grid Grid.Column="1" RowDefinitions="Auto,*">
+          <Border Grid.Row="0" Classes="card">
+            <StackPanel Spacing="10">
+              <TextBlock x:Name="CatTitle" FontWeight="Bold" FontSize="15" Text="选择左侧大类"/>
+              <Grid ColumnDefinitions="80,*,80,*">
+                <TextBlock Grid.Column="0" Text="目标额" VerticalAlignment="Center"/>
+                <NumericUpDown x:Name="CatAmount" Grid.Column="1" Minimum="0" Maximum="99999999" Margin="6,0,12,0"/>
+                <TextBlock Grid.Column="2" Text="备注" VerticalAlignment="Center"/>
+                <TextBox x:Name="CatNote" Grid.Column="3" Margin="6,0,0,0"/>
+              </Grid>
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Classes="primary" Content="保存目标" Click="OnCatSave"/>
+                <Button Classes="danger" Content="清空目标" Click="OnCatClear"/>
+                <TextBlock x:Name="CatInfo" VerticalAlignment="Center" Foreground="{StaticResource Txt2Brush}" FontSize="12.5"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+          <Border Grid.Row="1" Classes="card" Margin="0,12,0,0">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="label" Text="大类成本（目标 / 已发生 / 偏差 / 预计最终）"/>
+              <ScrollViewer MaxHeight="360" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                <Grid x:Name="CatCostHost"/>
+              </ScrollViewer>
+            </StackPanel>
+          </Border>
+        </Grid>
+      </Grid>
+    </TabItem>
   </TabControl>
 </UserControl>

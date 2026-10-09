@@ -100,6 +100,33 @@ public class CostCoreTests
     }
 
     [Fact]
+    public async Task 大类目标_优先于清单()
+    {
+        using var db = CreateSeededContext();
+        var cable = db.CostCategories.Single(c => c.Code == "M-CABLE");
+        // 项目 1 原本目标来自清单（电缆 1,863,000）；录科目目标后应以其为准
+        await new CostTargetService(db).SetAsync(1, cable.Id, 2_000_000m, "按大类重编");
+
+        var spine = await new CostSpineService(db).GetSpineAsync(1);
+        spine.Single(l => l.CostCategoryName == "电力电缆").Target.Should().Be(2_000_000m);
+    }
+
+    [Fact]
+    public async Task 大类目标_无清单无合同时唯一来源()
+    {
+        using var db = CreateSeededContext();
+        var p2 = new Project { Code = "P3", Name = "只按大类编目标" };
+        db.Projects.Add(p2);
+        db.SaveChanges();
+        var lab = db.CostCategories.Single(c => c.Code == "LAB-INST");
+        await new CostTargetService(db).SetAsync(p2.Id, lab.Id, 300_000m, null);
+
+        var spine = await new CostSpineService(db).GetSpineAsync(p2.Id);
+        spine.Should().ContainSingle();
+        spine[0].Target.Should().Be(300_000m);
+    }
+
+    [Fact]
     public async Task 部位树_全路径()
     {
         using var db = CreateSeededContext();
