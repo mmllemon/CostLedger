@@ -28,10 +28,18 @@ public class CostWriteBackService
     {
         if (await ExistsAsync(type, refNo, ct)) return false;
 
+        // 未指定科目时，回退到"合同挂的成本大类"，保证实际成本能落到大类
+        var cat = costCategoryId;
+        if (cat is null && contractId is not null)
+        {
+            var contract = await _db.Contracts.FindAsync(new object?[] { contractId.Value }, ct);
+            cat = contract?.CostCategoryId;
+        }
+
         _db.CostEntries.Add(new CostEntry
         {
             ProjectId = projectId,
-            CostCategoryId = costCategoryId,
+            CostCategoryId = cat,
             ContractId = contractId,
             SourceVoucherType = type,
             SourceVoucherRef = refNo,

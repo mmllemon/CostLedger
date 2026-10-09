@@ -108,6 +108,8 @@ public class AppDbContext : DbContext
                 .HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
             b.HasOne(x => x.Party).WithMany(x => x.Contracts)
                 .HasForeignKey(x => x.PartyId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.CostCategory).WithMany()
+                .HasForeignKey(x => x.CostCategoryId).OnDelete(DeleteBehavior.SetNull);
         });
 
         mb.Entity<ContractLine>(b =>
@@ -353,7 +355,7 @@ public class AppDbContext : DbContext
 public static class DbBootstrap
 {
     /// <summary>当前库结构版本。每次变更模型后 +1，旧库会自动备份并重建。</summary>
-    public const int SchemaVersion = 5;
+    public const int SchemaVersion = 6;
 
     /// <summary>当前账套文件路径（Configure 时记录，供备份等使用）。</summary>
     public static string? CurrentDbPath { get; private set; }

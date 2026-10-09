@@ -21,6 +21,10 @@ public class Contract
     /// <summary>质保金比例（0~1，逐合同可配；仅作台账信息，系统不做抵扣计算）</summary>
     public decimal RetentionRate { get; set; }
 
+    /// <summary>成本大类（成本科目）：该合同费用归属的成本科目，用于"实际/承诺按大类归集"（可选）</summary>
+    public int? CostCategoryId { get; set; }
+    public CostCategory? CostCategory { get; set; }
+
     public ICollection<ContractLine> Lines { get; set; } = new List<ContractLine>();
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
     public ICollection<CostEntry> CostEntries { get; set; } = new List<CostEntry>();

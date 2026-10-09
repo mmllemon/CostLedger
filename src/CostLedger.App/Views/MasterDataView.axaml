@@ -67,6 +67,7 @@
                   <StackPanel Spacing="4"><TextBlock Text="签约日期" Classes="label"/><DatePicker x:Name="ConSignDate"/></StackPanel>
                   <StackPanel Spacing="4"><TextBlock Text="状态" Classes="label"/><TextBox x:Name="ConStatus" Padding="10,8"/></StackPanel>
                   <StackPanel Spacing="4"><TextBlock Text="质保金比例" Classes="label"/><NumericUpDown x:Name="ConRetention" Padding="10,8" Minimum="0" Maximum="1" Increment="0.01" FormatString="P0"/></StackPanel>
+                  <StackPanel Spacing="4"><TextBlock Text="成本大类" Classes="label"/><ComboBox x:Name="ConCategory" Padding="10,8" PlaceholderText="（可选）"/></StackPanel>
                 </StackPanel>
               </ScrollViewer>
             </Border>

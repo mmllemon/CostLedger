@@ -127,6 +127,22 @@ public class CostCoreTests
     }
 
     [Fact]
+    public async Task 回写_合同挂大类_成本落到该大类()
+    {
+        using var db = CreateSeededContext();
+        var cat = db.CostCategories.Single(c => c.Code == "M-CABLE");
+        var contract = db.Contracts.Single(c => c.Code == "PO-FAR-001");
+        contract.CostCategoryId = cat.Id;
+        await db.SaveChangesAsync();
+
+        // 回写时不指定科目 → 应回退到合同挂的大类
+        await new CostWriteBackService(db).AppendAsync(1, null, contract.Id, VoucherType.Contract, "TEST-1", 100m, new DateOnly(2026, 1, 1));
+
+        var e = db.CostEntries.Single(x => x.SourceVoucherRef == "TEST-1");
+        e.CostCategoryId.Should().Be(cat.Id);
+    }
+
+    [Fact]
     public async Task 部位树_全路径()
     {
         using var db = CreateSeededContext();

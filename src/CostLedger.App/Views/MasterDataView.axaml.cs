@@ -19,6 +19,7 @@ public partial class MasterDataView : UserControl
     private List<LookupItem> _roleItems = new();
     private List<LookupItem> _typeItems = new();
     private List<LookupItem> _taxItems = new();
+    private List<CostCategory> _categories = new();
 
     private int _currentPartyId;
     private int _currentContractId;
@@ -44,6 +45,10 @@ public partial class MasterDataView : UserControl
         WireCombo(PartyRole, _roleItems);
         WireCombo(ConType, _typeItems);
         WireCombo(ConTax, _taxItems);
+
+        _categories = await _db.CostCategories.OrderBy(c => c.FullPath).ToListAsync();
+        ConCategory.ItemsSource = _categories;
+        ConCategory.DisplayMemberBinding = new Binding("FullPath");
 
         PartyList.ItemsSource = await _db.Parties.OrderBy(p => p.Name).ToListAsync();
         PartyList.DisplayMemberBinding = new Binding("Name");
@@ -134,6 +139,7 @@ public partial class MasterDataView : UserControl
         ConSignDate.SelectedDate = new DateTimeOffset(c.SignDate.ToDateTime(TimeOnly.MinValue));
         ConStatus.Text = c.Status;
         ConRetention.Value = c.RetentionRate;
+        ConCategory.SelectedItem = _categories.FirstOrDefault(x => x.Id == c.CostCategoryId);
         await ConExt.LoadAsync("Contract", c.Id);
     }
 
@@ -148,6 +154,7 @@ public partial class MasterDataView : UserControl
         ConSignDate.SelectedDate = null;
         ConStatus.Text = "执行中";
         ConRetention.Value = 0;
+        ConCategory.SelectedItem = null;
         ContractList.SelectedItem = null;
         _ = ConExt.LoadAsync("Contract", 0);
     }
@@ -170,6 +177,7 @@ public partial class MasterDataView : UserControl
             : DateOnly.FromDateTime(DateTime.Today);
         c.Status = ConStatus.Text;
         c.RetentionRate = ConRetention.Value ?? 0m;
+        c.CostCategoryId = (ConCategory.SelectedItem as CostCategory)?.Id;
         await _db.SaveChangesAsync();
 
         if (_currentContractId == 0)

@@ -91,11 +91,17 @@ public partial class CostStructureView : UserControl
     private async Task LoadCatCostAsync()
     {
         var lines = await new CostSpineService(_db).GetSpineAsync(_projectId);
+        var commitByCat = await _db.Contracts
+            .Where(c => c.ProjectId == _projectId && c.CostCategoryId != null)
+            .GroupBy(c => c.CostCategoryId!.Value)
+            .Select(g => new { Cat = g.Key, Sum = g.Sum(x => x.Amount) })
+            .ToListAsync();
+
         CatCostHost.Children.Clear();
         CatCostHost.ColumnDefinitions.Clear();
         CatCostHost.RowDefinitions.Clear();
 
-        var headers = new[] { "成本科目（大类）", "目标", "已发生", "偏差", "预计最终" };
+        var headers = new[] { "成本科目（大类）", "目标", "承诺(合同)", "已发生", "偏差", "预计最终" };
         for (int c = 0; c < headers.Length; c++)
             CatCostHost.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
         for (int i = 0; i < lines.Count + 1; i++)
@@ -105,9 +111,10 @@ public partial class CostStructureView : UserControl
         for (int i = 0; i < lines.Count; i++)
         {
             var l = lines[i];
-            var cells = new[] { l.CostCategoryName, Money(l.Target), Money(l.Incurred), Money(l.Variance), Money(l.EstimatedFinal) };
+            var committed = commitByCat.FirstOrDefault(x => x.Cat == l.CostCategoryId)?.Sum ?? 0m;
+            var cells = new[] { l.CostCategoryName, Money(l.Target), Money(committed), Money(l.Incurred), Money(l.Variance), Money(l.EstimatedFinal) };
             for (int c = 0; c < headers.Length; c++)
-                CatCostHost.Children.Add(Cell(cells[c], i + 1, c, head: false, red: l.IsOver && c == 3));
+                CatCostHost.Children.Add(Cell(cells[c], i + 1, c, head: false, red: l.IsOver && c == 4));
         }
     }
 
