@@ -1,0 +1,42 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:CostLedger.App.Views"
+             x:Class="CostLedger.App.Views.GenericRecordView"
+             Background="{StaticResource BgBrush}"
+             FontFamily="Microsoft YaHei, Segoe UI, sans-serif">
+  <Grid ColumnDefinitions="260,1*" Margin="0">
+    <!-- 左侧记录列表 -->
+    <Border Grid.Column="0" Classes="sidecard" Margin="16,16,8,16">
+      <Grid RowDefinitions="Auto,1*,Auto">
+        <TextBlock Grid.Row="0" Classes="label" Text="记录列表"/>
+        <ListBox x:Name="RecordList" Grid.Row="1" SelectionChanged="OnSelected"
+                 Margin="0,10,0,0" Background="Transparent" BorderThickness="0"/>
+        <Button Grid.Row="2" Classes="primary" Content="＋ 新增" Click="OnNew" Margin="0,10,0,0"/>
+      </Grid>
+    </Border>
+
+    <!-- 右侧详情 -->
+    <ScrollViewer Grid.Column="1" Margin="8,16,16,16">
+      <StackPanel Spacing="14">
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="label" Text="核心字段（强类型，参与业务）"/>
+            <StackPanel x:Name="CoreHost" Margin="0,12,0,0" Spacing="12"/>
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="label" Text="扩展字段（后台「字段管理」可配置，不参与成本归集）"/>
+            <StackPanel x:Name="ExtHost" Margin="0,12,0,0"/>
+          </StackPanel>
+        </Border>
+
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <Button Classes="primary" Content="保存" Click="OnSave"/>
+          <Button Classes="danger" Content="删除" Click="OnDelete"/>
+        </StackPanel>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

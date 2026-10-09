@@ -95,67 +95,11 @@ public partial class DynamicFieldsPanel : UserControl
 
     private async Task<Control> BuildControlAsync(FieldDef f, string? current)
     {
-        switch (f.Type)
-        {
-            case FieldType.Boolean:
-                return new CheckBox
-                {
-                    IsChecked = string.Equals(current, "True", StringComparison.OrdinalIgnoreCase),
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-
-            case FieldType.Number:
-            case FieldType.Money:
-                var num = new NumericUpDown
-                {
-                    Minimum = decimal.MinValue,
-                    Maximum = decimal.MaxValue,
-                    Padding = new Thickness(10, 8),
-                    HorizontalAlignment = HorizontalAlignment.Stretch
-                };
-                num.FormatString = f.Type == FieldType.Money ? "N2" : "0.####";
-                if (decimal.TryParse(current, NumberStyles.Any, CultureInfo.InvariantCulture, out var dv))
-                    num.Value = dv;
-                return num;
-
-            case FieldType.Date:
-                var dp = new DatePicker { HorizontalAlignment = HorizontalAlignment.Stretch };
-                if (DateOnly.TryParse(current, out var d))
-                    dp.SelectedDate = new DateTimeOffset(d.ToDateTime(TimeOnly.MinValue));
-                return dp;
-
-            case FieldType.Lookup:
-                var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = "请选择" };
-                if (!string.IsNullOrEmpty(f.LookupDefCode))
-                {
-                    var items = await _metadata.ListLookupItemsAsync(f.LookupDefCode!);
-                    combo.ItemsSource = items;
-                    combo.DisplayMemberBinding = new Binding("Name");
-                    combo.SelectedValueBinding = new Binding("Code");
-                    combo.SelectedValue = current;
-                }
-                return combo;
-
-            default: // Text
-                var tb = new TextBox
-                {
-                    Text = current ?? "",
-                    HorizontalAlignment = HorizontalAlignment.Stretch,
-                    Padding = new Thickness(10, 8)
-                };
-                if (f.MaxLength > 0) tb.MaxLength = f.MaxLength;
-                return tb;
-        }
+        List<LookupItem>? items = null;
+        if (f.Type == FieldType.Lookup && !string.IsNullOrEmpty(f.LookupDefCode))
+            items = await _metadata.ListLookupItemsAsync(f.LookupDefCode!);
+        return ControlFactory.BuildInput(f.Type, current, items);
     }
 
-    private string ReadControl(FieldDef f, Control input) => f.Type switch
-    {
-        FieldType.Boolean => input is CheckBox cb ? (cb.IsChecked == true ? "True" : "False") : "",
-        FieldType.Number or FieldType.Money => input is NumericUpDown nu && nu.Value.HasValue
-            ? nu.Value.Value.ToString(CultureInfo.InvariantCulture) : "",
-        FieldType.Date => input is DatePicker dp && dp.SelectedDate.HasValue
-            ? DateOnly.FromDateTime(dp.SelectedDate.Value.DateTime).ToString("yyyy-MM-dd") : "",
-        FieldType.Lookup => input is ComboBox cmb ? cmb.SelectedValue?.ToString() ?? "" : "",
-        _ => input is TextBox t ? t.Text ?? "" : ""
-    };
+    private string ReadControl(FieldDef f, Control input) => ControlFactory.ReadInput(input, f.Type);
 }

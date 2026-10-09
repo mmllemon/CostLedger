@@ -92,7 +92,23 @@ public static class SeedData
         project.Fields.Add(new FieldDef { EntityDef = project, EntityDefCode = "Project", Name = "电压等级", Type = FieldType.Lookup, LookupDefCode = "VoltageLevel", DisplayOrder = 11, IsCore = false });
         project.Fields.Add(new FieldDef { EntityDef = project, EntityDefCode = "Project", Name = "阶段", Type = FieldType.Lookup, LookupDefCode = "ProjectStage", DisplayOrder = 12, IsCore = false });
 
-        db.EntityDefs.AddRange(party, contract, project);
+        // 其余业务板块（核心字段多为带行项/外键的复杂实体，此处注册以便"字段管理"覆盖全板块；
+        // 其详细 CRUD 由对应业务模块承接，扩展字段同样可后台配置）。
+        var costCategory = new EntityDef { Code = "CostCategory", Name = "成本科目", Description = "成本归集维度（树形）" };
+        costCategory.Fields.Add(new FieldDef { EntityDef = costCategory, EntityDefCode = "CostCategory", Name = "科目编码", Type = FieldType.Text, IsRequired = true, DisplayOrder = 1, IsCore = true });
+        costCategory.Fields.Add(new FieldDef { EntityDef = costCategory, EntityDefCode = "CostCategory", Name = "科目名称", Type = FieldType.Text, IsRequired = true, DisplayOrder = 2, IsCore = true });
+        costCategory.Fields.Add(new FieldDef { EntityDef = costCategory, EntityDefCode = "CostCategory", Name = "默认税率", Type = FieldType.Number, DisplayOrder = 10, IsCore = false });
+
+        var measurement = new EntityDef { Code = "Measurement", Name = "计量与签证", Description = "进度计量 / 现场签证" };
+        measurement.Fields.Add(new FieldDef { EntityDef = measurement, EntityDefCode = "Measurement", Name = "计量编号", Type = FieldType.Text, IsRequired = true, DisplayOrder = 1, IsCore = true });
+        measurement.Fields.Add(new FieldDef { EntityDef = measurement, EntityDefCode = "Measurement", Name = "备注", Type = FieldType.Text, DisplayOrder = 10, IsCore = false });
+
+        var payment = new EntityDef { Code = "Payment", Name = "付款", Description = "预付款/进度款/结算款/质保返还" };
+        payment.Fields.Add(new FieldDef { EntityDef = payment, EntityDefCode = "Payment", Name = "付款编号", Type = FieldType.Text, IsRequired = true, DisplayOrder = 1, IsCore = true });
+        payment.Fields.Add(new FieldDef { EntityDef = payment, EntityDefCode = "Payment", Name = "金额", Type = FieldType.Money, DisplayOrder = 2, IsCore = true });
+        payment.Fields.Add(new FieldDef { EntityDef = payment, EntityDefCode = "Payment", Name = "备注", Type = FieldType.Text, DisplayOrder = 10, IsCore = false });
+
+        db.EntityDefs.AddRange(party, contract, project, costCategory, measurement, payment);
         db.SaveChanges();
     }
 
