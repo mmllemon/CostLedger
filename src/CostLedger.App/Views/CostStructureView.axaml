@@ -64,21 +64,26 @@
                   <TextBlock Grid.Row="2" Grid.Column="0" Text="项目特征" VerticalAlignment="Center"/>
                   <TextBox x:Name="BoqFeature" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" Margin="6,0,0,0"/>
                 </Grid>
-                <Grid ColumnDefinitions="70,*,70,*" RowDefinitions="Auto,Auto,Auto">
+                <Grid ColumnDefinitions="70,*,70,*" RowDefinitions="Auto,Auto,Auto,Auto">
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="工程量" VerticalAlignment="Center"/>
                   <NumericUpDown x:Name="BoqQty" Grid.Row="0" Grid.Column="1" Minimum="0" Maximum="99999999" Margin="6,0,12,6"/>
                   <TextBlock Grid.Row="0" Grid.Column="2" Text="综合单价" VerticalAlignment="Center"/>
                   <NumericUpDown x:Name="BoqPrice" Grid.Row="0" Grid.Column="3" Minimum="0" Maximum="99999999" Margin="6,0,0,6"/>
 
-                  <TextBlock Grid.Row="1" Grid.Column="0" Text="合价" VerticalAlignment="Center"/>
-                  <NumericUpDown x:Name="BoqAmount" Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="99999999" Margin="6,0,12,6"/>
-                  <TextBlock Grid.Row="1" Grid.Column="2" Text="税率" VerticalAlignment="Center"/>
-                  <NumericUpDown x:Name="BoqTax" Grid.Row="1" Grid.Column="3" Minimum="0" Maximum="1" Increment="0.01" Margin="6,0,0,6" FormatString="P0"/>
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="已完工程量" VerticalAlignment="Center"/>
+                  <NumericUpDown x:Name="BoqCompleted" Grid.Row="1" Grid.Column="1" Minimum="0" Maximum="99999999" Margin="6,0,12,6"/>
+                  <TextBlock Grid.Row="1" Grid.Column="2" Text="完工进度" VerticalAlignment="Center"/>
+                  <TextBlock x:Name="BoqProgress" Grid.Row="1" Grid.Column="3" VerticalAlignment="Center"/>
 
-                  <TextBlock Grid.Row="2" Grid.Column="0" Text="成本科目" VerticalAlignment="Center"/>
-                  <ComboBox x:Name="BoqCategory" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" Margin="6,0,12,0" PlaceholderText="（可选）"/>
-                  <TextBlock Grid.Row="2" Grid.Column="2" Text="部位" VerticalAlignment="Center"/>
-                  <ComboBox x:Name="BoqWbs" Grid.Row="2" Grid.Column="3" HorizontalAlignment="Stretch" Margin="6,0,0,0" PlaceholderText="（可选）"/>
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="合价" VerticalAlignment="Center"/>
+                  <NumericUpDown x:Name="BoqAmount" Grid.Row="2" Grid.Column="1" Minimum="0" Maximum="99999999" Margin="6,0,12,6"/>
+                  <TextBlock Grid.Row="2" Grid.Column="2" Text="税率" VerticalAlignment="Center"/>
+                  <NumericUpDown x:Name="BoqTax" Grid.Row="2" Grid.Column="3" Minimum="0" Maximum="1" Increment="0.01" Margin="6,0,0,6" FormatString="P0"/>
+
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="成本科目" VerticalAlignment="Center"/>
+                  <ComboBox x:Name="BoqCategory" Grid.Row="3" Grid.Column="1" HorizontalAlignment="Stretch" Margin="6,0,12,0" PlaceholderText="（可选）"/>
+                  <TextBlock Grid.Row="3" Grid.Column="2" Text="部位" VerticalAlignment="Center"/>
+                  <ComboBox x:Name="BoqWbs" Grid.Row="3" Grid.Column="3" HorizontalAlignment="Stretch" Margin="6,0,0,0" PlaceholderText="（可选）"/>
                 </Grid>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <Button Classes="pill" Content="新增" Click="OnBoqNew"/>
@@ -102,9 +107,13 @@
           <Button Classes="pill" Content="打印" Click="OnPrintWbsCost"/>
         </StackPanel>
         <Border Classes="card">
-          <ScrollViewer HorizontalScrollBarVisibility="Auto" MaxHeight="520">
-            <Grid x:Name="WbsCostHost"/>
-          </ScrollViewer>
+          <StackPanel Spacing="10">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" MaxHeight="520">
+              <Grid x:Name="WbsCostHost"/>
+            </ScrollViewer>
+            <TextBlock x:Name="WbsCostSummary" FontWeight="SemiBold"
+                       Foreground="{StaticResource AccentDeepBrush}" FontSize="13"/>
+          </StackPanel>
         </Border>
       </StackPanel>
     </TabItem>

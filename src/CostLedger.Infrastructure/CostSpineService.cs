@@ -117,6 +117,13 @@ public class CostSpineService : ICostSpineService
             .Select(g => new { Wbs = g.Key, Sum = g.Sum(x => x.Amount) })
             .ToListAsync(ct);
 
+        // 已完金额（清单口径）= Σ 已完工程量 × 综合单价
+        var completedByWbs = await _db.BoqLines
+            .Where(b => b.ProjectId == projectId && b.WbsItemId != null)
+            .GroupBy(b => b.WbsItemId!.Value)
+            .Select(g => new { Wbs = g.Key, Sum = g.Sum(x => x.CompletedQuantity * x.UnitPrice) })
+            .ToListAsync(ct);
+
         var ids = targetByWbs.Select(x => x.Wbs).Concat(incurredByWbs.Select(x => x.Wbs)).Distinct().ToList();
         var wbsItems = await _db.WbsItems.Where(w => ids.Contains(w.Id)).ToDictionaryAsync(w => w.Id, w => w, ct);
 
@@ -130,7 +137,8 @@ public class CostSpineService : ICostSpineService
                 WbsName = w.Name,
                 FullPath = w.FullPath,
                 Target = targetByWbs.FirstOrDefault(x => x.Wbs == id)?.Sum ?? 0m,
-                Incurred = incurredByWbs.FirstOrDefault(x => x.Wbs == id)?.Sum ?? 0m
+                Incurred = incurredByWbs.FirstOrDefault(x => x.Wbs == id)?.Sum ?? 0m,
+                CompletedAmount = completedByWbs.FirstOrDefault(x => x.Wbs == id)?.Sum ?? 0m
             };
         }).OrderBy(x => x.WbsCode).ToList();
     }

@@ -137,9 +137,11 @@ public partial class CostStructureView : UserControl
         BoqFeature.Text = b.Feature;
         BoqUnit.Text = b.Unit;
         BoqQty.Value = b.Quantity;
+        BoqCompleted.Value = b.CompletedQuantity;
         BoqPrice.Value = b.UnitPrice;
         BoqAmount.Value = b.Amount;
         BoqTax.Value = b.TaxRate;
+        UpdateBoqProgress();
         BoqCategory.SelectedItem = _categories.FirstOrDefault(c => c.Id == b.CostCategoryId);
         BoqWbs.SelectedItem = _wbsItems.FirstOrDefault(w => w.Id == b.WbsItemId);
     }
@@ -148,7 +150,8 @@ public partial class CostStructureView : UserControl
     {
         _boqId = 0;
         BoqCode.Text = ""; BoqName.Text = ""; BoqFeature.Text = ""; BoqUnit.Text = "";
-        BoqQty.Value = 0; BoqPrice.Value = 0; BoqAmount.Value = 0; BoqTax.Value = 0.09m;
+        BoqQty.Value = 0; BoqCompleted.Value = 0; BoqPrice.Value = 0; BoqAmount.Value = 0; BoqTax.Value = 0.09m;
+        BoqProgress.Text = "";
         BoqCategory.SelectedItem = null; BoqWbs.SelectedItem = null;
         BoqList.SelectedItem = null;
     }
@@ -161,12 +164,14 @@ public partial class CostStructureView : UserControl
         b.Feature = BoqFeature.Text;
         b.Unit = BoqUnit.Text;
         b.Quantity = BoqQty.Value ?? 0m;
+        b.CompletedQuantity = BoqCompleted.Value ?? 0m;
         b.UnitPrice = BoqPrice.Value ?? 0m;
         b.Amount = BoqAmount.Value ?? 0m;
         b.TaxRate = BoqTax.Value ?? 0m;
         b.CostCategoryId = (BoqCategory.SelectedItem as CostCategory)?.Id;
         b.WbsItemId = (BoqWbs.SelectedItem as WBSItem)?.Id;
         var id = await _boq.SaveAsync(b);
+        UpdateBoqProgress();
         await ReloadBoqAsync(id);
         await LoadWbsCostAsync();
     }
@@ -224,7 +229,14 @@ public partial class CostStructureView : UserControl
                         + "　｜　清单合价：" + (await _boq.TotalAsync(_projectId)).ToString("N2", CultureInfo.CurrentCulture);
     }
 
-    // ==================== 按部位成本 ====================
+    // ==================== 按部位成本（含完工预测） ====================
+    private void UpdateBoqProgress()
+    {
+        var amt = BoqAmount.Value ?? 0m;
+        var done = (BoqCompleted.Value ?? 0m) * (BoqPrice.Value ?? 0m);
+        BoqProgress.Text = amt <= 0 ? "—" : (done / amt).ToString("P0", CultureInfo.CurrentCulture);
+    }
+
     private async Task LoadWbsCostAsync()
     {
         var lines = await new CostSpineService(_db).GetSpineByWbsAsync(_projectId);
@@ -232,7 +244,7 @@ public partial class CostStructureView : UserControl
         WbsCostHost.ColumnDefinitions.Clear();
         WbsCostHost.RowDefinitions.Clear();
 
-        var headers = new[] { "部位", "目标(清单)", "已发生", "剩余", "偏差", "预计最终" };
+        var headers = new[] { "部位", "目标(清单)", "已完金额", "完工%", "已发生", "偏差", "预计最终" };
         for (int c = 0; c < headers.Length; c++)
             WbsCostHost.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
         for (int i = 0; i < lines.Count + 1; i++)
@@ -242,10 +254,22 @@ public partial class CostStructureView : UserControl
         for (int i = 0; i < lines.Count; i++)
         {
             var l = lines[i];
-            var cells = new[] { l.FullPath, Money(l.Target), Money(l.Incurred), Money(l.Remaining), Money(l.Variance), Money(l.EstimatedFinal) };
+            var cells = new[]
+            {
+                l.FullPath, Money(l.Target), Money(l.CompletedAmount),
+                l.Target == 0 ? "—" : l.Progress.ToString("P0", CultureInfo.CurrentCulture),
+                Money(l.Incurred), Money(l.Variance), Money(l.EstimatedFinal)
+            };
             for (int c = 0; c < headers.Length; c++)
-                WbsCostHost.Children.Add(Cell(cells[c], i + 1, c, head: false, red: l.IsOver && c == 4));
+                WbsCostHost.Children.Add(Cell(cells[c], i + 1, c, head: false, red: l.IsOver && c == 5));
         }
+
+        // 汇总 + 预计毛利率（对上合同额为基数）
+        var upstream = await _db.Contracts.Where(c => c.ProjectId == _projectId && c.TypeCode == "Main").SumAsync(c => c.Amount);
+        var eacTotal = lines.Sum(l => l.EstimatedFinal);
+        var margin = upstream == 0 ? 0m : (upstream - eacTotal) / upstream;
+        WbsCostSummary.Text = $"目标合计 {Money(lines.Sum(l => l.Target))}　已发生合计 {Money(lines.Sum(l => l.Incurred))}　"
+            + $"预计最终合计 {Money(eacTotal)}　｜　预计毛利率 {(upstream == 0 ? "—" : margin.ToString("P1", CultureInfo.CurrentCulture))}（对上合同额 {Money(upstream)}）";
     }
 
     private TextBlock Cell(string text, int row, int col, bool head, bool red)
@@ -276,10 +300,12 @@ public partial class CostStructureView : UserControl
     private async Task PrintWbsCostAsync()
     {
         var lines = await new CostSpineService(_db).GetSpineByWbsAsync(_projectId);
-        var headers = new[] { "部位", "目标(清单)", "已发生", "剩余", "偏差", "预计最终" };
+        var headers = new[] { "部位", "目标(清单)", "已完金额", "完工%", "已发生", "偏差", "预计最终" };
         var rows = lines.Select(l => new[]
         {
-            l.FullPath, Money(l.Target), Money(l.Incurred), Money(l.Remaining), Money(l.Variance), Money(l.EstimatedFinal)
+            l.FullPath, Money(l.Target), Money(l.CompletedAmount),
+            l.Target == 0 ? "—" : l.Progress.ToString("P0", CultureInfo.CurrentCulture),
+            Money(l.Incurred), Money(l.Variance), Money(l.EstimatedFinal)
         }).ToList();
         var ledger = new LedgerResult("按部位成本", headers, rows, Array.Empty<string[]>());
         PrintService.OpenInBrowser(PrintService.BuildHtml(_projectName, ledger, DateTime.Now), "按部位成本");

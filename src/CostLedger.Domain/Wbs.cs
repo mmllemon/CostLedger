@@ -14,11 +14,21 @@ public class WbsCostLine
     public string FullPath { get; set; } = string.Empty;
     public decimal Target { get; set; }
     public decimal Incurred { get; set; }
+    /// <summary>已完金额 = 已完工程量 × 综合单价（清单口径）</summary>
+    public decimal CompletedAmount { get; set; }
     public decimal WorkDoneNotSettled { get; set; }
     public decimal Remaining => Target - Incurred;
     public decimal Variance => Incurred - Target;
     public bool IsOver => Variance > 0;
-    public decimal EstimatedFinal => Math.Max(Target, Incurred + WorkDoneNotSettled);
+    /// <summary>完工进度（已完金额 / 目标，0~1）</summary>
+    public double Progress => Target == 0 ? 0 : (double)Math.Min(CompletedAmount / Target, 1m);
+    /// <summary>
+    /// 预计最终（EAC）= 已发生 + 剩余工程量 × 综合单价（= 已发生 + max(0, 目标 − 已完金额)）。
+    /// 若未录入已完工程量（CompletedAmount=0），回退为 max(目标, 已发生)（保守，不产生重复计列）。
+    /// </summary>
+    public decimal EstimatedFinal => CompletedAmount > 0
+        ? Incurred + Math.Max(0m, Target - CompletedAmount)
+        : Math.Max(Target, Incurred);
 }
 
 /// <summary>
@@ -60,6 +70,8 @@ public class BoqLine
     /// <summary>计量单位</summary>
     public string? Unit { get; set; }
     public decimal Quantity { get; set; }
+    /// <summary>已完工程量（用于完工预测：剩余工程量 = 工程量 − 已完工程量）</summary>
+    public decimal CompletedQuantity { get; set; }
     public decimal UnitPrice { get; set; }
     /// <summary>合价 = 工程量 × 综合单价（目标金额）</summary>
     public decimal Amount { get; set; }

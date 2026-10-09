@@ -76,6 +76,30 @@ public class CostCoreTests
     }
 
     [Fact]
+    public async Task 完工预测_已完工程量驱动EAC()
+    {
+        using var db = CreateSeededContext();
+        var boq = db.BoqLines.Single(b => b.Code == "030408001"); // qty 1000 × 1863
+        boq.CompletedQuantity = 600m;   // 已完 600m → 已完金额 1,117,800
+        await db.SaveChangesAsync();
+
+        var lay = (await new CostSpineService(db).GetSpineByWbsAsync(1)).Single(x => x.WbsCode == "W12");
+        lay.CompletedAmount.Should().Be(1_117_800m);
+        lay.Progress.Should().BeApproximately(0.6, 0.001);
+        // EAC = 已发生 2,000,000 + 剩余(1,863,000 − 1,117,800) = 2,745,200
+        lay.EstimatedFinal.Should().Be(2_745_200m);
+    }
+
+    [Fact]
+    public async Task 完工预测_未录已完量时回退保守估计()
+    {
+        using var db = CreateSeededContext();
+        var test = (await new CostSpineService(db).GetSpineByWbsAsync(1)).Single(x => x.WbsCode == "W3");
+        test.CompletedAmount.Should().Be(0m);
+        test.EstimatedFinal.Should().Be(500_000m); // max(目标 50万, 已发生 40万)
+    }
+
+    [Fact]
     public async Task 部位树_全路径()
     {
         using var db = CreateSeededContext();
