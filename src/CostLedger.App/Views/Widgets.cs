@@ -27,7 +27,7 @@ internal static class Palette
 /// <summary>经济模块视图共用的轻量控件工厂（卡片 / 表格），减少重复布局代码。</summary>
 internal static class Widgets
 {
-    public static Border Kpi(string label, string value, bool bad = false, double width = 200)
+    public static Border Kpi(string label, string value, bool bad = false, double width = 200, string? desc = null)
     {
         var v = new TextBlock
         {
@@ -37,6 +37,20 @@ internal static class Widgets
             Margin = new Thickness(0, 6, 0, 0),
             Foreground = bad ? Palette.Red : Palette.Ink
         };
+        var panel = new StackPanel
+        {
+            Children =
+            {
+                new TextBlock { Text = label, FontSize = 11, FontWeight = FontWeight.SemiBold, Foreground = Palette.Txt3 },
+                v
+            }
+        };
+        if (!string.IsNullOrEmpty(desc))
+            panel.Children.Add(new TextBlock
+            {
+                Text = desc, FontSize = 11, Foreground = Palette.Txt3,
+                TextWrapping = TextWrapping.Wrap, LineHeight = 1.5, Margin = new Thickness(0, 6, 0, 0)
+            });
         return new Border
         {
             Background = Palette.Card,
@@ -46,15 +60,63 @@ internal static class Widgets
             Padding = new Thickness(15),
             Width = width,
             Margin = new Thickness(0, 0, 12, 12),
-            Child = new StackPanel
-            {
-                Children =
-                {
-                    new TextBlock { Text = label, FontSize = 11, Foreground = Palette.Txt3 },
-                    v
-                }
-            }
+            Child = panel
         };
+    }
+
+    /// <summary>键值行（用于"数据质量/可解释程度"卡片），val 可标红。</summary>
+    public static Control Field(string label, string value, bool bad = false)
+    {
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), Margin = new Thickness(0, 5, 0, 5) };
+        var k = new TextBlock { Text = label, FontSize = 12, Foreground = Palette.Txt3, VerticalAlignment = VerticalAlignment.Center };
+        var val = new TextBlock
+        {
+            Text = value, FontSize = 13, FontWeight = FontWeight.SemiBold,
+            Foreground = bad ? Palette.Red : Palette.Ink,
+            HorizontalAlignment = HorizontalAlignment.Right, TextAlignment = TextAlignment.Right
+        };
+        Grid.SetColumn(k, 0);
+        Grid.SetColumn(val, 1);
+        grid.Children.Add(k);
+        grid.Children.Add(val);
+        return grid;
+    }
+
+    /// <summary>细进度条（0..1）。</summary>
+    public static Control Track(double percent, bool warn = false)
+    {
+        percent = Math.Clamp(percent, 0, 1);
+        var fill = new Border
+        {
+            Background = warn ? Palette.Red : Palette.Accent,
+            CornerRadius = new CornerRadius(99),
+            Height = 6
+        };
+        var track = new Grid
+        {
+            Height = 6,
+            ColumnDefinitions = new ColumnDefinitions($"{percent * 100:0.##}*,{(1 - percent) * 100:0.##}*"),
+            Margin = new Thickness(0, 6, 0, 6)
+        };
+        var bg = new Border { Background = new SolidColorBrush(Color.Parse("#ECE2D4")), CornerRadius = new CornerRadius(99), Height = 6 };
+        Grid.SetColumnSpan(bg, 2);
+        track.Children.Add(bg);
+        Grid.SetColumn(fill, 0);
+        track.Children.Add(fill);
+        return track;
+    }
+
+    /// <summary>两张卡片并排（各占一半宽）。</summary>
+    public static Control TwoCol(Control left, Control right)
+    {
+        var leftWrap = new Border { Child = left, Margin = new Thickness(0, 0, 7, 0) };
+        var rightWrap = new Border { Child = right, Margin = new Thickness(7, 0, 0, 0) };
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*") };
+        Grid.SetColumn(leftWrap, 0);
+        Grid.SetColumn(rightWrap, 1);
+        grid.Children.Add(leftWrap);
+        grid.Children.Add(rightWrap);
+        return grid;
     }
 
     public static Border Card(string? title, Control body)

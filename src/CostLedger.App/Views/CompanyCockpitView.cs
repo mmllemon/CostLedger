@@ -108,17 +108,18 @@ public class CompanyCockpitView : UserControl
         _heroHost.Children.Clear();
         RenderHero(s);
 
-        void Kpi(string l, string v, bool bad = false) => _kpiHost.Children.Add(Widgets.Kpi(l, v, bad));
-        Kpi("在管项目", s.ProjectCount.ToString());
-        Kpi("公司预计收入", UiText.Money(s.ExpectedIncome));
-        Kpi("公司已知支出", UiText.Money(s.KnownExpenditure));
-        Kpi("公司预计最终成本", s.ProjectCount == s.MissingForecastCount ? "暂无预测版本" : UiText.Money(s.EstimatedFinal));
-        Kpi("公司预计超/节目标", UiText.Money(s.Variance), s.Variance > 0);
-        Kpi("公司资金压力（已付−已收）", UiText.Money(s.FundingGap), s.FundingGap > 0);
-        Kpi("公司未归属金额", UiText.Money(s.UnallocatedAmount), s.UnallocatedAmount > 0);
-        Kpi("公司覆盖率", (s.CoverageRate * 100m).ToString("0.0", CultureInfo.CurrentCulture) + "%");
+        void Kpi(string l, string v, bool bad = false, string? desc = null) => _kpiHost.Children.Add(Widgets.Kpi(l, v, bad, 200, desc));
+        Kpi("在管项目", s.ProjectCount.ToString(), false, "全部项目合计");
+        Kpi("公司预计收入", UiText.Money(s.ExpectedIncome), false, "各项目对上收入合计");
+        Kpi("公司已知支出", UiText.Money(s.KnownExpenditure), false, "已登记外部金额事实 · 非财务实际成本");
+        Kpi("公司预计最终成本", s.ProjectCount == s.MissingForecastCount ? "暂无预测版本" : UiText.Money(s.EstimatedFinal), false, "仅含已冻结/草稿预测版本的项目");
+        Kpi("公司预计超/节目标", UiText.Money(s.Variance), s.Variance > 0, "有预测版本项目的差额合计");
+        Kpi("公司资金压力（已付−已收）", UiText.Money(s.FundingGap), s.FundingGap > 0, "已付 − 已收");
+        Kpi("公司未归属金额", UiText.Money(s.UnallocatedAmount), s.UnallocatedAmount > 0, "尚未归属到控制项的金额");
+        Kpi("公司覆盖率", (s.CoverageRate * 100m).ToString("0.0", CultureInfo.CurrentCulture) + "%", false, "已归属 / 可分配");
 
         _body.Children.Add(Widgets.Card("按项目经营汇总（每行 = 该项目页同一口径；合计为逐列相加）", BuildProjectTable(s)));
+        _body.Children.Add(BuildRankAndQuality(s));
         _body.Children.Add(Widgets.Card(null, new TextBlock
         {
             Text = $"数据截至：{UiText.Date(s.Projects.Select(p => p.AsOfDate).Where(d => d.HasValue).DefaultIfEmpty(null).Max())}　编制：成本岗。" +
@@ -132,8 +133,7 @@ public class CompanyCockpitView : UserControl
 
     private static Control BuildProjectTable(CompanySummary s)
     {
-        var headers = new[] { "项目", "预计收入", "已知支出", "预计最终", "目标", "预计超/节", "资金压力", "覆盖率", "截至" };
-        var right = new HashSet<int> { 1, 2, 3, 4, 5, 6, 7 };
+        var headers = new[] { "项目", "预计收入", "已知支出", "预计最终", "目标", "预计超/节", "资金压力", "覆盖率", "截至" };        var right = new HashSet<int> { 1, 2, 3, 4, 5, 6, 7 };
         var rows = s.Projects.Select(p => new[]
         {
             $"{p.Code} {p.Name}",
@@ -163,6 +163,41 @@ public class CompanyCockpitView : UserControl
         var grid = Widgets.TableWithFooter(headers, rows, footer, right,
             r => decimal.TryParse(r[5], NumberStyles.Any, CultureInfo.CurrentCulture, out var v) && v > 0);
         return grid;
+    }
+
+    private static Control BuildRankAndQuality(CompanySummary s)
+    {
+        var rankBody = new StackPanel { Spacing = 8 };
+        var rankHead = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
+        rankHead.Children.Add(new TextBlock { Text = "项目超/节排名", FontSize = 14, FontWeight = FontWeight.Bold, Foreground = Palette.Ink, VerticalAlignment = VerticalAlignment.Center });
+        if (s.Variance > 0) rankHead.Children.Add(Widgets.Badge($"合计 {UiText.Money(s.Variance)}", "danger"));
+        rankBody.Children.Add(rankHead);
+        var ranked = s.Projects.Where(p => p.Variance.HasValue).OrderByDescending(p => Math.Abs(p.Variance!.Value))
+            .Select(p => new[]
+            {
+                $"{p.Code} {p.Name}",
+                p.TargetTotal.HasValue ? UiText.Money(p.TargetTotal.Value) : "—",
+                p.EstimatedFinal.HasValue ? UiText.Money(p.EstimatedFinal.Value) : "—",
+                p.Variance.HasValue ? UiText.Money(p.Variance.Value) : "—"
+            }).ToList();
+        if (ranked.Count == 0)
+            rankBody.Children.Add(new TextBlock { Text = "尚无带预测版本的项目。", FontSize = 12, Foreground = Palette.Txt3 });
+        else
+            rankBody.Children.Add(Widgets.Table(new[] { "项目", "目标", "预计最终", "差额" }, ranked, new HashSet<int> { 1, 2, 3 },
+                r => decimal.TryParse(r[3], NumberStyles.Any, CultureInfo.CurrentCulture, out var v) && v > 0));
+
+        var q = new StackPanel { Spacing = 2 };
+        q.Children.Add(new TextBlock { Text = "公司数据质量", FontSize = 14, FontWeight = FontWeight.Bold, Foreground = Palette.Ink, Margin = new Thickness(0, 0, 0, 4) });
+        q.Children.Add(Widgets.Field("已分配归属", UiText.Money(s.KnownExpenditure - s.UnallocatedAmount)));
+        q.Children.Add(Widgets.Track((double)s.CoverageRate));
+        q.Children.Add(Widgets.Field("待归属金额", UiText.Money(s.UnallocatedAmount), s.UnallocatedAmount > 0));
+        q.Children.Add(Widgets.Field("已冻结预测版本项目", $"{s.ProjectCount - s.MissingForecastCount} / {s.ProjectCount}"));
+        var noForecast = s.Projects.FirstOrDefault(p => !p.EstimatedFinal.HasValue);
+        if (noForecast is not null)
+            q.Children.Add(Widgets.Field("尚无预测版本项目", $"{noForecast.Code} {noForecast.Name}", true));
+        q.Children.Add(Widgets.Hint("没有冻结预测版本的项目，其「预计最终成本」显示 —，不计入公司合计，也不以已知支出冒充。"));
+
+        return Widgets.TwoCol(Widgets.Card(null, rankBody), Widgets.Card(null, q));
     }
 
     private async void OnPrint(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

@@ -111,18 +111,64 @@ public class ProjectCockpitView : UserControl, IProjectScoped
         _title.Text = $"{_current.Code} · {_current.Name}";
 
         _kpiHost.Children.Clear();
-        void Kpi(string label, string value, bool bad = false) => _kpiHost.Children.Add(Widgets.Kpi(label, value, bad));
-        Kpi("项目预计收入", UiText.Money(o.ExpectedIncome));
-        Kpi("已知项目支出", UiText.Money(o.KnownExpenditure));
-        Kpi("已收（外部提供）", UiText.Money(o.Received));
-        Kpi("已付（外部提供）", UiText.Money(o.Paid));
-        Kpi("资金压力（已付−已收）", UiText.Money(o.FundingGap), o.FundingGap > 0);
+        void Kpi(string label, string value, bool bad = false, string? desc = null) => _kpiHost.Children.Add(Widgets.Kpi(label, value, bad, 200, desc));
+        Kpi("项目预计收入", UiText.Money(o.ExpectedIncome), false, "对上收入板块已登记金额");
+        Kpi("已知项目支出", UiText.Money(o.KnownExpenditure), false, "已登记外部金额事实 · 非财务实际成本");
+        Kpi("已收（外部提供）", UiText.Money(o.Received), false, "来源：财务/项目部资金状态");
+        Kpi("已付（外部提供）", UiText.Money(o.Paid), false, "来源：财务/项目部资金状态");
+        Kpi("资金压力（已付−已收）", UiText.Money(o.FundingGap), o.FundingGap > 0, "已付 − 已收，供现金流关注");
 
         _body.Children.Clear();
         _body.Children.Add(BuildCostSummary(f));
+        _body.Children.Add(BuildRiskAndQuality(o, f));
         if (f != null) _body.Children.Add(Widgets.Card("逐控制项预测（已知金额来自归属关系，不接受手填）", BuildForecastLines(f)));
-        _body.Children.Add(Widgets.Card("板块金额分栏（不跨栏相加）", BuildSegments(o)));
+        _body.Children.Add(Widgets.Card("业务板块分栏（不跨栏相加）", BuildSegments(o)));
         _body.Children.Add(Widgets.Card(null, BuildCaliberNote(o)));
+    }
+
+    /// <summary>最大风险项（按控制项偏差）+ 成本可解释程度，两栏并排。</summary>
+    private Control BuildRiskAndQuality(ProjectEconomySummary o, CostForecastSummary? f)
+    {
+        // 左：最大风险项
+        var riskBody = new StackPanel { Spacing = 8 };
+        if (f is null || f.Lines.Count == 0)
+        {
+            riskBody.Children.Add(new TextBlock { Text = "尚无预测版本或无预测行，无法输出风险排名。", FontSize = 12, Foreground = Palette.Txt3 });
+        }
+        else
+        {
+            var overLines = f.Lines.Where(l => l.Variance > 0).OrderByDescending(l => l.Variance).Take(3).ToList();
+            if (overLines.Count == 0)
+                riskBody.Children.Add(new TextBlock { Text = "所有控制项均未超目标。", FontSize = 12, Foreground = Palette.Txt3 });
+            else
+            {
+                var headers = new[] { "控制项", "目标", "预计最终", "差额" };
+                var right = new HashSet<int> { 1, 2, 3 };
+                var rows = overLines.Select(l => new[]
+                {
+                    l.Name, UiText.Money(l.TargetAmount), UiText.Money(l.EstimatedFinal), UiText.Money(l.Variance)
+                });
+                riskBody.Children.Add(Widgets.Table(headers, rows, right, _ => true));
+            }
+        }
+        var riskHeader = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
+        riskHeader.Children.Add(new TextBlock { Text = "最大风险项", FontSize = 14, FontWeight = FontWeight.Bold, Foreground = Palette.Ink, VerticalAlignment = VerticalAlignment.Center });
+        if (f is not null && f.VarianceTotal > 0) riskHeader.Children.Add(Widgets.Badge($"合计 {UiText.Money(f.VarianceTotal)}", "danger"));
+        riskBody.Children.Insert(0, riskHeader);
+
+        // 右：成本可解释程度
+        var q = new StackPanel { Spacing = 2 };
+        q.Children.Add(new TextBlock { Text = "成本可解释程度", FontSize = 14, FontWeight = FontWeight.Bold, Foreground = Palette.Ink, Margin = new Thickness(0, 0, 0, 4) });
+        q.Children.Add(Widgets.Field("已分配归属", UiText.Money(o.AllocatedAmount)));
+        q.Children.Add(Widgets.Track((double)o.CoverageRate));
+        q.Children.Add(Widgets.Field("待归属金额", UiText.Money(o.UnallocatedAmount) + " · " + ((1 - o.CoverageRate) * 100m).ToString("0.0", CultureInfo.CurrentCulture) + "%", o.UnallocatedAmount > 0));
+        q.Children.Add(Widgets.Field("暂估分配", UiText.Money(o.EstimatedAllocationAmount)));
+        q.Children.Add(Widgets.Field("待确认状态", UiText.Money(o.PendingConfirmationAmount)));
+        if (f is not null)
+            q.Children.Add(Widgets.Field("未纳入预测事项", UiText.Money(f.UnincludedChangeAmount), f.UnincludedChangeAmount > 0));
+        q.Children.Add(Widgets.Hint("不是录入越多越好：待归属与未纳入预测的金额会被如实标出，不会伪装成已确认成本。"));
+
+        return Widgets.TwoCol(Widgets.Card(null, riskBody), Widgets.Card(null, q));
     }
 
     private Control BuildCostSummary(CostForecastSummary? f)
