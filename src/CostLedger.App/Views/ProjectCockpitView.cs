@@ -141,13 +141,31 @@ public class ProjectCockpitView : UserControl, IProjectScoped
         {
             var over = f.VarianceTotal;
             body.Children.Add(new TextBlock { Text = $"当前预计最终成本（预测 v{f.VersionNumber} · {f.ForecastDate:yyyy-MM-dd} · {UiText.VersionStatus(f.Status)}）", FontSize = 11, Foreground = Palette.Txt3, LetterSpacing = 1.2 });
-            body.Children.Add(new TextBlock { Text = UiText.Money(f.EstimatedFinalTotal), FontSize = 40, FontWeight = FontWeight.Bold, Foreground = Palette.Ink });
+
+            var heroText = new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
+            heroText.Children.Add(new TextBlock { Text = UiText.Money(f.EstimatedFinalTotal), FontSize = 40, FontWeight = FontWeight.Bold, Foreground = Palette.Ink });
             var sub = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 14 };
             sub.Children.Add(new TextBlock { Text = $"目标成本 {UiText.Money(f.TargetTotal)}", Foreground = Palette.Txt2, FontSize = 12.5 });
             sub.Children.Add(new TextBlock { Text = $"预计超目标 {UiText.Money(over)}", Foreground = over > 0 ? Palette.Red : Palette.Txt2, FontSize = 12.5, FontWeight = FontWeight.Bold });
             sub.Children.Add(new TextBlock { Text = $"可信度 {UiText.Confidence(f.Confidence)}", Foreground = Palette.AccentDeep, FontSize = 12.5 });
             sub.Children.Add(new TextBlock { Text = $"覆盖 {f.ForecastLineCount}/{f.ActiveControlItemCount} 个控制项", Foreground = Palette.Txt2, FontSize = 12.5 });
-            body.Children.Add(sub);
+            heroText.Children.Add(sub);
+
+            var heroGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+            Grid.SetColumn(heroText, 0);
+            var ring = Widgets.Ring((double)f.CoverageRate, (f.CoverageRate * 100m).ToString("0.0", CultureInfo.CurrentCulture) + "%", 100);
+            Grid.SetColumn(ring, 1);
+            heroGrid.Children.Add(heroText);
+            heroGrid.Children.Add(ring);
+            body.Children.Add(heroGrid);
+
+            var badges = new WrapPanel();
+            if (f.UnallocatedAmount > 0) badges.Children.Add(Widgets.Badge($"未归属 {UiText.Money(f.UnallocatedAmount)}", "danger"));
+            if (f.UnincludedChangeAmount > 0) badges.Children.Add(Widgets.Badge($"未纳入变化 {UiText.Money(f.UnincludedChangeAmount)}", "accent"));
+            if (f.PendingConfirmationChangeAmount > 0) badges.Children.Add(Widgets.Badge($"依赖未确认 {UiText.Money(f.PendingConfirmationChangeAmount)}", "accent"));
+            if (over > 0) badges.Children.Add(Widgets.Badge($"预计超目标 {UiText.Money(over)}", "danger"));
+            else badges.Children.Add(Widgets.Badge($"预计节余 {UiText.Money(-over)}", "ok"));
+            if (badges.Children.Count > 0) body.Children.Add(badges);
             body.Children.Add(Widgets.Hint($"编制假设：{f.Basis ?? "（未填写，冻结时必须填写）"}"));
 
             var cards = new WrapPanel();

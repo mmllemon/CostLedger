@@ -21,6 +21,7 @@ public class CompanyCockpitView : UserControl
     private readonly CompanyService _svc = null!;
     private readonly WrapPanel _kpiHost = new();
     private readonly StackPanel _body = new();
+    private readonly StackPanel _heroHost = new();
     private CompanySummary? _summary;
 
     public CompanyCockpitView(AppDbContext db)
@@ -47,6 +48,7 @@ public class CompanyCockpitView : UserControl
 
         var root = new StackPanel { Spacing = 14, Margin = new Thickness(16) };
         root.Children.Add(top);
+        root.Children.Add(Widgets.Card(null, _heroHost));
         root.Children.Add(Widgets.Card(null, _kpiHost));
         root.Children.Add(_body);
         return new ScrollViewer { Content = root, Background = Palette.Bg };
@@ -58,6 +60,44 @@ public class CompanyCockpitView : UserControl
         Render();
     }
 
+    private void RenderHero(CompanySummary s)
+    {
+        var left = new StackPanel { Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
+        left.Children.Add(new TextBlock
+        {
+            Text = $"公司在管项目 {s.ProjectCount} 个 · 汇总口径截至 {UiText.Date(s.Projects.Select(p => p.AsOfDate).Where(d => d.HasValue).DefaultIfEmpty(null).Max())}",
+            FontSize = 11, Foreground = Palette.Txt3, LetterSpacing = 1.0
+        });
+        left.Children.Add(new TextBlock
+        {
+            Text = s.ProjectCount == s.MissingForecastCount ? "暂无预测版本" : UiText.Money(s.EstimatedFinal),
+            FontSize = 44, FontWeight = FontWeight.Bold, Foreground = Palette.Ink
+        });
+        left.Children.Add(new TextBlock
+        {
+            Text = $"公司预计最终成本　目标 {UiText.Money(s.TargetTotal)}",
+            FontSize = 12.5, Foreground = Palette.Txt2
+        });
+
+        var badges = new WrapPanel { Margin = new Thickness(0, 4, 0, 0) };
+        int overCount = s.Projects.Count(p => p.Variance.HasValue && p.Variance.Value > 0);
+        int underCount = s.Projects.Count(p => p.Variance.HasValue && p.Variance.Value < 0);
+        if (overCount > 0) badges.Children.Add(Widgets.Badge($"{overCount} 个项目预计超目标", "danger"));
+        if (underCount > 0) badges.Children.Add(Widgets.Badge($"{underCount} 个项目预计节余", "accent"));
+        if (s.MissingForecastCount > 0) badges.Children.Add(Widgets.Badge($"{s.MissingForecastCount} 个项目尚无预测版本", "muted"));
+        if (s.UnallocatedAmount > 0) badges.Children.Add(Widgets.Badge($"待归属 {UiText.Money(s.UnallocatedAmount)}", "accent"));
+        if (badges.Children.Count > 0) left.Children.Add(badges);
+
+        var ring = Widgets.Ring((double)s.CoverageRate, (s.CoverageRate * 100m).ToString("0.0", CultureInfo.CurrentCulture) + "%", 108);
+
+        var heroGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        Grid.SetColumn(left, 0);
+        Grid.SetColumn(ring, 1);
+        heroGrid.Children.Add(left);
+        heroGrid.Children.Add(ring);
+        _heroHost.Children.Add(heroGrid);
+    }
+
     private void Render()
     {
         var s = _summary;
@@ -65,6 +105,8 @@ public class CompanyCockpitView : UserControl
 
         _kpiHost.Children.Clear();
         _body.Children.Clear();
+        _heroHost.Children.Clear();
+        RenderHero(s);
 
         void Kpi(string l, string v, bool bad = false) => _kpiHost.Children.Add(Widgets.Kpi(l, v, bad));
         Kpi("在管项目", s.ProjectCount.ToString());
