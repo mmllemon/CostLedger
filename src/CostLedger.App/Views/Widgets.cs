@@ -17,7 +17,7 @@ internal static class Palette
     public static readonly SolidColorBrush Line = new(Color.Parse("#ECE3D6"));
     public static readonly SolidColorBrush Ink = new(Color.Parse("#211E1A"));
     public static readonly SolidColorBrush Txt2 = new(Color.Parse("#6B635A"));
-    public static readonly SolidColorBrush Txt3 = new(Color.Parse("#A89E90"));
+    public static readonly SolidColorBrush Txt3 = new(Color.Parse("#8A8075"));
     public static readonly SolidColorBrush Accent = new(Color.Parse("#CC785C"));
     public static readonly SolidColorBrush AccentDeep = new(Color.Parse("#A24E30"));
     public static readonly SolidColorBrush AccentSoft = new(Color.Parse("#F0DFD2"));
@@ -52,7 +52,7 @@ internal static class Palette
 /// <summary>经济模块视图共用的轻量控件工厂（卡片 / 表格），减少重复布局代码。</summary>
 internal static class Widgets
 {
-    public static Border Kpi(string label, string value, bool bad = false, double width = 200, string? desc = null)
+    public static Border Kpi(string label, string value, bool bad = false, double width = 0, string? desc = null)
     {
         var v = new TextBlock
         {
@@ -60,7 +60,8 @@ internal static class Widgets
             FontSize = 20,
             FontWeight = FontWeight.Bold,
             Margin = new Thickness(0, 6, 0, 0),
-            Foreground = bad ? Palette.Red : Palette.Ink
+            Foreground = bad ? Palette.Red : Palette.Ink,
+            TextTrimming = TextTrimming.CharacterEllipsis
         };
         var panel = new StackPanel
         {
@@ -76,17 +77,29 @@ internal static class Widgets
                 Text = desc, FontSize = 11, Foreground = Palette.Txt3,
                 TextWrapping = TextWrapping.Wrap, LineHeight = 17, Margin = new Thickness(0, 6, 0, 0)
             });
-        return new Border
+        var border = new Border
         {
             Background = Palette.Card,
             BorderBrush = Palette.Line,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(14),
             Padding = new Thickness(15),
-            Width = width,
             Margin = new Thickness(0, 0, 12, 12),
             Child = panel
         };
+        // width>0 时固定宽（少数并排场景）；否则由容器（KpiGrid）控制，铺满等分格。
+        if (width > 0) border.Width = width;
+        return border;
+    }
+
+    /// <summary>KPI 网格：固定每行 4 列，避免 WrapPanel 在不同宽度下参差换行。</summary>
+    public static UniformGrid KpiGrid(int columns = 4)
+        => new UniformGrid { Columns = columns, Margin = new Thickness(0, 0, -12, -12) };
+
+    /// <summary>把 KPI 依次放进 4 列网格（每个卡片自带右下外边距，网格用负外边距抵消）。</summary>
+    public static void FillKpis(UniformGrid grid, System.Collections.Generic.IEnumerable<Border> kpis)
+    {
+        foreach (var k in kpis) grid.Children.Add(k);
     }
 
     /// <summary>键值行（用于"数据质量/可解释程度"卡片），val 可标红。</summary>
@@ -167,30 +180,47 @@ internal static class Widgets
         string[]? footer, System.Collections.Generic.ISet<int>? rightAlign, System.Func<string[], bool>? redRow)
     {
         var cols = BuildColumns(headers, rightAlign);
+        var align = rightAlign ?? new System.Collections.Generic.HashSet<int>();
         var panel = new StackPanel { Spacing = 0 };
 
-        panel.Children.Add(RowBorder(headers, cols, head: true, red: false, alt: false, bold: true, footerRow: false));
+        panel.Children.Add(RowBorder(headers, cols, align, head: true, red: false, alt: false, bold: true, footerRow: false));
+
+        if (rows.Count == 0 && footer == null)
+        {
+            panel.Children.Add(EmptyState("暂无数据"));
+            return panel;
+        }
+
         for (int r = 0; r < rows.Count; r++)
         {
             var isRed = redRow?.Invoke(rows[r]) ?? false;
-            panel.Children.Add(RowBorder(rows[r], cols, head: false, red: isRed, alt: r % 2 == 1, bold: false, footerRow: false));
+            panel.Children.Add(RowBorder(rows[r], cols, align, head: false, red: isRed, alt: r % 2 == 1, bold: false, footerRow: false));
         }
         if (footer != null)
-            panel.Children.Add(RowBorder(footer, cols, head: false, red: false, alt: false, bold: true, footerRow: true));
+            panel.Children.Add(RowBorder(footer, cols, align, head: false, red: false, alt: false, bold: true, footerRow: true));
         return panel;
     }
 
+    /// <summary>空态占位行。</summary>
+    public static Control EmptyState(string text) => new Border
+    {
+        Padding = new Thickness(10, 22, 10, 22),
+        BorderBrush = Palette.Line,
+        BorderThickness = new Thickness(0, 0, 0, 1),
+        Child = new TextBlock { Text = text, FontSize = 12.5, Foreground = Palette.Txt3, HorizontalAlignment = HorizontalAlignment.Center }
+    };
+
     private static ColumnDefinition[] BuildColumns(string[] headers, System.Collections.Generic.ISet<int>? rightAlign)
     {
-        // 首列（名称）自适应占宽，其余等分剩余空间。
+        // 首列（名称）自适应占宽，其余等分剩余空间；最小宽度保证不重叠。
         var defs = new ColumnDefinition[headers.Length];
-        defs[0] = new ColumnDefinition(GridLength.Star) { MinWidth = 120 };
+        defs[0] = new ColumnDefinition(GridLength.Star) { MinWidth = 130 };
         for (int c = 1; c < headers.Length; c++)
-            defs[c] = new ColumnDefinition(new GridLength(1, GridUnitType.Star)) { MinWidth = 78 };
+            defs[c] = new ColumnDefinition(new GridLength(1, GridUnitType.Star)) { MinWidth = 80 };
         return defs;
     }
 
-    private static Border RowBorder(string[] cells, ColumnDefinition[] cols, bool head, bool red, bool alt, bool bold, bool footerRow)
+    private static Border RowBorder(string[] cells, ColumnDefinition[] cols, System.Collections.Generic.ISet<int> align, bool head, bool red, bool alt, bool bold, bool footerRow)
     {
         var grid = new Grid();
         foreach (var cd in cols) grid.ColumnDefinitions.Add(new ColumnDefinition(cd.Width) { MinWidth = cd.MinWidth });
@@ -203,7 +233,9 @@ internal static class Widgets
                 FontSize = 12.5,
                 VerticalAlignment = VerticalAlignment.Center,
                 TextWrapping = TextWrapping.NoWrap,
-                TextAlignment = c == 0 ? TextAlignment.Left : TextAlignment.Right
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                // 首列左对齐；其余按 rightAlign 集合决定，不再一律右对齐。
+                TextAlignment = c == 0 ? TextAlignment.Left : (align.Contains(c) ? TextAlignment.Right : TextAlignment.Left)
             };
             if (head) { tb.FontWeight = FontWeight.Bold; tb.Foreground = Palette.Txt3; }
             else if (bold) { tb.FontWeight = FontWeight.Bold; tb.Foreground = Palette.Ink; }

@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Interactivity;
+using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 using CostLedger.Domain;
@@ -26,7 +27,7 @@ public class ProjectCockpitView : UserControl, IProjectScoped
     private readonly EconomicFactsService _facts = null!;
     private readonly CostForecastService _forecast = null!;
 
-    private WrapPanel _kpiHost = null!;
+    private UniformGrid _kpiHost = null!;
     private StackPanel _body = null!;
     private TextBlock _title = null!;
     private Project? _current;
@@ -50,7 +51,7 @@ public class ProjectCockpitView : UserControl, IProjectScoped
             Widgets.ActionButton("刷新", () => _ = LoadAsync()),
             Widgets.ActionButton("打印项目经济一页", () => OnPrint(this, new RoutedEventArgs())));
 
-        _kpiHost = new WrapPanel();
+        _kpiHost = Widgets.KpiGrid();
         _body = new StackPanel { Spacing = 14 };
 
         var root = new StackPanel { Spacing = 14, Margin = new Thickness(20) };
@@ -91,7 +92,7 @@ public class ProjectCockpitView : UserControl, IProjectScoped
         _title.Text = $"{_current.Code} · {_current.Name}";
 
         _kpiHost.Children.Clear();
-        void Kpi(string label, string value, bool bad = false, string? desc = null) => _kpiHost.Children.Add(Widgets.Kpi(label, value, bad, 200, desc));
+        void Kpi(string label, string value, bool bad = false, string? desc = null) => _kpiHost.Children.Add(Widgets.Kpi(label, value, bad, 0, desc));
         Kpi("项目预计收入", UiText.Money(o.ExpectedIncome), false, "对上收入板块已登记金额");
         Kpi("已知项目支出", UiText.Money(o.KnownExpenditure), false, "已登记外部金额事实 · 非财务实际成本");
         Kpi("已收（外部提供）", UiText.Money(o.Received), false, "来源：财务/项目部资金状态");

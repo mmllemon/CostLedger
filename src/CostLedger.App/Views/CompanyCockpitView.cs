@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 using CostLedger.Domain;
@@ -19,7 +20,7 @@ namespace CostLedger.App.Views;
 public class CompanyCockpitView : UserControl
 {
     private readonly CompanyService _svc = null!;
-    private readonly WrapPanel _kpiHost = new();
+    private readonly UniformGrid _kpiHost = Widgets.KpiGrid();
     private readonly StackPanel _body = new();
     private readonly StackPanel _heroHost = new();
     private CompanySummary? _summary;
@@ -99,7 +100,7 @@ public class CompanyCockpitView : UserControl
         _heroHost.Children.Clear();
         RenderHero(s);
 
-        void Kpi(string l, string v, bool bad = false, string? desc = null) => _kpiHost.Children.Add(Widgets.Kpi(l, v, bad, 200, desc));
+        void Kpi(string l, string v, bool bad = false, string? desc = null) => _kpiHost.Children.Add(Widgets.Kpi(l, v, bad, 0, desc));
         Kpi("在管项目", s.ProjectCount.ToString(), false, "全部项目合计");
         Kpi("公司预计收入", UiText.Money(s.ExpectedIncome), false, "各项目对上收入合计");
         Kpi("公司已知支出", UiText.Money(s.KnownExpenditure), false, "已登记外部金额事实 · 非财务实际成本");

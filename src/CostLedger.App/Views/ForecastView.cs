@@ -30,7 +30,7 @@ public class ForecastView : UserControl, IProjectScoped
     private List<CostForecastVersion> _versions = new();
 
     private readonly ComboBox _versionCombo = new() { Width = 300, PlaceholderText = "预测版本" };
-    private readonly WrapPanel _kpiHost = new();
+    private readonly UniformGrid _kpiHost = Widgets.KpiGrid();
     private readonly StackPanel _lineHost = new(), _versionHost = new();
     private readonly TextBlock _msg = new();
     private readonly TextBlock _title = new() { FontSize = 11.5, Foreground = Palette.Txt3, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
@@ -137,7 +137,7 @@ public class ForecastView : UserControl, IProjectScoped
 
         _freezeBtn.IsEnabled = f.Status != ForecastVersionStatus.Frozen;
 
-        void Kpi(string l, string v, bool bad = false) => _kpiHost.Children.Add(Widgets.Kpi(l, v, bad, 176));
+        void Kpi(string l, string v, bool bad = false) => _kpiHost.Children.Add(Widgets.Kpi(l, v, bad, 0));
         Kpi("目标成本", UiText.Money(f.TargetTotal));
         Kpi("已知金额（自动取）", UiText.Money(f.KnownTotal));
         Kpi("剩余估计", UiText.Money(f.RemainingTotal));
