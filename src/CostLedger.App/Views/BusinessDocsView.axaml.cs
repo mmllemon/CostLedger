@@ -492,7 +492,7 @@ public partial class BusinessDocsView : UserControl
             {
                 Text = (e.Amount >= 0 ? "+" : "") + e.Amount.ToString("N2", CultureInfo.CurrentCulture),
                 FontWeight = FontWeight.SemiBold,
-                Foreground = (SolidColorBrush)this.FindResource(e.Amount < 0 ? "RedBrush" : "InkBrush")!,
+                Foreground = Palette.Find(e.Amount < 0 ? "RedBrush" : "InkBrush"),
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(10, 0, 10, 0)
             };
@@ -510,8 +510,8 @@ public partial class BusinessDocsView : UserControl
             ManualList.Children.Add(new Border
             {
                 Child = grid,
-                Background = (SolidColorBrush)this.FindResource("CardBrush")!,
-                BorderBrush = (SolidColorBrush)this.FindResource("LineBrush")!,
+                Background = Palette.Card,
+                BorderBrush = Palette.Line,
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(10),
                 Padding = new Thickness(10)

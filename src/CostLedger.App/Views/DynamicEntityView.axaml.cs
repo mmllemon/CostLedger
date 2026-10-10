@@ -44,7 +44,7 @@ public partial class DynamicEntityView : UserControl
         _ = InitAsync();
     }
 
-    private SolidColorBrush Brush(string key) => (SolidColorBrush)this.FindResource(key)!;
+    private SolidColorBrush Brush(string key) => Palette.Find(key);
 
     private void BuildUi()
     {

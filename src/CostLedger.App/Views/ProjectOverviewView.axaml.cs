@@ -67,15 +67,15 @@ public partial class ProjectOverviewView : UserControl
             AlertHost.Children.Add(new TextBlock
             {
                 Text = "暂无未确认预警",
-                Foreground = (SolidColorBrush)this.FindResource("Txt3Brush")!
+                Foreground = Palette.Find("Txt3Brush")
             });
             return;
         }
 
         foreach (var a in list)
         {
-            var brush = (SolidColorBrush)this.FindResource(
-                a.Severity == KpiSeverity.Danger ? "RedBrush" : "AccentDeepBrush")!;
+            var brush = Palette.Find(
+                a.Severity == KpiSeverity.Danger ? "RedBrush" : "AccentDeepBrush");
             AlertHost.Children.Add(new TextBlock
             {
                 Text = "• " + a.Message,
@@ -121,7 +121,7 @@ public partial class ProjectOverviewView : UserControl
             FontWeight = FontWeight.Bold,
             Margin = new Thickness(0, 6, 0, 0)
         };
-        if (bad) v.Foreground = (SolidColorBrush)this.FindResource("RedBrush")!;
+        if (bad) v.Foreground = Palette.Red;
 
         return new Border
         {
@@ -132,7 +132,7 @@ public partial class ProjectOverviewView : UserControl
             {
                 Children =
                 {
-                    new TextBlock { Text = label, FontSize = 11, Foreground = (SolidColorBrush)this.FindResource("Txt3Brush")! },
+                    new TextBlock { Text = label, FontSize = 11, Foreground = Palette.Txt3 },
                     v
                 }
             }

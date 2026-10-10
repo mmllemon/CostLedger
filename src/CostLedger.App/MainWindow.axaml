@@ -29,28 +29,34 @@
       </StackPanel>
       <TextBlock Text="公司" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Txt3Brush}" Margin="12,6,0,4"/>
       <Button x:Name="NavCompany" Classes="nav" Content="公司经营驾驶舱" Click="OnNavClick"/>
-      <TextBlock Text="项目经营" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Txt3Brush}" Margin="12,6,0,4"/>
+      <TextBlock Text="项目经营" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Txt3Brush}" Margin="12,10,0,4"/>
       <Button x:Name="NavCockpit" Classes="nav" Content="项目经济驾驶舱" Click="OnNavClick"/>
       <Button x:Name="NavCostControl" Classes="nav" Content="成本控制项与归属" Click="OnNavClick"/>
       <Button x:Name="NavForecast" Classes="nav" Content="成本预测与变化事项" Click="OnNavClick"/>
-      <TextBlock Text="既有模块" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Txt3Brush}" Margin="12,12,0,4"/>
-      <Button x:Name="NavDashboard" Classes="nav on" Content="成本看板" Click="OnNavClick"/>
-      <Button x:Name="NavOverview" Classes="nav" Content="项目总览" Click="OnNavClick"/>
-      <Button x:Name="NavLedgers" Classes="nav" Content="台账中心" Click="OnNavClick"/>
+      <TextBlock Text="往来与报表" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Txt3Brush}" Margin="12,10,0,4"/>
       <Button x:Name="NavParties" Classes="nav" Content="往来单位全景" Click="OnNavClick"/>
-      <Button x:Name="NavCost" Classes="nav" Content="成本结构" Click="OnNavClick"/>
-      <Button x:Name="NavMaster" Classes="nav" Content="基础资料" Click="OnNavClick"/>
-      <Button x:Name="NavDocs" Classes="nav" Content="业务单据" Click="OnNavClick"/>
-      <Button x:Name="NavProject" Classes="nav" Content="项目" Click="OnNavClick"/>
-      <Button x:Name="NavCategory" Classes="nav" Content="成本科目" Click="OnNavClick"/>
       <Button x:Name="NavReports" Classes="nav" Content="内部汇报报表" Click="OnNavClick"/>
-      <Button x:Name="NavBoardDesign" Classes="nav" Content="看板设计" Click="OnNavClick"/>
-      <Button x:Name="NavAlerts" Classes="nav" Content="预警中心" Click="OnNavClick"/>
-      <Button x:Name="NavRecon" Classes="nav" Content="对账中心" Click="OnNavClick"/>
-      <TextBlock Text="后台" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Txt3Brush}" Margin="12,12,0,4"/>
+      <TextBlock Text="后台" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Txt3Brush}" Margin="12,10,0,4"/>
       <Button x:Name="NavAdmin" Classes="nav" Content="后台管理" Click="OnNavClick"/>
       <Button x:Name="NavSettings" Classes="nav" Content="系统设置" Click="OnNavClick"/>
-      <Button x:Name="NavObjects" Classes="nav" Content="自建对象" Click="OnNavClick"/>
+
+      <!-- 旧模块（M2 兼容）：默认折叠，避免与成本岗新定位混淆；需要时展开。 -->
+      <Expander Header="旧模块（兼容）" FontSize="10.5" Foreground="{StaticResource Txt3Brush}" Margin="6,14,6,0" HorizontalAlignment="Stretch">
+        <StackPanel>
+          <Button x:Name="NavDashboard" Classes="nav" Content="成本看板" Click="OnNavClick"/>
+          <Button x:Name="NavOverview" Classes="nav" Content="项目总览" Click="OnNavClick"/>
+          <Button x:Name="NavLedgers" Classes="nav" Content="台账中心" Click="OnNavClick"/>
+          <Button x:Name="NavCost" Classes="nav" Content="成本结构" Click="OnNavClick"/>
+          <Button x:Name="NavMaster" Classes="nav" Content="基础资料" Click="OnNavClick"/>
+          <Button x:Name="NavDocs" Classes="nav" Content="业务单据" Click="OnNavClick"/>
+          <Button x:Name="NavProject" Classes="nav" Content="项目" Click="OnNavClick"/>
+          <Button x:Name="NavCategory" Classes="nav" Content="成本科目" Click="OnNavClick"/>
+          <Button x:Name="NavBoardDesign" Classes="nav" Content="看板设计" Click="OnNavClick"/>
+          <Button x:Name="NavAlerts" Classes="nav" Content="预警中心" Click="OnNavClick"/>
+          <Button x:Name="NavRecon" Classes="nav" Content="对账中心" Click="OnNavClick"/>
+          <Button x:Name="NavObjects" Classes="nav" Content="自建对象" Click="OnNavClick"/>
+        </StackPanel>
+      </Expander>
     </StackPanel>
     </ScrollViewer>
 

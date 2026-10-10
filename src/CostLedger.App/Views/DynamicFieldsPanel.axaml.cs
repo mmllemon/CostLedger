@@ -21,7 +21,7 @@ namespace CostLedger.App.Views;
 /// </summary>
 public partial class DynamicFieldsPanel : UserControl
 {
-    private readonly MetadataService _metadata = null!;
+    private MetadataService _metadata = null!;
     private string _entityCode = "";
     private int _ownerId;
     private readonly List<(FieldDef Def, Control Input)> _rows = new();
@@ -36,7 +36,10 @@ public partial class DynamicFieldsPanel : UserControl
         _metadata = metadata;
     }
 
-    private SolidColorBrush Brush(string key) => (SolidColorBrush)this.FindResource(key)!;
+    /// <summary>为 XAML 中声明的实例注入元数据服务（无参构造不会注入）。</summary>
+    public void Attach(MetadataService metadata) => _metadata = metadata;
+
+    private SolidColorBrush Brush(string key) => Palette.Find(key);
 
     public async Task LoadAsync(string entityCode, int ownerId)
     {

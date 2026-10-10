@@ -22,6 +22,30 @@ internal static class Palette
     public static readonly SolidColorBrush AccentSoft = new(Color.Parse("#F0DFD2"));
     public static readonly SolidColorBrush Red = new(Color.Parse("#BE4A3C"));
     public static readonly SolidColorBrush White = new(Color.Parse("#FFFFFF"));
+
+    /// <summary>
+    /// 按资源名取画刷的安全入口：不依赖控件是否已挂到可视树，也不会因查找失败抛异常。
+    /// 历史代码里的 (SolidColorBrush)FindResource(...) 在 View 早期渲染时会拿到 UnsetValue
+    /// 而抛 InvalidCastException，导致整个程序崩溃——统一改用本方法。
+    /// </summary>
+    public static SolidColorBrush Find(string key) => key switch
+    {
+        "BgBrush" => Bg,
+        "CardBrush" => Card,
+        "LineBrush" => Line,
+        "InkBrush" => Ink,
+        "Txt2Brush" => Txt2,
+        "Txt3Brush" => Txt3,
+        "AccentBrush" => Accent,
+        "AccentDeepBrush" => AccentDeep,
+        "AccentSoftBrush" => AccentSoft,
+        "RedBrush" => Red,
+        "RedSoftBrush" => new SolidColorBrush(Color.Parse("#F6E2DD")),
+        "TrackBrush" => new SolidColorBrush(Color.Parse("#ECE2D4")),
+        "BarBrush" => new SolidColorBrush(Color.Parse("#E7DAC9")),
+        "WhiteBrush" => White,
+        _ => Ink
+    };
 }
 
 /// <summary>经济模块视图共用的轻量控件工厂（卡片 / 表格），减少重复布局代码。</summary>

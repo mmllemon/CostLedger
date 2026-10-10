@@ -113,7 +113,7 @@ public partial class SystemSettingsView : UserControl
         if (head)
         {
             tb.FontWeight = FontWeight.Bold;
-            tb.Foreground = (SolidColorBrush)this.FindResource("Txt3Brush")!;
+            tb.Foreground = Palette.Find("Txt3Brush");
         }
         Grid.SetRow(tb, row);
         Grid.SetColumn(tb, col);
@@ -163,7 +163,7 @@ public partial class SystemSettingsView : UserControl
         Process.Start(new ProcessStartInfo("explorer.exe", $"\"{dir}\"") { UseShellExecute = true });
     }
 
-    private SolidColorBrush Brush(string key) => (SolidColorBrush)this.FindResource(key)!;
+    private SolidColorBrush Brush(string key) => Palette.Find(key);
 
     private async Task InitAsync()
     {

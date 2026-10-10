@@ -38,6 +38,9 @@ public partial class MasterDataView : UserControl
 
     private async Task InitAsync()
     {
+        // XAML 里声明的动态字段面板走无参构造，需在此注入元数据服务，否则其 LoadAsync 空引用。
+        PartyExt.Attach(_metadata);
+        ConExt.Attach(_metadata);
         _roleItems = await _metadata.ListLookupItemsAsync("PartyRole");
         _typeItems = await _metadata.ListLookupItemsAsync("ContractType");
         _taxItems = await _metadata.ListLookupItemsAsync("TaxRate");

@@ -161,12 +161,12 @@ public partial class LedgerCenterView : UserControl
         if (header)
         {
             tb.FontWeight = FontWeight.Bold;
-            tb.Foreground = (SolidColorBrush)this.FindResource("Txt3Brush")!;
+            tb.Foreground = Palette.Find("Txt3Brush");
         }
         else if (footer)
         {
             tb.FontWeight = FontWeight.SemiBold;
-            tb.Foreground = (SolidColorBrush)this.FindResource("AccentDeepBrush")!;
+            tb.Foreground = Palette.AccentDeep;
         }
         Grid.SetRow(tb, row);
         Grid.SetColumn(tb, col);

@@ -282,7 +282,7 @@ public partial class ReportCenterView : UserControl
             ResultHost.Children.Add(new TextBlock
             {
                 Text = "（无可输出的列。请在上方勾选至少一列后运行。）",
-                Foreground = (SolidColorBrush)this.FindResource("Txt3Brush")!,
+                Foreground = Palette.Find("Txt3Brush"),
                 FontSize = 12
             });
             return;
@@ -322,7 +322,7 @@ public partial class ReportCenterView : UserControl
         if (footer)
         {
             tb.FontWeight = FontWeight.SemiBold;
-            tb.Foreground = (SolidColorBrush)this.FindResource("AccentDeepBrush")!;
+            tb.Foreground = Palette.AccentDeep;
         }
         Grid.SetRow(tb, row);
         Grid.SetColumn(tb, col);

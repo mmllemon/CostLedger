@@ -156,11 +156,11 @@ public partial class ReconciliationView : UserControl
         if (header)
         {
             tb.FontWeight = FontWeight.Bold;
-            tb.Foreground = (SolidColorBrush)this.FindResource("Txt3Brush")!;
+            tb.Foreground = Palette.Find("Txt3Brush");
         }
         else if (red)
         {
-            tb.Foreground = (SolidColorBrush)this.FindResource("RedBrush")!;
+            tb.Foreground = Palette.Red;
             tb.FontWeight = FontWeight.SemiBold;
         }
         Grid.SetRow(tb, row);

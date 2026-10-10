@@ -9,5 +9,22 @@
   <Application.Resources>
     <local:OverForegroundConverter x:Key="OverForeground" />
     <local:KpiSeverityBrushConverter x:Key="KpiBrush" />
+    <!-- 画刷在应用级注册：FindResource 先查应用资源，视图在挂到可视树前即可解析，
+         避免 (SolidColorBrush)FindResource(...) 在早期渲染时拿到 UnsetValue 而崩溃。 -->
+    <SolidColorBrush x:Key="BgBrush"         Color="#F4EEE5"/>
+    <SolidColorBrush x:Key="CardBrush"       Color="#FFFDFA"/>
+    <SolidColorBrush x:Key="LineBrush"       Color="#ECE3D6"/>
+    <SolidColorBrush x:Key="InkBrush"        Color="#211E1A"/>
+    <SolidColorBrush x:Key="Txt2Brush"       Color="#6B635A"/>
+    <SolidColorBrush x:Key="Txt3Brush"       Color="#A89E90"/>
+    <SolidColorBrush x:Key="AccentBrush"     Color="#CC785C"/>
+    <SolidColorBrush x:Key="AccentDeepBrush" Color="#A24E30"/>
+    <SolidColorBrush x:Key="AccentSoftBrush" Color="#F0DFD2"/>
+    <SolidColorBrush x:Key="AccentMidBrush"  Color="#D9A98C"/>
+    <SolidColorBrush x:Key="TrackBrush"      Color="#ECE2D4"/>
+    <SolidColorBrush x:Key="BarBrush"        Color="#E7DAC9"/>
+    <SolidColorBrush x:Key="RedBrush"        Color="#BE4A3C"/>
+    <SolidColorBrush x:Key="RedSoftBrush"    Color="#F6E2DD"/>
+    <SolidColorBrush x:Key="WhiteBrush"      Color="#FFFFFF"/>
   </Application.Resources>
 </Application>

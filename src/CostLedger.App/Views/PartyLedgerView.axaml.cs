@@ -78,7 +78,7 @@ public partial class PartyLedgerView : UserControl
     private Border MakeCard(string label, string value, bool bad)
     {
         var v = new TextBlock { Text = value, FontSize = 20, FontWeight = FontWeight.Bold, Margin = new Thickness(0, 6, 0, 0) };
-        if (bad) v.Foreground = (SolidColorBrush)this.FindResource("RedBrush")!;
+        if (bad) v.Foreground = Palette.Red;
         return new Border
         {
             Classes = { "sidecard" },
@@ -88,7 +88,7 @@ public partial class PartyLedgerView : UserControl
             {
                 Children =
                 {
-                    new TextBlock { Text = label, FontSize = 11, Foreground = (SolidColorBrush)this.FindResource("Txt3Brush")! },
+                    new TextBlock { Text = label, FontSize = 11, Foreground = Palette.Find("Txt3Brush") },
                     v
                 }
             }
@@ -121,12 +121,12 @@ public partial class PartyLedgerView : UserControl
         if (head)
         {
             tb.FontWeight = FontWeight.Bold;
-            tb.Foreground = (SolidColorBrush)this.FindResource("Txt3Brush")!;
+            tb.Foreground = Palette.Find("Txt3Brush");
         }
         else if (red)
         {
             tb.FontWeight = FontWeight.SemiBold;
-            tb.Foreground = (SolidColorBrush)this.FindResource("RedBrush")!;
+            tb.Foreground = Palette.Red;
         }
         Grid.SetRow(tb, row);
         Grid.SetColumn(tb, col);

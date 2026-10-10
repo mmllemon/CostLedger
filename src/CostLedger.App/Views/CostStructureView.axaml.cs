@@ -349,12 +349,12 @@ public partial class CostStructureView : UserControl
         if (head)
         {
             tb.FontWeight = FontWeight.Bold;
-            tb.Foreground = (SolidColorBrush)this.FindResource("Txt3Brush")!;
+            tb.Foreground = Palette.Find("Txt3Brush");
         }
         else if (red)
         {
             tb.FontWeight = FontWeight.SemiBold;
-            tb.Foreground = (SolidColorBrush)this.FindResource("RedBrush")!;
+            tb.Foreground = Palette.Red;
         }
         Grid.SetRow(tb, row);
         Grid.SetColumn(tb, col);

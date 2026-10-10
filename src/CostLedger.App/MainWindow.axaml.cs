@@ -45,9 +45,50 @@ public partial class MainWindow : Window
         _dyn = new DynamicEntityService(db);
         InitializeComponent();
         Closed += (_, _) => _db.Dispose();
+        // 视图初始化里的异步异常不应让整个程序退出：记录后继续运行，用户可切到别的页面。
+        Dispatcher.UIThread.UnhandledException += (_, ev) =>
+        {
+            Console.Error.WriteLine("[UI 线程异常] " + ev.Exception);
+            ShowError("页面发生错误", ev.Exception);
+            ev.Handled = true;
+        };
         StartScheduler();
         _ = LoadProjectsAsync();
         NavigateTo("NavCompany");
+    }
+
+    /// <summary>把异常就地显示在主区，而不是让程序崩溃退出。</summary>
+    private void ShowError(string title, Exception? ex)
+    {
+        try
+        {
+            MainArea.Content = new ScrollViewer
+            {
+                Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#F4EEE5")),
+                Content = new StackPanel
+                {
+                    Margin = new Avalonia.Thickness(24),
+                    Spacing = 12,
+                    Children =
+                    {
+                        new TextBlock { Text = title, FontSize = 18, FontWeight = Avalonia.Media.FontWeight.Bold },
+                        new TextBlock
+                        {
+                            Text = ex?.Message ?? "未知错误",
+                            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                            Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#BE4A3C"))
+                        },
+                        new TextBlock
+                        {
+                            Text = "该页面暂不可用，已阻止其影响其它页面。请切换到其它导航项。",
+                            FontSize = 12,
+                            Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#6B635A"))
+                        }
+                    }
+                }
+            };
+        }
+        catch { /* 显示错误都不能再抛出 */ }
     }
 
     /// <summary>加载项目并填充顶部全局项目切换器；默认选中第一个项目。</summary>
