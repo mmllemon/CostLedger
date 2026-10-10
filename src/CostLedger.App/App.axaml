@@ -1,7 +1,8 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:CostLedger.App"
-             x:Class="CostLedger.App.App">
+             x:Class="CostLedger.App.App"
+             RequestedThemeVariant="Light">
   <Application.Styles>
     <FluentTheme />
     <StyleInclude Source="avares://CostLedger.App/Styles/Styles.axaml" />

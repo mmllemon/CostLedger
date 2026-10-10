@@ -36,7 +36,7 @@ public class AdminSettingsView : UserControl
     {
         var title = new TextBlock { Text = "后台管理", FontSize = 15, FontWeight = FontWeight.Bold, Foreground = Palette.Ink };
 
-        var root = new StackPanel { Spacing = 14, Margin = new Thickness(16) };
+        var root = new StackPanel { Spacing = 14, Margin = new Thickness(20) };
         root.Children.Add(title);
         root.Children.Add(Widgets.Card(null, new TextBlock
         {

@@ -81,7 +81,7 @@ public class InternalReportView : UserControl
         selectors.Children.Add(new TextBlock { Text = "单位", VerticalAlignment = VerticalAlignment.Center, Foreground = Palette.Txt2 });
         selectors.Children.Add(_partyCombo);
 
-        var root = new StackPanel { Spacing = 14, Margin = new Thickness(16) };
+        var root = new StackPanel { Spacing = 14, Margin = new Thickness(20) };
         root.Children.Add(top);
         root.Children.Add(Widgets.Card("选择模板", chipRow));
         root.Children.Add(Widgets.Card("选择数据范围", selectors));

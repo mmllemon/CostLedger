@@ -56,7 +56,7 @@ public class PartyPanoramaView : UserControl
         _cardHost = new WrapPanel();
         _body = new StackPanel { Spacing = 14 };
 
-        var root = new StackPanel { Spacing = 14, Margin = new Thickness(16) };
+        var root = new StackPanel { Spacing = 14, Margin = new Thickness(20) };
         root.Children.Add(top);
         root.Children.Add(Widgets.Card(null, _cardHost));
         root.Children.Add(_body);

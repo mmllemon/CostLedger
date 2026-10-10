@@ -212,6 +212,33 @@
     <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
     <Setter Property="Background" Value="{StaticResource CardBrush}"/>
   </Style>
+  <!-- 占位符文字：显式设定为中灰，避免 Fluent 主题在深色变体下给出浅色占位符 -->
+  <Style Selector="TextBox /template/ TextBlock#PART_Watermark">
+    <Setter Property="Foreground" Value="{StaticResource Txt3Brush}"/>
+  </Style>
+  <Style Selector="ComboBox /template/ TextBlock#PlaceholderTextBlock">
+    <Setter Property="Foreground" Value="{StaticResource Txt3Brush}"/>
+  </Style>
+  <Style Selector="NumericUpDown /template/ TextBlock#PART_Watermark">
+    <Setter Property="Foreground" Value="{StaticResource Txt3Brush}"/>
+  </Style>
+  <!-- 全部按钮：显式前景色 + 悬停前景色，杜绝与底色同色（白字白底） -->
+  <Style Selector="Button">
+    <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+  </Style>
+  <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+  </Style>
+  <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+  </Style>
+  <!-- 强调色按钮悬停时仍保持白字（否则被上面的规则改成深色，对比度不足） -->
+  <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{StaticResource WhiteBrush}"/>
+  </Style>
+  <Style Selector="Button.seg.on:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Foreground" Value="{StaticResource WhiteBrush}"/>
+  </Style>
   <!-- ComboBox 内部选中区在 Fluent 下会绘制灰底，覆盖为透明 -->
   <Style Selector="ComboBox /template/ Border#Background">
     <Setter Property="Background" Value="{StaticResource BgBrush}"/>
