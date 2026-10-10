@@ -46,6 +46,8 @@ public class EntityDef
     public string Code { get; set; } = string.Empty;   // "Party" / "Contract" ...
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
+    /// <summary>true=后台自建对象类型（用户可在「自建对象」中增删记录）；false=系统实体（由 GenericRecordView 渲染）。</summary>
+    public bool IsUserDefined { get; set; }
     public ICollection<FieldDef> Fields { get; set; } = new List<FieldDef>();
 }
 
@@ -79,6 +81,33 @@ public class CustomFieldValue
     public int Id { get; set; }
     public string EntityDefCode { get; set; } = string.Empty;
     public int OwnerId { get; set; }
+    public int FieldDefId { get; set; }
+    public FieldDef? FieldDef { get; set; }
+    public string Value { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// 运行时自建对象的一条记录（用户在「自建对象」中新建的"对象类型"的实例）。
+/// 身份字段（编号/名称）落本表，所有用户自定义字段值存于 DynamicValue（EAV）。
+/// </summary>
+public class DynamicRecord
+{
+    public int Id { get; set; }
+    public string EntityDefCode { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;   // 业务编号（用户填）
+    public string Name { get; set; } = string.Empty;   // 显示名（如设备名称/车牌）
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public ICollection<DynamicValue> Values { get; set; } = new List<DynamicValue>();
+}
+
+/// <summary>
+/// 自建对象记录的字段值（EAV）。一个 DynamicRecord 的每个字段一行；统一存字符串，按 FieldType 解析。
+/// </summary>
+public class DynamicValue
+{
+    public int Id { get; set; }
+    public int RecordId { get; set; }
+    public DynamicRecord? Record { get; set; }
     public int FieldDefId { get; set; }
     public FieldDef? FieldDef { get; set; }
     public string Value { get; set; } = string.Empty;

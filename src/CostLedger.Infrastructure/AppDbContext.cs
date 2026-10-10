@@ -30,6 +30,10 @@ public class AppDbContext : DbContext
     public DbSet<FieldDef> FieldDefs => Set<FieldDef>();
     public DbSet<CustomFieldValue> CustomFieldValues => Set<CustomFieldValue>();
 
+    // 阶段1：运行时自建对象（与 Directus introspection 对齐的"深度自定义"杀手锏）
+    public DbSet<DynamicRecord> DynamicRecords => Set<DynamicRecord>();
+    public DbSet<DynamicValue> DynamicValues => Set<DynamicValue>();
+
     // M2-C 报表层
     public DbSet<ReportDef> ReportDefs => Set<ReportDef>();
     public DbSet<ReportColumn> ReportColumns => Set<ReportColumn>();
@@ -237,6 +241,25 @@ public class AppDbContext : DbContext
                 .HasForeignKey(x => x.FieldDefId).OnDelete(DeleteBehavior.Cascade);
         });
 
+        // ---- 阶段1：运行时自建对象 ----
+        mb.Entity<DynamicRecord>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.EntityDefCode).HasMaxLength(48);
+            b.Property(x => x.Code).HasMaxLength(48);
+            b.Property(x => x.Name).HasMaxLength(120);
+            b.HasIndex(x => x.EntityDefCode);
+        });
+        mb.Entity<DynamicValue>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Value).HasMaxLength(512);
+            b.HasOne(x => x.Record).WithMany(x => x.Values)
+                .HasForeignKey(x => x.RecordId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.FieldDef).WithMany()
+                .HasForeignKey(x => x.FieldDefId).OnDelete(DeleteBehavior.Cascade);
+        });
+
         // ---- M2-C 报表层配置 ----
         mb.Entity<ReportDef>(b =>
         {
@@ -356,7 +379,7 @@ public class AppDbContext : DbContext
 public static class DbBootstrap
 {
     /// <summary>当前库结构版本。每次变更模型后 +1，旧库会自动备份并重建。</summary>
-    public const int SchemaVersion = 7;
+    public const int SchemaVersion = 8;
 
     /// <summary>当前账套文件路径（Configure 时记录，供备份等使用）。</summary>
     public static string? CurrentDbPath { get; private set; }

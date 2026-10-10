@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private readonly DashboardService _dashboard = null!;
     private readonly AlertService _alerts = null!;
     private readonly SchedulerService _scheduler = null!;
+    private readonly DynamicEntityService _dyn = null!;
 
     public MainWindow()
     {
@@ -34,6 +35,7 @@ public partial class MainWindow : Window
         _dashboard = new DashboardService(db, spine);
         _alerts = new AlertService(db, _dashboard);
         _scheduler = new SchedulerService(db, _alerts);
+        _dyn = new DynamicEntityService(db);
         InitializeComponent();
         Closed += (_, _) => _db.Dispose();
         StartScheduler();
@@ -61,7 +63,7 @@ public partial class MainWindow : Window
 
     private void NavigateTo(string key)
     {
-        foreach (var b in new[] { NavDashboard, NavOverview, NavLedgers, NavParties, NavCost, NavMaster, NavDocs, NavProject, NavCategory, NavReports, NavBoardDesign, NavAlerts, NavRecon, NavSettings })
+        foreach (var b in new[] { NavDashboard, NavOverview, NavLedgers, NavParties, NavCost, NavMaster, NavDocs, NavProject, NavCategory, NavReports, NavBoardDesign, NavAlerts, NavRecon, NavSettings, NavObjects })
             b.Classes.Remove("on");
 
         switch (key)
@@ -136,6 +138,10 @@ public partial class MainWindow : Window
             case "NavSettings":
                 NavSettings.Classes.Add("on");
                 MainArea.Content = new SystemSettingsView(_metadata, _db);
+                break;
+            case "NavObjects":
+                NavObjects.Classes.Add("on");
+                MainArea.Content = new DynamicEntityView(_db, _metadata);
                 break;
             default:
                 NavDashboard.Classes.Add("on");

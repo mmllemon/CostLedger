@@ -53,6 +53,28 @@ public class MetadataService
     public Task<List<EntityDef>> ListEntityDefsAsync()
         => _db.EntityDefs.OrderBy(x => x.Name).ToListAsync();
 
+    public Task<List<EntityDef>> ListUserEntityDefsAsync()
+        => _db.EntityDefs.Where(e => e.IsUserDefined).OrderBy(x => x.Name).ToListAsync();
+
+    public async Task<int> SaveEntityDefAsync(EntityDef def)
+    {
+        if (def.Id == 0) _db.EntityDefs.Add(def);
+        else _db.EntityDefs.Update(def);
+        await _db.SaveChangesAsync();
+        return def.Id;
+    }
+
+    public async Task DeleteEntityDefAsync(int id)
+    {
+        var def = await _db.EntityDefs.FirstOrDefaultAsync(x => x.Id == id);
+        if (def is null) return;
+        // 级联删除其记录与字段（FieldDef 随实体级联）
+        var recs = await _db.DynamicRecords.Where(r => r.EntityDefCode == def.Code).ToListAsync();
+        _db.DynamicRecords.RemoveRange(recs);
+        _db.EntityDefs.Remove(def);
+        await _db.SaveChangesAsync();
+    }
+
     public Task<List<FieldDef>> ListFieldDefsAsync(string entityCode)
         => _db.FieldDefs.Where(x => x.EntityDefCode == entityCode).OrderBy(x => x.DisplayOrder).ToListAsync();
 

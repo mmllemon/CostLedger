@@ -79,4 +79,27 @@ internal static class ControlFactory
         FieldType.Lookup => input is ComboBox cmb ? cmb.SelectedValue?.ToString() ?? "" : "",
         _ => input is TextBox t ? t.Text ?? "" : ""
     };
+
+    /// <summary>把已存值写回控件（编辑回填，与 BuildInput 的初始值逻辑对称）。</summary>
+    public static void SetInput(Control input, FieldDef def, string? value)
+    {
+        switch (def.Type)
+        {
+            case FieldType.Boolean:
+                if (input is CheckBox cb) cb.IsChecked = string.Equals(value, "True", StringComparison.OrdinalIgnoreCase);
+                break;
+            case FieldType.Number or FieldType.Money:
+                if (input is NumericUpDown nu && decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var dv)) nu.Value = dv;
+                break;
+            case FieldType.Date:
+                if (input is DatePicker dp && DateOnly.TryParse(value, out var d)) dp.SelectedDate = new DateTimeOffset(d.ToDateTime(TimeOnly.MinValue));
+                break;
+            case FieldType.Lookup:
+                if (input is ComboBox cmb) cmb.SelectedValue = value;
+                break;
+            default:
+                if (input is TextBox t) t.Text = value ?? "";
+                break;
+        }
+    }
 }
