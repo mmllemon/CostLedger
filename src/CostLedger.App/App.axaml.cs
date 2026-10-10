@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using CostLedger.App.Views;
 using CostLedger.Domain;
 using CostLedger.Infrastructure;
@@ -24,7 +25,36 @@ public partial class App : Application
             var dbPath = Path.Combine(AppContext.BaseDirectory, "costledger.db");
             var options = DbBootstrap.Configure(dbPath);
             var db = new AppDbContext(options);
-            DbBootstrap.EnsureCreatedAndSeed(db, dbPath);
+            try
+            {
+                DbBootstrap.EnsureCreatedAndSeed(db, dbPath);
+            }
+            catch (InvalidOperationException ex)
+            {
+                db.Dispose();
+                var close = new Button { Content = "关闭", Classes = { "primary" } };
+                var errorWindow = new Window
+                {
+                    Title = "CostLedger · 无法打开账套",
+                    Width = 620,
+                    Height = 300,
+                    Content = new StackPanel
+                    {
+                        Margin = new Thickness(24),
+                        Spacing = 18,
+                        Children =
+                        {
+                            new TextBlock { Text = "账套未打开", FontSize = 22 },
+                            new TextBlock { Text = ex.Message, TextWrapping = TextWrapping.Wrap },
+                            close
+                        }
+                    }
+                };
+                close.Click += (_, _) => errorWindow.Close();
+                desktop.MainWindow = errorWindow;
+                base.OnFrameworkInitializationCompleted();
+                return;
+            }
             ICostSpineService spine = new CostSpineService(db);
             var metadata = new MetadataService(db);
 

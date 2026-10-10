@@ -1,0 +1,377 @@
+using CostLedger.Domain;
+using CostLedger.Infrastructure;
+using FluentAssertions;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
+using Xunit;
+
+namespace CostLedger.Tests;
+
+public class EconomicFactsTests
+{
+    private static AppDbContext CreateContext()
+    {
+        var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseSqlite(connection).Options;
+        var db = new AppDbContext(options);
+        db.Database.EnsureCreated();
+        return db;
+    }
+
+    [Fact]
+    public async Task 同一往来单位可在同一项目承担多个业务角色()
+    {
+        using var db = CreateContext();
+        var project = new Project { Code = "P-1", Name = "项目一" };
+        var party = new Party { Name = "多角色单位", RoleCode = "LegacyGlobalRole" };
+        db.AddRange(project, party);
+        await db.SaveChangesAsync();
+
+        db.ProjectPartyRelationships.AddRange(
+            new ProjectPartyRelationship
+            {
+                ProjectId = project.Id, PartyId = party.Id,
+                Role = ProjectPartyRole.MaterialSupplier,
+                Segment = BusinessSegment.MaterialSupply,
+                Direction = EconomicDirection.Expenditure
+            },
+            new ProjectPartyRelationship
+            {
+                ProjectId = project.Id, PartyId = party.Id,
+                Role = ProjectPartyRole.ProfessionalServiceProvider,
+                Segment = BusinessSegment.ProfessionalService,
+                Direction = EconomicDirection.Expenditure
+            });
+        await db.SaveChangesAsync();
+
+        (await db.ProjectPartyRelationships.CountAsync(x => x.PartyId == party.Id)).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task 项目级外部金额无需清单或科目即可分配到过程控制项()
+    {
+        using var db = CreateContext();
+        var project = new Project { Code = "P-1", Name = "项目一" };
+        db.Projects.Add(project);
+        await db.SaveChangesAsync();
+        var item = new CostControlItem { ProjectId = project.Id, Code = "ELEC", Name = "电气工程" };
+        var fact = new ExternalAmountFact
+        {
+            ProjectId = project.Id,
+            Segment = BusinessSegment.MaterialSupply,
+            Direction = EconomicDirection.Expenditure,
+            Amount = 100_000m,
+            AsOfDate = new DateOnly(2026, 10, 10),
+            Status = ExternalFactStatus.ExternallyProvided,
+            Precision = ManagementPrecision.Project,
+            Source = "项目成本人员汇总",
+            ProvidedBy = "项目部"
+        };
+        db.AddRange(item, fact);
+        await db.SaveChangesAsync();
+
+        var allocation = await new EconomicFactsService(db).AllocateAsync(
+            fact.Id, item.Id, 60_000m, ManagementPrecision.Professional,
+            AllocationStatus.Estimated, "按专业暂估分配");
+
+        allocation.Amount.Should().Be(60_000m);
+        allocation.Status.Should().Be(AllocationStatus.Estimated);
+        (await new EconomicFactsService(db).ListAllocationsAsync(project.Id)).Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task 分配拒绝跨项目控制项()
+    {
+        using var db = CreateContext();
+        var p1 = new Project { Code = "P-1", Name = "项目一" };
+        var p2 = new Project { Code = "P-2", Name = "项目二" };
+        db.AddRange(p1, p2);
+        await db.SaveChangesAsync();
+        var item = new CostControlItem { ProjectId = p2.Id, Code = "MATERIAL", Name = "材料" };
+        var fact = NewFact(p1.Id, 100m);
+        db.AddRange(item, fact);
+        await db.SaveChangesAsync();
+
+        var act = () => new EconomicFactsService(db).AllocateAsync(
+            fact.Id, item.Id, 20m, ManagementPrecision.ContractPackage,
+            AllocationStatus.Allocated);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*必须属于同一项目*");
+        (await db.ManagementAllocations.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task 分配累计不得超过来源金额()
+    {
+        using var db = CreateContext();
+        var project = new Project { Code = "P-1", Name = "项目一" };
+        db.Projects.Add(project);
+        await db.SaveChangesAsync();
+        var item1 = new CostControlItem { ProjectId = project.Id, Code = "A", Name = "控制项A" };
+        var item2 = new CostControlItem { ProjectId = project.Id, Code = "B", Name = "控制项B" };
+        var fact = NewFact(project.Id, 100m);
+        db.AddRange(item1, item2, fact);
+        await db.SaveChangesAsync();
+        var service = new EconomicFactsService(db);
+        await service.AllocateAsync(fact.Id, item1.Id, 70m, ManagementPrecision.Project, AllocationStatus.Allocated);
+
+        var act = () => service.AllocateAsync(
+            fact.Id, item2.Id, 40m, ManagementPrecision.Project, AllocationStatus.Allocated);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*不能超过来源金额*");
+        (await db.ManagementAllocations.SumAsync(x => x.Amount)).Should().Be(70m);
+    }
+
+    [Fact]
+    public async Task 外部事实保留来源日期精度和数据状态()
+    {
+        using var db = CreateContext();
+        var project = new Project { Code = "P-1", Name = "项目一" };
+        db.Projects.Add(project);
+        await db.SaveChangesAsync();
+        var fact = NewFact(project.Id, 1_000m);
+        db.ExternalAmountFacts.Add(fact);
+        await db.SaveChangesAsync();
+
+        var saved = await db.ExternalAmountFacts.SingleAsync();
+        saved.Source.Should().Be("项目成本人员汇总");
+        saved.AsOfDate.Should().Be(new DateOnly(2026, 10, 10));
+        saved.Precision.Should().Be(ManagementPrecision.Project);
+        saved.Status.Should().Be(ExternalFactStatus.ExternallyProvided);
+    }
+
+    private static ExternalAmountFact NewFact(int projectId, decimal amount) => new()
+    {
+        ProjectId = projectId,
+        Segment = BusinessSegment.ProjectOverhead,
+        Direction = EconomicDirection.Expenditure,
+        Amount = amount,
+        AsOfDate = new DateOnly(2026, 10, 10),
+        Status = ExternalFactStatus.ExternallyProvided,
+        Precision = ManagementPrecision.Project,
+        Source = "项目成本人员汇总"
+    };
+
+    [Theory]
+    [InlineData(ProjectPartyRole.Owner, BusinessSegment.UpstreamRevenue, EconomicDirection.Income, true)]
+    [InlineData(ProjectPartyRole.MaterialSupplier, BusinessSegment.MaterialSupply, EconomicDirection.Expenditure, true)]
+    [InlineData(ProjectPartyRole.LaborSubcontractor, BusinessSegment.LaborSubcontract, EconomicDirection.Expenditure, true)]
+    [InlineData(ProjectPartyRole.Owner, BusinessSegment.MaterialSupply, EconomicDirection.Expenditure, false)]
+    [InlineData(ProjectPartyRole.MaterialSupplier, BusinessSegment.UpstreamRevenue, EconomicDirection.Income, false)]
+    [InlineData(ProjectPartyRole.MaterialSupplier, BusinessSegment.FundingStatus, EconomicDirection.Payment, true)]
+    [InlineData(ProjectPartyRole.MaterialSupplier, BusinessSegment.FundingStatus, EconomicDirection.Expenditure, false)]
+    [InlineData(ProjectPartyRole.InternalProvider, BusinessSegment.ProjectOverhead, EconomicDirection.Expenditure, true)]
+    public void 板块决定允许的角色与金额方向(ProjectPartyRole role, BusinessSegment segment, EconomicDirection direction, bool allowed)
+    {
+        var violation = BusinessSegmentRules.FindViolation(role, segment, direction);
+        if (allowed) violation.Should().BeNull();
+        else violation.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task 登记关系拒绝板块与角色不匹配()
+    {
+        using var db = CreateContext();
+        var project = new Project { Code = "P-1", Name = "项目一" };
+        var party = new Party { Name = "电缆供应商", RoleCode = "Supplier" };
+        db.AddRange(project, party);
+        await db.SaveChangesAsync();
+
+        var act = () => new EconomicFactsService(db).RegisterRelationshipAsync(new ProjectPartyRelationship
+        {
+            ProjectId = project.Id, PartyId = party.Id,
+            Role = ProjectPartyRole.MaterialSupplier,
+            Segment = BusinessSegment.UpstreamRevenue,
+            Direction = EconomicDirection.Income
+        });
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*不允许角色*");
+        (await db.ProjectPartyRelationships.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task 登记关系拒绝合同跨项目()
+    {
+        using var db = CreateContext();
+        var p1 = new Project { Code = "P-1", Name = "项目一" };
+        var p2 = new Project { Code = "P-2", Name = "项目二" };
+        var party = new Party { Name = "劳务队", RoleCode = "Labor" };
+        db.AddRange(p1, p2, party);
+        await db.SaveChangesAsync();
+        var contract = new Contract { Code = "C-2", ProjectId = p2.Id, PartyId = party.Id, TypeCode = "LaborSub", Amount = 500m };
+        db.Contracts.Add(contract);
+        await db.SaveChangesAsync();
+
+        var act = () => new EconomicFactsService(db).RegisterRelationshipAsync(new ProjectPartyRelationship
+        {
+            ProjectId = p1.Id, PartyId = party.Id, ContractId = contract.Id,
+            Role = ProjectPartyRole.LaborSubcontractor,
+            Segment = BusinessSegment.LaborSubcontract,
+            Direction = EconomicDirection.Expenditure
+        });
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*同一项目*");
+    }
+
+    [Fact]
+    public async Task 往来单位金额必须沿用已建立关系的方向()
+    {
+        using var db = CreateContext();
+        var project = new Project { Code = "P-1", Name = "项目一" };
+        var party = new Party { Name = "建设单位", RoleCode = "Owner" };
+        db.AddRange(project, party);
+        await db.SaveChangesAsync();
+        await new EconomicFactsService(db).RegisterRelationshipAsync(new ProjectPartyRelationship
+        {
+            ProjectId = project.Id, PartyId = party.Id,
+            Role = ProjectPartyRole.Owner,
+            Segment = BusinessSegment.UpstreamRevenue,
+            Direction = EconomicDirection.Income
+        });
+
+        var fact = await new EconomicFactsService(db).RegisterFactAsync(new ExternalAmountFact
+        {
+            ProjectId = project.Id, PartyId = party.Id,
+            Segment = BusinessSegment.UpstreamRevenue,
+            Direction = EconomicDirection.Neutral,
+            Amount = 10_000_000m,
+            AsOfDate = new DateOnly(2026, 10, 10),
+            Status = ExternalFactStatus.ExternallyProvided,
+            Precision = ManagementPrecision.Project,
+            Source = "施工合同", ProvidedBy = "经营部"
+        });
+
+        fact.Direction.Should().Be(EconomicDirection.Income);
+    }
+
+    [Fact]
+    public async Task 未建立业务关系时拒绝登记往来单位金额()
+    {
+        using var db = CreateContext();
+        var project = new Project { Code = "P-1", Name = "项目一" };
+        var party = new Party { Name = "未登记单位", RoleCode = "Unknown" };
+        db.AddRange(project, party);
+        await db.SaveChangesAsync();
+
+        var act = () => new EconomicFactsService(db).RegisterFactAsync(new ExternalAmountFact
+        {
+            ProjectId = project.Id, PartyId = party.Id,
+            Segment = BusinessSegment.ProfessionalService,
+            Direction = EconomicDirection.Expenditure,
+            Amount = 1000m,
+            AsOfDate = new DateOnly(2026, 10, 10),
+            Status = ExternalFactStatus.ExternallyProvided,
+            Precision = ManagementPrecision.Project,
+            Source = "检测合同"
+        });
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*尚未在*业务关系*");
+    }
+
+    [Fact]
+    public async Task 项目级事实无需清单或科目即可汇总经济状态()
+    {
+        using var db = CreateContext();
+        var project = new Project { Code = "P-1", Name = "项目一" };
+        db.Projects.Add(project);
+        await db.SaveChangesAsync();
+        var service = new EconomicFactsService(db);
+        var item = new CostControlItem { ProjectId = project.Id, Code = "ELEC", Name = "电气工程" };
+        db.CostControlItems.Add(item);
+        await db.SaveChangesAsync();
+
+        var income = await service.RegisterFactAsync(new ExternalAmountFact
+        {
+            ProjectId = project.Id, Segment = BusinessSegment.UpstreamRevenue,
+            Direction = EconomicDirection.Income, Amount = 10_000_000m,
+            AsOfDate = new DateOnly(2026, 9, 30), Status = ExternalFactStatus.ExternallyProvided,
+            Precision = ManagementPrecision.Project, Source = "总包合同"
+        });
+        var material = await service.RegisterFactAsync(new ExternalAmountFact
+        {
+            ProjectId = project.Id, Segment = BusinessSegment.MaterialSupply,
+            Direction = EconomicDirection.Expenditure, Amount = 4_000_000m,
+            AsOfDate = new DateOnly(2026, 10, 5), Status = ExternalFactStatus.PendingConfirmation,
+            Precision = ManagementPrecision.ContractPackage, Source = "电缆采购包汇总"
+        });
+        await service.RegisterFactAsync(new ExternalAmountFact
+        {
+            ProjectId = project.Id, Segment = BusinessSegment.FundingStatus,
+            Direction = EconomicDirection.Receipt, Amount = 6_000_000m,
+            AsOfDate = new DateOnly(2026, 10, 8), Status = ExternalFactStatus.ExternallyProvided,
+            Precision = ManagementPrecision.Project, Source = "财务部提供收款汇总"
+        });
+        await service.RegisterFactAsync(new ExternalAmountFact
+        {
+            ProjectId = project.Id, Segment = BusinessSegment.FundingStatus,
+            Direction = EconomicDirection.Payment, Amount = 2_500_000m,
+            AsOfDate = new DateOnly(2026, 10, 8), Status = ExternalFactStatus.ExternallyProvided,
+            Precision = ManagementPrecision.Project, Source = "财务部提供付款汇总"
+        });
+        await service.AllocateAsync(material.Id, item.Id, 1_500_000m,
+            ManagementPrecision.Professional, AllocationStatus.Estimated, "按专业暂估");
+
+        var summary = await service.SummarizeProjectAsync(project.Id);
+
+        summary.ExpectedIncome.Should().Be(10_000_000m);
+        summary.KnownExpenditure.Should().Be(4_000_000m);
+        summary.Received.Should().Be(6_000_000m);
+        summary.Paid.Should().Be(2_500_000m);
+        summary.FundingGap.Should().Be(2_500_000m - 6_000_000m);
+        summary.PendingConfirmationAmount.Should().Be(4_000_000m);
+        summary.UnallocatedAmount.Should().Be(4_000_000m - 1_500_000m);
+        summary.AllocatableAmount.Should().Be(4_000_000m);
+        summary.AllocatedAmount.Should().Be(1_500_000m);
+        summary.EstimatedAllocationAmount.Should().Be(1_500_000m);
+        summary.LatestAsOfDate.Should().Be(new DateOnly(2026, 10, 8));
+        summary.CoverageRate.Should().Be((decimal)1_500_000m / 4_000_000m);
+        summary.Segments.Select(x => x.Segment).Should().Contain(new[]
+        {
+            BusinessSegment.UpstreamRevenue, BusinessSegment.MaterialSupply, BusinessSegment.FundingStatus
+        });
+        income.Id.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task 控制项汇总保留最粗来源精度且不夸大为清单级()
+    {
+        using var db = CreateContext();
+        var project = new Project { Code = "P-1", Name = "项目一" };
+        db.Projects.Add(project);
+        await db.SaveChangesAsync();
+        var item = new CostControlItem { ProjectId = project.Id, Code = "ELEC", Name = "电气工程" };
+        db.CostControlItems.Add(item);
+        await db.SaveChangesAsync();
+        var service = new EconomicFactsService(db);
+
+        var coarse = await service.RegisterFactAsync(new ExternalAmountFact
+        {
+            ProjectId = project.Id, Segment = BusinessSegment.LaborSubcontract,
+            Direction = EconomicDirection.Expenditure, Amount = 800_000m,
+            AsOfDate = new DateOnly(2026, 10, 1), Status = ExternalFactStatus.ExternallyProvided,
+            Precision = ManagementPrecision.Professional, Source = "劳务分包月汇总"
+        });
+        var fine = await service.RegisterFactAsync(new ExternalAmountFact
+        {
+            ProjectId = project.Id, Segment = BusinessSegment.SettlementResult,
+            Direction = EconomicDirection.Expenditure, Amount = 200_000m,
+            AsOfDate = new DateOnly(2026, 10, 2), Status = ExternalFactStatus.Checked,
+            Precision = ManagementPrecision.ContractLine, Source = "结算审定明细"
+        });
+        await service.AllocateAsync(coarse.Id, item.Id, 800_000m, ManagementPrecision.Professional, AllocationStatus.Allocated);
+        await service.AllocateAsync(fine.Id, item.Id, 200_000m, ManagementPrecision.ContractLine, AllocationStatus.Allocated);
+
+        var row = (await service.SummarizeControlItemsAsync(project.Id)).Single();
+
+        row.AllocatedAmount.Should().Be(1_000_000m);
+        row.CoarsestSourcePrecision.Should().Be(ManagementPrecision.Professional);
+        row.SourceCount.Should().Be(2);
+        row.CheckedAmount.Should().Be(200_000m);
+    }
+}

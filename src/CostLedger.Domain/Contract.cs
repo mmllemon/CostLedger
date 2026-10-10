@@ -28,6 +28,7 @@ public class Contract
     public ICollection<ContractLine> Lines { get; set; } = new List<ContractLine>();
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
     public ICollection<CostEntry> CostEntries { get; set; } = new List<CostEntry>();
+    public ICollection<ProjectPartyRelationship> ProjectPartyRelationships { get; set; } = new List<ProjectPartyRelationship>();
 }
 
 /// <summary>合同明细行（金额映射到成本科目，是目标成本的来源）</summary>

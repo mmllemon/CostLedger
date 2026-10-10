@@ -12,4 +12,5 @@ public class Party
 
     public ICollection<Contract> Contracts { get; set; } = new List<Contract>();
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
+    public ICollection<ProjectPartyRelationship> ProjectRelationships { get; set; } = new List<ProjectPartyRelationship>();
 }

@@ -14,4 +14,9 @@ public class Project
     public ICollection<Contract> Contracts { get; set; } = new List<Contract>();
     public ICollection<Measurement> Measurements { get; set; } = new List<Measurement>();
     public ICollection<CostEntry> CostEntries { get; set; } = new List<CostEntry>();
+    public ICollection<ProjectPartyRelationship> PartyRelationships { get; set; } = new List<ProjectPartyRelationship>();
+    public ICollection<CostControlItem> CostControlItems { get; set; } = new List<CostControlItem>();
+    public ICollection<ExternalAmountFact> ExternalAmountFacts { get; set; } = new List<ExternalAmountFact>();
+    public ICollection<CostForecastVersion> CostForecastVersions { get; set; } = new List<CostForecastVersion>();
+    public ICollection<ChangeItem> ChangeItems { get; set; } = new List<ChangeItem>();
 }

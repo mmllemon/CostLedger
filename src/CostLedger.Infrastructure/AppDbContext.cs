@@ -65,6 +65,15 @@ public class AppDbContext : DbContext
     /// <summary>大类级目标成本（按科目直接录）</summary>
     public DbSet<CostTarget> CostTargets => Set<CostTarget>();
 
+    // 施工单位成本岗经济状态模型：关系角色、外部金额事实、控制项及多粒度分配
+    public DbSet<ProjectPartyRelationship> ProjectPartyRelationships => Set<ProjectPartyRelationship>();
+    public DbSet<CostControlItem> CostControlItems => Set<CostControlItem>();
+    public DbSet<ExternalAmountFact> ExternalAmountFacts => Set<ExternalAmountFact>();
+    public DbSet<ManagementAllocation> ManagementAllocations => Set<ManagementAllocation>();
+    public DbSet<CostForecastVersion> CostForecastVersions => Set<CostForecastVersion>();
+    public DbSet<CostForecastLine> CostForecastLines => Set<CostForecastLine>();
+    public DbSet<ChangeItem> ChangeItems => Set<ChangeItem>();
+
     /// <summary>为 true 时不写审计（用于种子/系统初始化）。</summary>
     public bool SuppressAudit { get; set; }
 
@@ -88,6 +97,94 @@ public class AppDbContext : DbContext
             b.HasKey(x => x.Id);
             b.Property(x => x.Code).HasMaxLength(32);
             b.Property(x => x.Name).HasMaxLength(120);
+        });
+
+        mb.Entity<ProjectPartyRelationship>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Note).HasMaxLength(500);
+            b.HasIndex(x => new { x.ProjectId, x.PartyId, x.ContractId, x.Segment, x.Role });
+            b.HasOne(x => x.Project).WithMany(x => x.PartyRelationships)
+                .HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.Party).WithMany(x => x.ProjectRelationships)
+                .HasForeignKey(x => x.PartyId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.Contract).WithMany(x => x.ProjectPartyRelationships)
+                .HasForeignKey(x => x.ContractId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        mb.Entity<CostControlItem>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).HasMaxLength(32).IsRequired();
+            b.Property(x => x.Name).HasMaxLength(120).IsRequired();
+            b.HasIndex(x => new { x.ProjectId, x.Code }).IsUnique();
+            b.HasOne(x => x.Project).WithMany(x => x.CostControlItems)
+                .HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        mb.Entity<ExternalAmountFact>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Source).HasMaxLength(160).IsRequired();
+            b.Property(x => x.ProvidedBy).HasMaxLength(120);
+            b.Property(x => x.Description).HasMaxLength(500);
+            b.HasIndex(x => new { x.ProjectId, x.Segment, x.Direction, x.AsOfDate });
+            b.HasOne(x => x.Project).WithMany(x => x.ExternalAmountFacts)
+                .HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.Party).WithMany()
+                .HasForeignKey(x => x.PartyId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.Contract).WithMany()
+                .HasForeignKey(x => x.ContractId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        mb.Entity<ManagementAllocation>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Note).HasMaxLength(500);
+            b.HasIndex(x => new { x.ExternalAmountFactId, x.CostControlItemId });
+            b.HasOne(x => x.ExternalAmountFact).WithMany(x => x.Allocations)
+                .HasForeignKey(x => x.ExternalAmountFactId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.CostControlItem).WithMany()
+                .HasForeignKey(x => x.CostControlItemId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        mb.Entity<CostForecastVersion>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Basis).HasMaxLength(1000);
+            b.Property(x => x.Note).HasMaxLength(500);
+            b.HasIndex(x => new { x.ProjectId, x.VersionNumber }).IsUnique();
+            b.HasIndex(x => new { x.ProjectId, x.Status });
+            b.HasOne(x => x.Project).WithMany(x => x.CostForecastVersions)
+                .HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        mb.Entity<CostForecastLine>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => new { x.CostForecastVersionId, x.CostControlItemId }).IsUnique();
+            b.HasOne(x => x.CostForecastVersion).WithMany(x => x.Lines)
+                .HasForeignKey(x => x.CostForecastVersionId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne(x => x.CostControlItem).WithMany()
+                .HasForeignKey(x => x.CostControlItemId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        mb.Entity<ChangeItem>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Code).HasMaxLength(48).IsRequired();
+            b.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Source).HasMaxLength(160).IsRequired();
+            b.Property(x => x.ProvidedBy).HasMaxLength(120);
+            b.Property(x => x.Note).HasMaxLength(500);
+            b.HasIndex(x => new { x.ProjectId, x.Code }).IsUnique();
+            b.HasIndex(x => new { x.ProjectId, x.Status, x.AsOfDate });
+            b.HasOne(x => x.Project).WithMany(x => x.ChangeItems)
+                .HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.CostControlItem).WithMany()
+                .HasForeignKey(x => x.CostControlItemId).OnDelete(DeleteBehavior.SetNull);
+            b.HasOne(x => x.Contract).WithMany()
+                .HasForeignKey(x => x.ContractId).OnDelete(DeleteBehavior.SetNull);
         });
 
         mb.Entity<Party>(b =>
@@ -385,13 +482,13 @@ public class AppDbContext : DbContext
 }
 
 /// <summary>
-/// 数据库引导：SQLite 连接 + 结构版本 + 安全升级（升级前自动备份，杜绝静默丢数据）+ 种子。
+/// 数据库引导：SQLite 连接 + 结构版本保护 + 一致性备份 + 种子。
 /// 结构版本存于 SQLite 的 PRAGMA user_version；每次改动模型（加字段/表）后把 SchemaVersion +1。
 /// </summary>
 public static class DbBootstrap
 {
-    /// <summary>当前库结构版本。每次变更模型后 +1，旧库会自动备份并重建。</summary>
-    public const int SchemaVersion = 9;
+    /// <summary>当前库结构版本。变更模型后 +1；未支持迁移的账套拒绝打开，绝不重建。</summary>
+    public const int SchemaVersion = 11;
 
     /// <summary>当前账套文件路径（Configure 时记录，供备份等使用）。</summary>
     public static string? CurrentDbPath { get; private set; }
@@ -400,7 +497,7 @@ public static class DbBootstrap
     {
         CurrentDbPath = dbPath;
         return new DbContextOptionsBuilder<AppDbContext>()
-            .UseSqlite($"Data Source={dbPath}")
+            .UseSqlite(new SqliteConnectionStringBuilder { DataSource = dbPath }.ToString())
             .Options;
     }
 
@@ -416,12 +513,8 @@ public static class DbBootstrap
         }
         else if (ver != SchemaVersion)
         {
-            // 结构升级：先把旧库整份备份到 backups/，再重建，绝不静默丢数据
-            var backup = BackupFile(dbPath, ver);
-            Console.WriteLine($"[db] 结构升级 v{ver} → v{SchemaVersion}，旧库已备份：{backup}");
-            db.Database.EnsureDeleted();
-            db.Database.EnsureCreated();
-            SetUserVersion(dbPath, SchemaVersion);
+            throw new InvalidOperationException(
+                $"账套结构版本 v{ver} 与当前程序 v{SchemaVersion} 不兼容。原账套未重建，请使用匹配版本的程序，或在完成数据迁移后再打开。账套路径：{dbPath}");
         }
 
         SeedData.SeedIfEmpty(db);
@@ -432,14 +525,33 @@ public static class DbBootstrap
     {
         var dir = Path.Combine(Path.GetDirectoryName(dbPath) ?? ".", "backups");
         Directory.CreateDirectory(dir);
-        var target = Path.Combine(dir, $"costledger_v{version}_{DateTime.Now:yyyyMMdd_HHmmss}.db");
-        File.Copy(dbPath, target, overwrite: true);
+        var target = Path.Combine(dir, $"costledger_v{version}_{DateTime.Now:yyyyMMdd_HHmmss_fff}_{Guid.NewGuid():N}.db");
+        BackupTo(dbPath, target);
         PruneBackups(dir, keep: 10);
         return target;
     }
 
-    /// <summary>手动备份到用户指定文件。</summary>
-    public static void BackupTo(string dbPath, string targetFile) => File.Copy(dbPath, targetFile, overwrite: true);
+    /// <summary>SQLite 在线备份包含已提交的 WAL 数据，可覆盖用户指定的备份文件。</summary>
+    public static void BackupTo(string dbPath, string targetFile)
+    {
+        var sourcePath = Path.GetFullPath(dbPath);
+        var targetPath = Path.GetFullPath(targetFile);
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        if (string.Equals(sourcePath, targetPath, comparison))
+            throw new ArgumentException("备份目标不能是当前账套文件。", nameof(targetFile));
+
+        using var source = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = sourcePath, Mode = SqliteOpenMode.ReadOnly, Pooling = false
+        }.ToString());
+        source.Open();
+        using var target = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = targetPath, Pooling = false
+        }.ToString());
+        target.Open();
+        source.BackupDatabase(target);
+    }
 
     private static void PruneBackups(string dir, int keep)
     {
@@ -456,7 +568,10 @@ public static class DbBootstrap
 
     private static int ReadUserVersion(string path)
     {
-        using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={path}");
+        using var conn = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = path, Mode = SqliteOpenMode.ReadOnly, Pooling = false
+        }.ToString());
         conn.Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "PRAGMA user_version;";
@@ -465,7 +580,10 @@ public static class DbBootstrap
 
     private static void SetUserVersion(string path, int version)
     {
-        using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={path}");
+        using var conn = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = path, Mode = SqliteOpenMode.ReadWrite, Pooling = false
+        }.ToString());
         conn.Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = $"PRAGMA user_version = {version};";

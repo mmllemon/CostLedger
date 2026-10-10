@@ -144,8 +144,15 @@ public partial class SystemSettingsView : UserControl
         var target = file.TryGetLocalPath();
         if (string.IsNullOrEmpty(target)) { BackupStatus.Text = "该位置不支持写入"; return; }
 
-        DbBootstrap.BackupTo(path, target);
-        BackupStatus.Text = "备份完成：" + Path.GetFileName(target);
+        try
+        {
+            DbBootstrap.BackupTo(path, target);
+            BackupStatus.Text = "备份完成：" + Path.GetFileName(target);
+        }
+        catch (Exception ex)
+        {
+            BackupStatus.Text = "备份失败：" + ex.Message;
+        }
     }
 
     private void OnOpenFolder(object? sender, RoutedEventArgs e)

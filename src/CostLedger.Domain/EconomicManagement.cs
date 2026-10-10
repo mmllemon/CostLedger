@@ -1,0 +1,241 @@
+namespace CostLedger.Domain;
+
+/// <summary>施工单位成本岗使用的业务板块，不代表财务科目或审批流程。</summary>
+public enum BusinessSegment
+{
+    UpstreamRevenue,
+    MaterialSupply,
+    LaborSubcontract,
+    SpecialistSubcontract,
+    ProfessionalService,
+    ProjectOverhead,
+    FundingStatus,
+    CostForecastRisk,
+    SettlementResult
+}
+
+/// <summary>外部金额的经济方向。收付款是外部状态，不能自动推导成本结论。</summary>
+public enum EconomicDirection
+{
+    Income,
+    Expenditure,
+    Receipt,
+    Payment,
+    Neutral
+}
+
+/// <summary>成本岗掌握的外部信息状态，不表示会计确认。</summary>
+public enum ExternalFactStatus
+{
+    Estimated,
+    ExternallyProvided,
+    Checked,
+    Expired,
+    PendingConfirmation
+}
+
+/// <summary>记录本身能支持的管理颗粒度。</summary>
+public enum ManagementPrecision
+{
+    Project,
+    Professional,
+    ContractPackage,
+    CostControlItem,
+    ContractLine
+}
+
+/// <summary>施工单位与往来单位在某个项目关系中的角色。</summary>
+public enum ProjectPartyRole
+{
+    Owner,
+    MaterialSupplier,
+    LaborSubcontractor,
+    SpecialistSubcontractor,
+    ProfessionalServiceProvider,
+    InternalProvider
+}
+
+/// <summary>来源金额分配状态。Unallocated 允许过程数据暂时无法归类。</summary>
+public enum AllocationStatus
+{
+    Estimated,
+    Allocated,
+    Unallocated
+}
+
+/// <summary>
+/// 业务板块规则：板块决定对方单位可承担的角色与金额方向。
+/// 施工单位成本岗的对上收入、材料供应、劳务/专业分包、专业服务、间接费用、资金状态口径不同，
+/// 不能因为共用同一往来单位就跨板块混用方向。规则放在领域层，避免由 UI 或配置绕过。
+/// </summary>
+public static class BusinessSegmentRules
+{
+    private static readonly Dictionary<BusinessSegment, ProjectPartyRole[]> Roles = new()
+    {
+        [BusinessSegment.UpstreamRevenue] = new[] { ProjectPartyRole.Owner },
+        [BusinessSegment.MaterialSupply] = new[] { ProjectPartyRole.MaterialSupplier },
+        [BusinessSegment.LaborSubcontract] = new[] { ProjectPartyRole.LaborSubcontractor },
+        [BusinessSegment.SpecialistSubcontract] = new[] { ProjectPartyRole.SpecialistSubcontractor },
+        [BusinessSegment.ProfessionalService] = new[] { ProjectPartyRole.ProfessionalServiceProvider },
+        [BusinessSegment.ProjectOverhead] = new[] { ProjectPartyRole.InternalProvider },
+        [BusinessSegment.FundingStatus] = new[]
+        {
+            ProjectPartyRole.Owner, ProjectPartyRole.MaterialSupplier, ProjectPartyRole.LaborSubcontractor,
+            ProjectPartyRole.SpecialistSubcontractor, ProjectPartyRole.ProfessionalServiceProvider
+        },
+        [BusinessSegment.CostForecastRisk] = Enum.GetValues<ProjectPartyRole>(),
+        [BusinessSegment.SettlementResult] = Enum.GetValues<ProjectPartyRole>()
+    };
+
+    private static readonly Dictionary<BusinessSegment, EconomicDirection[]> Directions = new()
+    {
+        [BusinessSegment.UpstreamRevenue] = new[] { EconomicDirection.Income, EconomicDirection.Neutral },
+        [BusinessSegment.MaterialSupply] = new[] { EconomicDirection.Expenditure, EconomicDirection.Neutral },
+        [BusinessSegment.LaborSubcontract] = new[] { EconomicDirection.Expenditure, EconomicDirection.Neutral },
+        [BusinessSegment.SpecialistSubcontract] = new[] { EconomicDirection.Expenditure, EconomicDirection.Neutral },
+        [BusinessSegment.ProfessionalService] = new[] { EconomicDirection.Expenditure, EconomicDirection.Neutral },
+        [BusinessSegment.ProjectOverhead] = new[] { EconomicDirection.Expenditure, EconomicDirection.Neutral },
+        [BusinessSegment.FundingStatus] = new[] { EconomicDirection.Receipt, EconomicDirection.Payment },
+        [BusinessSegment.CostForecastRisk] = new[] { EconomicDirection.Neutral },
+        [BusinessSegment.SettlementResult] = new[]
+        {
+            EconomicDirection.Income, EconomicDirection.Expenditure, EconomicDirection.Neutral
+        }
+    };
+
+    public static IReadOnlyCollection<EconomicDirection> AllowedDirections(BusinessSegment segment)
+        => Directions.TryGetValue(segment, out var list) ? list : Array.Empty<EconomicDirection>();
+
+    /// <summary>返回 null 表示组合成立；否则返回可直接展示给成本人员的纠正文案。</summary>
+    public static string? FindViolation(ProjectPartyRole role, BusinessSegment segment, EconomicDirection direction)
+    {
+        var allowedRoles = Roles.TryGetValue(segment, out var r) ? r : Array.Empty<ProjectPartyRole>();
+        if (!allowedRoles.Contains(role))
+            return $"业务板块 {segment} 不允许角色 {role}。";
+
+        if (!AllowedDirections(segment).Contains(direction))
+            return $"业务板块 {segment} 的金额方向只能是 {string.Join(" / ", AllowedDirections(segment))}，当前为 {direction}。";
+
+        return null;
+    }
+}
+
+/// <summary>成本控制项级过程汇总：保留来源精度，不把粗颗粒数据伪装成清单级结果。</summary>
+public sealed record CostControlItemSummary(
+    int CostControlItemId,
+    string Code,
+    string Name,
+    decimal AllocatedAmount,
+    decimal EstimatedAmount,
+    /// <summary>来源状态为"已核对"的分配金额；已核对只表示成本岗完成约定范围核对，不是财务确认。</summary>
+    decimal CheckedAmount,
+    /// <summary>本控制项所有来源中最粗的精度：汇总结论的可信颗粒度由此封顶。</summary>
+    ManagementPrecision CoarsestSourcePrecision,
+    int SourceCount);
+
+/// <summary>板块金额摘要，供项目经济驾驶舱分栏展示。</summary>
+public sealed record SegmentAmountSummary(
+    BusinessSegment Segment,
+    decimal Amount,
+    int FactCount,
+    DateOnly? LatestAsOfDate);
+
+/// <summary>
+/// 项目经济状态摘要。外部金额事实（收入/支出/收付）与成本人员判断（目标/预测）分栏，
+/// 并带未分配金额、暂估金额、覆盖率与数据截至日期；不输出财务结论。
+/// </summary>
+public sealed record ProjectEconomySummary(
+    decimal ExpectedIncome,
+    decimal KnownExpenditure,
+    decimal Received,
+    decimal Paid,
+    decimal FundingGap,
+    /// <summary>需要归属到成本控制项的金额：材料、劳务、专业分包、专业服务、间接费用与结算结果板块。</summary>
+    decimal AllocatableAmount,
+    decimal AllocatedAmount,
+    decimal UnallocatedAmount,
+    decimal EstimatedAllocationAmount,
+    /// <summary>AllocatedAmount / AllocatableAmount；资金状态与对上收入金额不计入分母。</summary>
+    decimal CoverageRate,
+    decimal PendingConfirmationAmount,
+    decimal ExpiredAmount,
+    DateOnly? LatestAsOfDate,
+    IReadOnlyList<SegmentAmountSummary> Segments);
+
+/// <summary>业务板块中需要归属到成本控制项的支出/结算类板块。</summary>
+public static class AllocatableSegments
+{
+    public static readonly IReadOnlyList<BusinessSegment> Values = new[]
+    {
+        BusinessSegment.MaterialSupply,
+        BusinessSegment.LaborSubcontract,
+        BusinessSegment.SpecialistSubcontract,
+        BusinessSegment.ProfessionalService,
+        BusinessSegment.ProjectOverhead,
+        BusinessSegment.SettlementResult
+    };
+}
+/// <summary>项目内的往来关系；同一 Party 可在不同项目/合同中承担不同角色。</summary>
+public class ProjectPartyRelationship
+{
+    public int Id { get; set; }
+    public int ProjectId { get; set; }
+    public Project? Project { get; set; }
+    public int PartyId { get; set; }
+    public Party? Party { get; set; }
+    public int? ContractId { get; set; }
+    public Contract? Contract { get; set; }
+    public ProjectPartyRole Role { get; set; }
+    public BusinessSegment Segment { get; set; }
+    public EconomicDirection Direction { get; set; }
+    public string? Note { get; set; }
+}
+
+/// <summary>成本人员为过程管理建立的稳定口径，不等同合同清单或财务科目。</summary>
+public class CostControlItem
+{
+    public int Id { get; set; }
+    public int ProjectId { get; set; }
+    public Project? Project { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public int SortOrder { get; set; }
+    public bool IsActive { get; set; } = true;
+}
+
+/// <summary>成本岗获得的项目金额事实，带来源、截至日期和管理精度。</summary>
+public class ExternalAmountFact
+{
+    public int Id { get; set; }
+    public int ProjectId { get; set; }
+    public Project? Project { get; set; }
+    public int? PartyId { get; set; }
+    public Party? Party { get; set; }
+    public int? ContractId { get; set; }
+    public Contract? Contract { get; set; }
+    public BusinessSegment Segment { get; set; }
+    public EconomicDirection Direction { get; set; }
+    public decimal Amount { get; set; }
+    public DateOnly AsOfDate { get; set; }
+    public ExternalFactStatus Status { get; set; }
+    public ManagementPrecision Precision { get; set; }
+    public string Source { get; set; } = string.Empty;
+    public string? ProvidedBy { get; set; }
+    public string? Description { get; set; }
+
+    public ICollection<ManagementAllocation> Allocations { get; set; } = new List<ManagementAllocation>();
+}
+
+/// <summary>把不同来源、不同粒度的金额映射到项目成本控制项。</summary>
+public class ManagementAllocation
+{
+    public int Id { get; set; }
+    public int ExternalAmountFactId { get; set; }
+    public ExternalAmountFact? ExternalAmountFact { get; set; }
+    public int CostControlItemId { get; set; }
+    public CostControlItem? CostControlItem { get; set; }
+    public decimal Amount { get; set; }
+    public ManagementPrecision Precision { get; set; }
+    public AllocationStatus Status { get; set; }
+    public string? Note { get; set; }
+}

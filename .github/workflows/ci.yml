@@ -18,10 +18,10 @@ jobs:
           dotnet-version: '9.0.x'
 
       - name: Restore
-        run: dotnet restore CostLedger/CostLedger.sln
+        run: dotnet restore CostLedger.sln
 
       - name: Build
-        run: dotnet build CostLedger/CostLedger.sln --no-restore -c Release
+        run: dotnet build CostLedger.sln --no-restore -c Release
 
       - name: Test
-        run: dotnet test CostLedger/CostLedger.sln --no-build -c Release --verbosity normal
+        run: dotnet test CostLedger.sln --no-build -c Release --verbosity normal
