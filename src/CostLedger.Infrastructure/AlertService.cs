@@ -84,8 +84,10 @@ public class AlertService
                 if (!Triggered(value, rule.Operator, rule.Threshold)) continue;
 
                 var title = $"{metric.Name} {OpText(rule.Operator)} {rule.Threshold:N0}";
-                var message = $"项目「{p.Name}」{metric.Name} 当前 {value:N0}，{OpText(rule.Operator)} 阈值 {rule.Threshold:N0}";
+                var message = $"项目「{p.Name}」{metric.Name} 当前 {value:N0}，{OpText(rule.Operator)} 阈值 {rule.Threshold:N0}"
+                    + (rule.MetricKey.StartsWith("Eco") ? "（经济口径：为成本管理信息，非财务结论）" : "");
 
+                // 经济口径指标由预测/归属关系派生，超目标等属管理提示，严重度不高于 Warn 以外由规则决定。
                 var existing = await _db.AlertRecords
                     .FirstOrDefaultAsync(a => a.RuleId == rule.Id && a.ProjectId == p.Id && !a.Acknowledged);
                 if (existing is null)

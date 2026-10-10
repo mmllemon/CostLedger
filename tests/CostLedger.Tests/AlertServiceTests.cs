@@ -30,6 +30,42 @@ public class AlertServiceTests
         => new(db, new DashboardService(db, new CostSpineService(db)));
 
     [Fact]
+    public async Task 经济口径指标_未归属金额可触发预警且提示非财务结论()
+    {
+        using var db = CreateSeededContext();
+        var project = await db.Projects.FirstAsync();
+        var item = new CostControlItem { ProjectId = project.Id, Code = "T1", Name = "测试控制项" };
+        db.CostControlItems.Add(item);
+        await db.SaveChangesAsync();
+
+        var factsSvc = new EconomicFactsService(db);
+        // 来源 100 万，只归属 60 万 → 未归属 40 万
+        var fact = await factsSvc.RegisterFactAsync(new ExternalAmountFact
+        {
+            ProjectId = project.Id, Segment = BusinessSegment.MaterialSupply, Direction = EconomicDirection.Expenditure,
+            Amount = 1_000_000m, AsOfDate = new DateOnly(2026, 10, 10), Status = ExternalFactStatus.Checked,
+            Precision = ManagementPrecision.ContractPackage, Source = "经济口径来源"
+        });
+        await factsSvc.AllocateAsync(fact.Id, item.Id, 600_000m, ManagementPrecision.ContractPackage, AllocationStatus.Allocated);
+
+        // 新增一条经济口径预警规则：未归属金额 ≥ 30 万
+        db.AlertRules.Add(new AlertRule
+        {
+            Name = "未归属金额超阈值", ProjectId = project.Id, MetricKey = "EcoUnallocated",
+            Operator = FilterOperator.GreaterOrEqual, Threshold = 300_000m, Severity = KpiSeverity.Warn, Enabled = true
+        });
+        await db.SaveChangesAsync();
+
+        var svc = CreateAlertService(db);
+        await svc.EvaluateAsync();
+
+        var alerts = (await svc.ListAlertsAsync(onlyUnacknowledged: true)).Where(a => a.MetricKey == "EcoUnallocated").ToList();
+        alerts.Should().HaveCount(1);
+        alerts[0].Value.Should().Be(400_000m);
+        alerts[0].Message.Should().Contain("非财务结论");
+    }
+
+    [Fact]
     public async Task 评估_触发规则_重复评估不重复堆积()
     {
         using var db = CreateSeededContext();

@@ -49,6 +49,12 @@ public class DashboardService
         new("ContractAmount", "合同总额", "N0", "元", true),
         new("PartyCount", "往来单位数", "N0", "个", false),
         new("ProjectCount", "项目数", "N0", "个", false),
+        // ---- 经济口径（v10–v13 新模型；看板与预警共用，单一来源）----
+        new("EcoExpectedFinal", "预计最终成本（预测版本）", "N0", "元", true),
+        new("EcoOverTarget", "预计超目标（预测版本）", "N0", "元", true),
+        new("EcoUnallocated", "未归属金额", "N0", "元", true),
+        new("EcoUnincludedChange", "未纳入预测的变化", "N0", "元", true),
+        new("EcoExpired", "已过期金额", "N0", "元", true),
     };
 
     public static KpiMetric? Metric(string key) => Catalog.FirstOrDefault(m => m.Key == key);
@@ -81,7 +87,10 @@ public class DashboardService
     }
 
     // ---------- 指标计算（单一来源，供看板与预警共用） ----------
-    /// <summary>一次算出某项目的全部指标值（含台账派生指标，供看板与预警共用）。</summary>
+    /// <summary>
+    /// 一次算出某项目的全部指标值（含台账派生指标，供看板与预警共用）。
+    /// 经济口径指标直接委托 EconomicFactsService / CostForecastService，避免第二套算法。
+    /// </summary>
     public async Task<Dictionary<string, decimal>> ComputeMetricsAsync(int projectId)
     {
         var spine = (await _spine.GetSpineAsync(projectId)).ToList();
@@ -99,6 +108,10 @@ public class DashboardService
         var changeNet = await _db.ChangeOrders
             .Where(c => c.ProjectId == projectId && c.Status == DocStatus.Confirmed)
             .SumAsync(c => c.Amount);
+
+        // 经济口径（新模型）：委托既有服务，单一来源。
+        var economy = await new EconomicFactsService(_db).SummarizeProjectAsync(projectId);
+        var forecast = await new CostForecastService(_db).GetSummaryAsync(projectId);
 
         return new Dictionary<string, decimal>
         {
@@ -118,6 +131,12 @@ public class DashboardService
             ["ContractAmount"] = _db.Contracts.Sum(c => c.Amount),
             ["PartyCount"] = _db.Parties.Count(),
             ["ProjectCount"] = _db.Projects.Count(),
+            // 无预测版本时相关项一律为 0，绝不拿已知支出冒充预计最终成本。
+            ["EcoExpectedFinal"] = forecast?.EstimatedFinalTotal ?? 0m,
+            ["EcoOverTarget"] = forecast is null ? 0m : Math.Max(0m, forecast.VarianceTotal),
+            ["EcoUnallocated"] = economy.UnallocatedAmount,
+            ["EcoUnincludedChange"] = forecast?.UnincludedChangeAmount ?? 0m,
+            ["EcoExpired"] = economy.ExpiredAmount,
         };
     }
 
