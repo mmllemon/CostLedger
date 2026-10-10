@@ -40,6 +40,9 @@ public partial class LedgerCenterView : UserControl
     private int _projectId;
     private string _projectName = "";
     private LedgerResult? _current;
+    private List<string[]> _allRows = new();   // 当前台账经关键字筛选后的全量行（分页前）
+    private int _page;                         // 当前页（0 起）
+    private const int PageSize = 200;          // 每页行数：限制一次性物化的 TextBlock 数量，保障大台账流畅
 
     public LedgerCenterView()
     {
@@ -85,15 +88,45 @@ public partial class LedgerCenterView : UserControl
         RenderCurrent();
     }
 
-    // ---------- 渲染（含关键字筛选） ----------
+    // ---------- 渲染（含关键字筛选 + 分页） ----------
     private void RenderCurrent()
     {
         if (_current is null) return;
         var kw = FilterBox.Text?.Trim() ?? "";
-        IReadOnlyList<string[]> rows = string.IsNullOrEmpty(kw)
-            ? _current.Rows
+        _allRows = string.IsNullOrEmpty(kw)
+            ? _current.Rows.ToList()
             : _current.Rows.Where(r => r.Any(c => c.Contains(kw, StringComparison.OrdinalIgnoreCase))).ToList();
-        Render(new LedgerResult(_current.Title, _current.Headers, rows, _current.Footers));
+        _page = 0;
+        RenderPage();
+    }
+
+    private void RenderPage()
+    {
+        if (_current is null) return;
+        var totalPages = _allRows.Count == 0 ? 1 : (int)Math.Ceiling(_allRows.Count / (double)PageSize);
+        if (_page < 0) _page = 0;
+        if (_page >= totalPages) _page = totalPages - 1;
+
+        var pageRows = _allRows.Skip(_page * PageSize).Take(PageSize).ToList();
+        var isLast = _page == totalPages - 1;
+        var footers = isLast ? _current.Footers : new List<string[]>();
+        Render(new LedgerResult(_current.Title, _current.Headers, pageRows, footers));
+
+        PageLabel.Text = _allRows.Count == 0
+            ? "无数据"
+            : $"第 {_page + 1} / {totalPages} 页（共 {_allRows.Count} 行，每页 {PageSize}）";
+        PrevPage.IsEnabled = _page > 0;
+        NextPage.IsEnabled = _page < totalPages - 1;
+    }
+
+    private void OnPrevPage(object? sender, RoutedEventArgs e)
+    {
+        if (_page > 0) { _page--; RenderPage(); }
+    }
+
+    private void OnNextPage(object? sender, RoutedEventArgs e)
+    {
+        _page++; RenderPage();
     }
 
     private void OnFilterChanged(object? sender, TextChangedEventArgs e) => RenderCurrent();

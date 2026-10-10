@@ -57,7 +57,7 @@ public partial class DynamicEntityView : UserControl
         leftTop.Children.Add(_entityCombo);
         leftTop.Children.Add(newEntityBtn);
 
-        _recordList = new ListBox { Margin = new Thickness(0, 0, 0, 8) };
+        _recordList = new ListBox { Margin = new Thickness(0, 0, 0, 8), MaxHeight = 380 };
         _recordList.SelectionChanged += OnRecordSelected;
         var newRecBtn = new Button { Content = "＋ 新建记录", HorizontalAlignment = HorizontalAlignment.Stretch };
         newRecBtn.Click += OnNewRecord;

@@ -39,7 +39,6 @@ public partial class GenericRecordView : UserControl
     private readonly AppDbContext _db = null!;
     private readonly MetadataService _metadata = null!;
     private readonly string _entityCode = null!;
-    private readonly Type _entityType = null!;
     private readonly CoreFieldDescriptor[] _core = null!;
     private readonly Func<object> _factory = null!;
     private readonly Func<object, string> _display = null!;
@@ -66,7 +65,7 @@ public partial class GenericRecordView : UserControl
         : this()
     {
         _db = db; _metadata = metadata; _entityCode = entityCode;
-        _entityType = entityType; _core = core; _factory = factory; _display = display; _queryAll = queryAll;
+        _core = core; _factory = factory; _display = display; _queryAll = queryAll;
         _parentField = parentField; _pathField = pathField;
         _ = InitAsync();
     }
@@ -92,7 +91,7 @@ public partial class GenericRecordView : UserControl
         var models = await Task.Run(() => _queryAll(_db).ToList());
         _allModels = models;
         var rows = models.Select(m => new DisplayRow(
-            (int)m.GetType().GetProperty("Id")!.GetValue(m)!, _display(m), m)).ToList();
+            (int)PropertyAccessor.Get(m, "Id")!, _display(m), m)).ToList();
         RecordList.ItemsSource = rows;
         RecordList.DisplayMemberBinding = new Binding("Text");
         if (selectId > 0)
@@ -126,8 +125,7 @@ public partial class GenericRecordView : UserControl
         _coreRows.Clear();
         foreach (var d in _core.OrderBy(x => x.DisplayOrder))
         {
-            var prop = _entityType.GetProperty(d.Property)!;
-            object? cur = prop.GetValue(model);
+            object? cur = PropertyAccessor.Get(model, d.Property);
             string current = d.Kind switch
             {
                 CoreFieldKind.Boolean => cur is bool b && b ? "True" : "False",
@@ -159,10 +157,9 @@ public partial class GenericRecordView : UserControl
 
     private void RenderParent(object model)
     {
-        var idProp = _entityType.GetProperty("Id")!;
-        var curId = (int)idProp.GetValue(model)!;
+        var curId = (int)PropertyAccessor.Get(model, "Id")!;
         var candidates = _allModels
-            .Where(m => (int)idProp.GetValue(m)! != curId && !IsDescendant(idProp, m, curId))
+            .Where(m => (int)PropertyAccessor.Get(m, "Id")! != curId && !IsDescendant(m, curId))
             .ToList();
         var cb = new ComboBox
         {
@@ -172,7 +169,7 @@ public partial class GenericRecordView : UserControl
             SelectedValueBinding = new Binding("Id")
         };
         cb.ItemsSource = candidates;
-        var curParent = model.GetType().GetProperty(_parentField!)!.GetValue(model);
+        var curParent = PropertyAccessor.Get(model, _parentField!);
         cb.SelectedValue = curParent is int iv ? iv : null;
         _parentInput = cb;
 
@@ -183,14 +180,14 @@ public partial class GenericRecordView : UserControl
         CoreHost.Children.Add(wrap);
     }
 
-    private bool IsDescendant(System.Reflection.PropertyInfo idProp, object m, int ancestorId)
+    private bool IsDescendant(object m, int ancestorId)
     {
-        var p = m.GetType().GetProperty(_parentField!)!.GetValue(m);
+        var p = PropertyAccessor.Get(m, _parentField!);
         if (p is null) return false;
         var pid = (int)p;
         if (pid == ancestorId) return true;
-        var parent = _allModels.FirstOrDefault(x => (int)idProp.GetValue(x)! == pid);
-        return parent != null && IsDescendant(idProp, parent, ancestorId);
+        var parent = _allModels.FirstOrDefault(x => (int)PropertyAccessor.Get(x, "Id")! == pid);
+        return parent != null && IsDescendant(parent, ancestorId);
     }
 
     private Control BuildEnumCombo(CoreFieldDescriptor d, string current)
@@ -224,7 +221,7 @@ public partial class GenericRecordView : UserControl
 
         if (_currentId == 0)
         {
-            _currentId = (int)model.GetType().GetProperty("Id")!.GetValue(model)!;
+            _currentId = (int)PropertyAccessor.Get(model, "Id")!;
             _ext?.SetOwnerId(_currentId);
         }
         if (_ext != null) await _ext.SaveAsync();
@@ -237,16 +234,15 @@ public partial class GenericRecordView : UserControl
     private async Task RebuildPaths()
     {
         var all = _queryAll(_db).Cast<object>().ToList();
-        var idProp = _entityType.GetProperty("Id")!;
-        var childrenMap = all.ToLookup(m => (int?)_entityType.GetProperty(_parentField!)!.GetValue(m));
+        var childrenMap = all.ToLookup(m => (int?)PropertyAccessor.Get(m, _parentField!));
         void Walk(int? pid, string prefix)
         {
             foreach (var k in childrenMap[pid])
             {
-                var name = (string)_entityType.GetProperty("Name")!.GetValue(k)!;
+                var name = (string)PropertyAccessor.Get(k, "Name")!;
                 var path = string.IsNullOrEmpty(prefix) ? name : prefix + "/" + name;
-                _entityType.GetProperty(_pathField!)!.SetValue(k, path);
-                Walk((int?)idProp.GetValue(k), path);
+                PropertyAccessor.Set(k, _pathField!, path);
+                Walk((int?)PropertyAccessor.Get(k, "Id"), path);
             }
         }
         Walk(null, "");
@@ -258,7 +254,7 @@ public partial class GenericRecordView : UserControl
         if (_currentId == 0 || _currentModel is null) return;
         if (_parentField != null)
         {
-            var hasChild = _queryAll(_db).Any(m => (int?)_entityType.GetProperty(_parentField)!.GetValue(m) == _currentId);
+            var hasChild = _queryAll(_db).Any(m => (int?)PropertyAccessor.Get(m, _parentField!) == _currentId);
             if (hasChild) { Warn("该节点下还有子节点，请先删除其子节点。"); return; }
         }
         var orphans = await _db.CustomFieldValues
@@ -289,35 +285,34 @@ public partial class GenericRecordView : UserControl
     {
         foreach (var (d, input) in _coreRows)
         {
-            var prop = _entityType.GetProperty(d.Property)!;
             if (d.Kind == CoreFieldKind.Enum)
             {
                 var name = (input as ComboBox)?.SelectedItem as string;
                 if (!string.IsNullOrEmpty(name) && d.EnumType != null)
-                    prop.SetValue(model, Enum.Parse(d.EnumType, name));
+                    PropertyAccessor.Set(model, d.Property, Enum.Parse(d.EnumType, name));
                 continue;
             }
             var str = ControlFactory.ReadInput(input, Map(d.Kind));
             switch (d.Kind)
             {
                 case CoreFieldKind.Boolean:
-                    prop.SetValue(model, string.Equals(str, "True", StringComparison.OrdinalIgnoreCase));
+                    PropertyAccessor.Set(model, d.Property, string.Equals(str, "True", StringComparison.OrdinalIgnoreCase));
                     break;
                 case CoreFieldKind.Number or CoreFieldKind.Money:
-                    prop.SetValue(model, decimal.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture, out var dec) ? dec : 0m);
+                    PropertyAccessor.Set(model, d.Property, decimal.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture, out var dec) ? dec : 0m);
                     break;
                 case CoreFieldKind.Date:
-                    prop.SetValue(model, DateOnly.TryParse(str, out var dt) ? dt : default(DateOnly));
+                    PropertyAccessor.Set(model, d.Property, DateOnly.TryParse(str, out var dt) ? dt : default(DateOnly));
                     break;
                 default: // Text / Lookup
-                    prop.SetValue(model, str);
+                    PropertyAccessor.Set(model, d.Property, str);
                     break;
             }
         }
         if (_parentField != null && _parentInput != null)
         {
             var pid = _parentInput.SelectedValue as int?;
-            _entityType.GetProperty(_parentField)!.SetValue(model, pid);
+            PropertyAccessor.Set(model, _parentField!, pid);
         }
     }
 }

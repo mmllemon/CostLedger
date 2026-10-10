@@ -189,7 +189,7 @@ public class ReportService
     }
 
     private static object? PropValue(object obj, string key)
-        => obj.GetType().GetProperty(key)?.GetValue(obj);
+        => PropertyAccessor.Get(obj, key);
 
     private static string ToText(object? raw, ReportValueKind kind) => raw switch
     {

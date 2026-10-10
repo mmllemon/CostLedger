@@ -6,21 +6,56 @@ namespace CostLedger.Infrastructure;
 /// <summary>
 /// M2-A 配置中心服务：字典与字段定义的 CRUD + 扩展字段值读写。
 /// 仅操作元数据层，绝不触及成本脊柱算账逻辑（铁律）。
+///
+/// 阶段0 性能地基：EntityDef(含 Fields) 与 LookupItems 在首次访问时整体载入内存并缓存，
+/// 后续读路径零数据库往返；任何写（建/删实体、字段、字典）后失效并在下次读取时惰性重载。
+/// —— 消除 DynamicEntityView 按字段逐个查字典、GenericRecordView 取字典等的重复 IO。
 /// </summary>
 public class MetadataService
 {
     private readonly AppDbContext _db;
+    private readonly object _gate = new();
+    private Dictionary<string, EntityDef> _entityByCode = new();
+    private Dictionary<string, LookupDef> _lookupByCode = new();
+    private bool _loaded;
+
     public MetadataService(AppDbContext db) => _db = db;
+
+    // ---------- 缓存加载 / 失效 ----------
+    private void EnsureLoaded()
+    {
+        if (_loaded) return;
+        lock (_gate)
+        {
+            if (_loaded) return;
+            var ents = _db.EntityDefs.Include(e => e.Fields).OrderBy(x => x.Name).ToList();
+            _entityByCode = ents.ToDictionary(e => e.Code);
+            var lookups = _db.LookupDefs.Include(x => x.Items).ToList();
+            foreach (var l in lookups)
+                l.Items = l.Items.OrderBy(i => i.SortOrder).ToList();
+            _lookupByCode = lookups.ToDictionary(l => l.Code);
+            _loaded = true;
+        }
+    }
+
+    /// <summary>强制下次读取重新从库加载（外部绕过本服务改了元数据时使用）。</summary>
+    public void Invalidate() => _loaded = false;
+
+    private void InvalidateAfterWrite() => _loaded = false;
 
     // ---------- 字典 ----------
     public Task<List<LookupDef>> ListLookupDefsAsync()
-        => _db.LookupDefs.Include(x => x.Items).OrderBy(x => x.Name).ToListAsync();
+    {
+        EnsureLoaded();
+        return Task.FromResult(_lookupByCode.Values.OrderBy(x => x.Name).ToList());
+    }
 
     public async Task SaveLookupDefAsync(LookupDef def)
     {
         if (def.Id == 0) _db.LookupDefs.Add(def);
         else _db.LookupDefs.Update(def);
         await _db.SaveChangesAsync();
+        InvalidateAfterWrite();
     }
 
     public async Task DeleteLookupDefAsync(int id)
@@ -29,6 +64,7 @@ public class MetadataService
         if (def is null) return;
         _db.LookupDefs.Remove(def);
         await _db.SaveChangesAsync();
+        InvalidateAfterWrite();
     }
 
     public async Task SaveLookupItemAsync(LookupItem item)
@@ -36,6 +72,7 @@ public class MetadataService
         if (item.Id == 0) _db.LookupItems.Add(item);
         else _db.LookupItems.Update(item);
         await _db.SaveChangesAsync();
+        InvalidateAfterWrite();
     }
 
     public async Task DeleteLookupItemAsync(int id)
@@ -44,23 +81,35 @@ public class MetadataService
         if (item is null) return;
         _db.LookupItems.Remove(item);
         await _db.SaveChangesAsync();
+        InvalidateAfterWrite();
     }
 
     public Task<List<LookupItem>> ListLookupItemsAsync(string lookupDefCode)
-        => _db.LookupItems.Where(x => x.LookupDef!.Code == lookupDefCode).OrderBy(x => x.SortOrder).ToListAsync();
+    {
+        EnsureLoaded();
+        return Task.FromResult(
+            _lookupByCode.TryGetValue(lookupDefCode, out var def) ? def.Items.ToList() : new List<LookupItem>());
+    }
 
     // ---------- 实体 / 字段定义 ----------
     public Task<List<EntityDef>> ListEntityDefsAsync()
-        => _db.EntityDefs.OrderBy(x => x.Name).ToListAsync();
+    {
+        EnsureLoaded();
+        return Task.FromResult(_entityByCode.Values.OrderBy(x => x.Name).ToList());
+    }
 
     public Task<List<EntityDef>> ListUserEntityDefsAsync()
-        => _db.EntityDefs.Where(e => e.IsUserDefined).OrderBy(x => x.Name).ToListAsync();
+    {
+        EnsureLoaded();
+        return Task.FromResult(_entityByCode.Values.Where(e => e.IsUserDefined).OrderBy(x => x.Name).ToList());
+    }
 
     public async Task<int> SaveEntityDefAsync(EntityDef def)
     {
         if (def.Id == 0) _db.EntityDefs.Add(def);
         else _db.EntityDefs.Update(def);
         await _db.SaveChangesAsync();
+        InvalidateAfterWrite();
         return def.Id;
     }
 
@@ -73,16 +122,24 @@ public class MetadataService
         _db.DynamicRecords.RemoveRange(recs);
         _db.EntityDefs.Remove(def);
         await _db.SaveChangesAsync();
+        InvalidateAfterWrite();
     }
 
     public Task<List<FieldDef>> ListFieldDefsAsync(string entityCode)
-        => _db.FieldDefs.Where(x => x.EntityDefCode == entityCode).OrderBy(x => x.DisplayOrder).ToListAsync();
+    {
+        EnsureLoaded();
+        return Task.FromResult(
+            _entityByCode.TryGetValue(entityCode, out var e)
+                ? e.Fields.OrderBy(f => f.DisplayOrder).ToList()
+                : new List<FieldDef>());
+    }
 
     public async Task SaveFieldDefAsync(FieldDef f)
     {
         if (f.Id == 0) _db.FieldDefs.Add(f);
         else _db.FieldDefs.Update(f);
         await _db.SaveChangesAsync();
+        InvalidateAfterWrite();
     }
 
     public async Task DeleteFieldDefAsync(int id)
@@ -91,9 +148,10 @@ public class MetadataService
         if (f is null) return;
         _db.FieldDefs.Remove(f);
         await _db.SaveChangesAsync();
+        InvalidateAfterWrite();
     }
 
-    // ---------- 扩展字段值（EAV） ----------
+    // ---------- 扩展字段值（EAV，按 owner 读写，不缓存） ----------
     public async Task<Dictionary<int, string>> GetCustomValuesAsync(string entityCode, int ownerId)
         => (await _db.CustomFieldValues
                 .Where(x => x.EntityDefCode == entityCode && x.OwnerId == ownerId)

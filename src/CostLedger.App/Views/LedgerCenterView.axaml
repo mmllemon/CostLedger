@@ -25,6 +25,12 @@
         <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12.5"
                    Foreground="{StaticResource AccentDeepBrush}"/>
       </StackPanel>
+      <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
+        <Button x:Name="PrevPage" Classes="pill" Content="上一页" Click="OnPrevPage"/>
+        <Button x:Name="NextPage" Classes="pill" Content="下一页" Click="OnNextPage"/>
+        <TextBlock x:Name="PageLabel" VerticalAlignment="Center" FontSize="12.5"
+                   Foreground="{StaticResource Txt2Brush}"/>
+      </StackPanel>
       <Border Classes="card">
         <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" MaxHeight="520">
           <Grid x:Name="LedgerHost" Margin="0,4,0,0"/>
