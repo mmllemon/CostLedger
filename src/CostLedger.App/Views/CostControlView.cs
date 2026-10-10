@@ -26,7 +26,7 @@ public class CostControlView : UserControl, IProjectScoped
     private Project? _current;
 
     private ComboBox _projCombo = null!;
-    private Grid _itemTable = null!;
+    private StackPanel _itemHost = null!;
     private ComboBox _factCombo = null!;
     private TextBlock _msg = null!;
 
@@ -65,6 +65,7 @@ public class CostControlView : UserControl, IProjectScoped
         _projCombo.SelectionChanged += async (_, _) => { if (_projCombo.SelectedItem is Project p) { _current = p; await RefreshAsync(); } };
 
         _msg = new TextBlock { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Foreground = Palette.Txt2 };
+        _itemHost = new StackPanel();
 
         var top = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
         top.Children.Add(new TextBlock { Text = "项目", VerticalAlignment = VerticalAlignment.Center, Foreground = Palette.Txt2 });
@@ -92,10 +93,9 @@ public class CostControlView : UserControl, IProjectScoped
         var form = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(0, 4, 0, 10) };
         form.Children.Add(_newCode); form.Children.Add(_newName); form.Children.Add(_newSort); form.Children.Add(add);
 
-        _itemTable = new Grid();
         var stack = new StackPanel { Spacing = 8 };
         stack.Children.Add(form);
-        stack.Children.Add(new ScrollViewer { Content = _itemTable, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, MaxHeight = 300 });
+        stack.Children.Add(new ScrollViewer { Content = _itemHost, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, MaxHeight = 300 });
         return stack;
     }
 
@@ -226,6 +226,7 @@ public class CostControlView : UserControl, IProjectScoped
 
     private void RenderItems(List<CostControlItem> items, List<CostControlItemSummary> summary)
     {
+        _itemHost.Children.Clear();
         var byId = summary.ToDictionary(x => x.CostControlItemId);
         var headers = new[] { "编号", "控制项", "已分配", "暂估", "已核对", "最粗来源精度", "来源数" };
         var right = new HashSet<int> { 2, 3, 4, 6 };
@@ -243,7 +244,7 @@ public class CostControlView : UserControl, IProjectScoped
                 (s?.SourceCount ?? 0).ToString()
             };
         });
-        _itemTable = Widgets.Table(headers, rows, right);
+        _itemHost.Children.Add(Widgets.Table(headers, rows, right));
     }
 
     private async void OnAddItem(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

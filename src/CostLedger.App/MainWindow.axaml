@@ -20,12 +20,15 @@
       </StackPanel>
     </Border>
 
-    <!-- 侧栏 -->
-    <StackPanel Grid.Row="1" Grid.Column="0" Margin="14,16">
+    <!-- 侧栏（可滚动，避免下方导航在矮窗口不可达） -->
+    <ScrollViewer Grid.Row="1" Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0">
+    <StackPanel Margin="14,16">
       <StackPanel Orientation="Horizontal" Spacing="10" Margin="6,6,6,18">
         <Border Classes="brandmark"><TextBlock Text="诺"/></Border>
         <TextBlock Text="诺亨成本" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
       </StackPanel>
+      <TextBlock Text="公司" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Txt3Brush}" Margin="12,6,0,4"/>
+      <Button x:Name="NavCompany" Classes="nav" Content="公司经营驾驶舱" Click="OnNavClick"/>
       <TextBlock Text="项目经营" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Txt3Brush}" Margin="12,6,0,4"/>
       <Button x:Name="NavCockpit" Classes="nav" Content="项目经济驾驶舱" Click="OnNavClick"/>
       <Button x:Name="NavCostControl" Classes="nav" Content="成本控制项与归属" Click="OnNavClick"/>
@@ -44,9 +47,12 @@
       <Button x:Name="NavBoardDesign" Classes="nav" Content="看板设计" Click="OnNavClick"/>
       <Button x:Name="NavAlerts" Classes="nav" Content="预警中心" Click="OnNavClick"/>
       <Button x:Name="NavRecon" Classes="nav" Content="对账中心" Click="OnNavClick"/>
+      <TextBlock Text="后台" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Txt3Brush}" Margin="12,12,0,4"/>
+      <Button x:Name="NavAdmin" Classes="nav" Content="后台管理" Click="OnNavClick"/>
       <Button x:Name="NavSettings" Classes="nav" Content="系统设置" Click="OnNavClick"/>
       <Button x:Name="NavObjects" Classes="nav" Content="自建对象" Click="OnNavClick"/>
     </StackPanel>
+    </ScrollViewer>
 
     <!-- 主区 -->
     <ContentControl Grid.Row="1" Grid.Column="1" x:Name="MainArea" Margin="0,0,0,0"/>

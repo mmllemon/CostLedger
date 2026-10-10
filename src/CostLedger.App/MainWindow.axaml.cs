@@ -47,7 +47,7 @@ public partial class MainWindow : Window
         Closed += (_, _) => _db.Dispose();
         StartScheduler();
         _ = LoadProjectsAsync();
-        NavigateTo("dashboard");
+        NavigateTo("NavCompany");
     }
 
     /// <summary>加载项目并填充顶部全局项目切换器；默认选中第一个项目。</summary>
@@ -95,10 +95,11 @@ public partial class MainWindow : Window
 
     private void SetActive(string key)
     {
-        foreach (var b in new[] { NavCockpit, NavCostControl, NavForecast, NavDashboard, NavOverview, NavLedgers, NavParties, NavCost, NavMaster, NavDocs, NavProject, NavCategory, NavReports, NavBoardDesign, NavAlerts, NavRecon, NavSettings, NavObjects })
+        foreach (var b in new[] { NavCompany, NavCockpit, NavCostControl, NavForecast, NavDashboard, NavOverview, NavLedgers, NavParties, NavCost, NavMaster, NavDocs, NavProject, NavCategory, NavReports, NavBoardDesign, NavAlerts, NavRecon, NavSettings, NavAdmin, NavObjects })
             b.Classes.Remove("on");
         var target = key switch
         {
+            "NavCompany" => NavCompany,
             "NavCockpit" => NavCockpit,
             "NavCostControl" => NavCostControl,
             "NavForecast" => NavForecast,
@@ -115,6 +116,7 @@ public partial class MainWindow : Window
             "NavAlerts" => NavAlerts,
             "NavRecon" => NavRecon,
             "NavSettings" => NavSettings,
+            "NavAdmin" => NavAdmin,
             "NavObjects" => NavObjects,
             _ => NavDashboard
         };
@@ -134,6 +136,14 @@ public partial class MainWindow : Window
 
         switch (key)
         {
+            case "NavCompany":
+                _currentView = new CompanyCockpitView(_db);
+                MainArea.Content = _currentView;
+                break;
+            case "NavAdmin":
+                _currentView = new AdminSettingsView(_db, _metadata);
+                MainArea.Content = _currentView;
+                break;
             case "NavCockpit":
                 Show(new ProjectCockpitView(_db));
                 break;

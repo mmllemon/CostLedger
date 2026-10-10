@@ -142,4 +142,53 @@ public class VerticalSliceTests
 
         (await forecastSvc.GetLatestVersionAsync(project.Id))!.Confidence.Should().Be(ForecastConfidence.Medium);
     }
+
+    [Fact]
+    public async Task 公司汇总等于各项目逐列相加且无版本项目不计入预计最终()
+    {
+        using var db = CreateContext();
+        var p1 = new Project { Code = "P-1", Name = "项目一" };
+        var p2 = new Project { Code = "P-2", Name = "项目二" };
+        db.AddRange(p1, p2);
+        await db.SaveChangesAsync();
+
+        var factsSvc = new EconomicFactsService(db);
+        var forecastSvc = new CostForecastService(db);
+
+        var i1 = new CostControlItem { ProjectId = p1.Id, Code = "01", Name = "控制项A" };
+        var i2 = new CostControlItem { ProjectId = p2.Id, Code = "01", Name = "控制项B" };
+        db.AddRange(i1, i2);
+        await db.SaveChangesAsync();
+
+        // P-1：归属 100 万 + 有冻结预测
+        var f1 = await factsSvc.RegisterFactAsync(new ExternalAmountFact
+        {
+            ProjectId = p1.Id, Segment = BusinessSegment.MaterialSupply, Direction = EconomicDirection.Expenditure,
+            Amount = 1_000_000m, AsOfDate = new DateOnly(2026, 10, 10), Status = ExternalFactStatus.Checked,
+            Precision = ManagementPrecision.ContractPackage, Source = "P1来源"
+        });
+        await factsSvc.AllocateAsync(f1.Id, i1.Id, 1_000_000m, ManagementPrecision.ContractPackage, AllocationStatus.Allocated);
+        var v1 = await forecastSvc.CreateVersionAsync(p1.Id, new DateOnly(2026, 10, 10), ForecastConfidence.Medium, "假设1");
+        await forecastSvc.UpsertLineAsync(v1.Id, i1.Id, 1_200_000m, 0m, 0m);
+        await forecastSvc.FreezeAsync(v1.Id);
+
+        // P-2：只有来源、无预测版本 → 不计入公司预计最终
+        var f2 = await factsSvc.RegisterFactAsync(new ExternalAmountFact
+        {
+            ProjectId = p2.Id, Segment = BusinessSegment.MaterialSupply, Direction = EconomicDirection.Expenditure,
+            Amount = 500_000m, AsOfDate = new DateOnly(2026, 10, 9), Status = ExternalFactStatus.Estimated,
+            Precision = ManagementPrecision.Project, Source = "P2来源"
+        });
+        await factsSvc.AllocateAsync(f2.Id, i2.Id, 500_000m, ManagementPrecision.Project, AllocationStatus.Allocated);
+
+        var company = await new CompanyService(db).SummarizeAsync();
+
+        company.ProjectCount.Should().Be(2);
+        company.MissingForecastCount.Should().Be(1);
+        company.KnownExpenditure.Should().Be(1_500_000m);       // 100万 + 50万
+        company.EstimatedFinal.Should().Be(1_000_000m);         // 只有 P-1：已知 100万 + 剩余 0 + 风险 0
+        company.TargetTotal.Should().Be(1_200_000m);            // 仅 P-1 的目标
+        company.UnallocatedAmount.Should().Be(0m);
+        company.Projects.Single(p => p.Code == "P-2").EstimatedFinal.Should().BeNull();
+    }
 }
