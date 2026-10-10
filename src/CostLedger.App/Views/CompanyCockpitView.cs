@@ -33,20 +33,11 @@ public class CompanyCockpitView : UserControl
 
     private Control BuildUi()
     {
-        var title = new TextBlock { Text = "公司经营驾驶舱", FontSize = 15, FontWeight = FontWeight.Bold, Foreground = Palette.Ink, VerticalAlignment = VerticalAlignment.Center };
-        var refresh = new Button { Content = "刷新" };
-        refresh.Classes.Add("pill");
-        refresh.Click += async (_, _) => await LoadAsync();
-        var print = new Button { Content = "打印公司汇总" };
-        print.Classes.Add("pill");
-        print.Click += OnPrint;
+        var top = Widgets.PageHeader("公司", "公司经营驾驶舱", "全部在管项目汇总 · 口径与项目页完全一致",
+            Widgets.ActionButton("刷新", () => _ = LoadAsync()),
+            Widgets.ActionButton("打印公司汇总", () => OnPrint(this, new Avalonia.Interactivity.RoutedEventArgs())));
 
-        var top = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-        top.Children.Add(title);
-        top.Children.Add(refresh);
-        top.Children.Add(print);
-
-        var root = new StackPanel { Spacing = 14, Margin = new Thickness(16) };
+        var root = new StackPanel { Spacing = 14, Margin = new Thickness(20) };
         root.Children.Add(top);
         root.Children.Add(Widgets.Card(null, _heroHost));
         root.Children.Add(Widgets.Card(null, _kpiHost));

@@ -311,6 +311,81 @@ internal static class Widgets
         Margin = new Thickness(0, 6, 0, 0)
     };
 
+    /// <summary>
+    /// 页面顶栏：左侧圆形头像 + 标题 + 副标题，右侧操作按钮；对应预览稿的 .topbar/.proj。
+    /// </summary>
+    public static Control PageHeader(string avatar, string title, string subtitle, params Control[] actions)
+    {
+        var text = new StackPanel { Spacing = 1, VerticalAlignment = VerticalAlignment.Center };
+        text.Children.Add(new TextBlock { Text = title, FontSize = 14, FontWeight = FontWeight.Bold, Foreground = Palette.Ink });
+        if (!string.IsNullOrEmpty(subtitle))
+            text.Children.Add(new TextBlock { Text = subtitle, FontSize = 11.5, Foreground = Palette.Txt3 });
+
+        var ava = new Border
+        {
+            Width = 36, Height = 36, CornerRadius = new CornerRadius(18),
+            Background = Palette.AccentDeep,
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock { Text = avatar, FontSize = 12, FontWeight = FontWeight.Bold, Foreground = Palette.White, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+        };
+
+        var left = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center };
+        left.Children.Add(ava);
+        left.Children.Add(text);
+
+        var right = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center };
+        foreach (var a in actions) if (a != null) right.Children.Add(a);
+
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 0, 0, 4) };
+        Grid.SetColumn(left, 0);
+        Grid.SetColumn(right, 1);
+        grid.Children.Add(left);
+        grid.Children.Add(right);
+        return grid;
+    }
+
+    public static Button ActionButton(string text, Action onClick)
+    {
+        var b = new Button { Content = text };
+        b.Classes.Add("pill");
+        b.Click += (_, _) => onClick();
+        return b;
+    }
+
+    /// <summary>同 PageHeader，但副标题是动态控件（例如显示当前项目名）。</summary>
+    public static Control PageHeaderWithDynamicSubtitle(string avatar, string title, string staticSubtitle, Control dynamicSubtitle, params Control[] actions)
+    {
+        var text = new StackPanel { Spacing = 1, VerticalAlignment = VerticalAlignment.Center };
+        text.Children.Add(new TextBlock { Text = title, FontSize = 14, FontWeight = FontWeight.Bold, Foreground = Palette.Ink });
+        var sub = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        if (!string.IsNullOrEmpty(staticSubtitle))
+            sub.Children.Add(new TextBlock { Text = staticSubtitle, FontSize = 11.5, Foreground = Palette.Txt3 });
+        sub.Children.Add(dynamicSubtitle);
+        text.Children.Add(sub);
+
+        var ava = new Border
+        {
+            Width = 36, Height = 36, CornerRadius = new CornerRadius(18),
+            Background = Palette.AccentDeep,
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock { Text = avatar, FontSize = 12, FontWeight = FontWeight.Bold, Foreground = Palette.White, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+        };
+
+        var left = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center };
+        left.Children.Add(ava);
+        left.Children.Add(text);
+
+        var right = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center };
+        foreach (var a in actions) if (a != null) right.Children.Add(a);
+
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), Margin = new Thickness(0, 0, 0, 4) };
+        Grid.SetColumn(left, 0);
+        Grid.SetColumn(right, 1);
+        grid.Children.Add(left);
+        grid.Children.Add(right);
+        return grid;
+    }
+
     public static LabeledControl Row(string label, Control control, double labelWidth = 84)
     {
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions($"{labelWidth},*"), Margin = new Thickness(0, 5, 0, 5) };

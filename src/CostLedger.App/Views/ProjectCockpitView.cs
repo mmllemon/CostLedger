@@ -44,23 +44,16 @@ public class ProjectCockpitView : UserControl, IProjectScoped
 
     private Control BuildUi()
     {
-        _title = new TextBlock { FontSize = 15, FontWeight = FontWeight.Bold, Foreground = Palette.Ink, VerticalAlignment = VerticalAlignment.Center };
+        _title = new TextBlock { FontSize = 11.5, Foreground = Palette.Txt3, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
 
-        var top = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-        var refresh = new Button { Content = "刷新" };
-        refresh.Classes.Add("pill");
-        refresh.Click += async (_, _) => await LoadAsync();
-        top.Children.Add(refresh);
-        var print = new Button { Content = "打印项目经济一页" };
-        print.Classes.Add("pill");
-        print.Click += OnPrint;
-        top.Children.Add(print);
-        top.Children.Add(_title);
+        var top = Widgets.PageHeaderWithDynamicSubtitle("成本", "项目经济驾驶舱", "对上收入 · 对下支出 · 资金状态 · 成本预测 · 风险", _title,
+            Widgets.ActionButton("刷新", () => _ = LoadAsync()),
+            Widgets.ActionButton("打印项目经济一页", () => OnPrint(this, new RoutedEventArgs())));
 
         _kpiHost = new WrapPanel();
         _body = new StackPanel { Spacing = 14 };
 
-        var root = new StackPanel { Spacing = 14, Margin = new Thickness(16) };
+        var root = new StackPanel { Spacing = 14, Margin = new Thickness(20) };
         root.Children.Add(top);
         root.Children.Add(_kpiHost);
         root.Children.Add(_body);
