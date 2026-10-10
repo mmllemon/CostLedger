@@ -60,5 +60,9 @@ public class RealDataImportTests
         (await db.CostControlItems.CountAsync()).Should().BeGreaterThanOrEqualTo(4);
         // 至少能给出两个项目的摘要
         report.ProjectSummaries.Should().HaveCountGreaterThanOrEqualTo(2);
+
+        // 修正后的数据应全部通过领域规则校验；任何拒绝都说明表内交叉引用又不一致了。
+        report.Rejected.Should().Be(0,
+            "数据表应自洽；被拒记录：" + string.Join(" | ", report.Rejections.Select(r => $"{r.Table}/{r.Key}: {r.Message}")));
     }
 }
