@@ -162,7 +162,7 @@ public partial class MainWindow : Window
                 MainArea.Content = _currentView;
                 break;
             case "NavParties":
-                _currentView = new PartyLedgerView(_db);
+                _currentView = new PartyPanoramaView(_db);
                 MainArea.Content = _currentView;
                 break;
             case "NavCost":
@@ -205,7 +205,7 @@ public partial class MainWindow : Window
                 MainArea.Content = _currentView;
                 break;
             case "NavReports":
-                _currentView = new ReportCenterView(_reports);
+                _currentView = new InternalReportView(_db);
                 MainArea.Content = _currentView;
                 break;
             case "NavBoardDesign":
