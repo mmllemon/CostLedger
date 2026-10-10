@@ -23,6 +23,10 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var dbPath = Path.Combine(AppContext.BaseDirectory, "costledger.db");
+            // 用环境变量 COSTLEDGER_DB 指定其它账套（例如导入真实数据生成的账套），
+            // 便于在不覆盖默认账套的前提下打开指定数据文件。
+            var overridePath = Environment.GetEnvironmentVariable("COSTLEDGER_DB");
+            if (!string.IsNullOrWhiteSpace(overridePath)) dbPath = overridePath!;
             var options = DbBootstrap.Configure(dbPath);
             var db = new AppDbContext(options);
             try

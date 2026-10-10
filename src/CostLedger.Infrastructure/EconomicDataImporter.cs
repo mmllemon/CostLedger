@@ -41,6 +41,30 @@ public sealed class EconomicDataImporter
         _forecast = new CostForecastService(db);
     }
 
+    /// <summary>
+    /// 用表格目录的数据新建一个可直接被桌面程序打开的账套文件：
+    /// 建表 → 只种元数据（不写演示数据）→ 导入 → 写入结构版本号。
+    /// 返回账套路径与导入报告，供命令行/测试生成"真实数据账套"。
+    /// </summary>
+    public static async Task<(string DbPath, ImportReport Report)> ImportToFileDatabaseAsync(
+        string dbPath, string dataDir, CancellationToken ct = default)
+    {
+        if (File.Exists(dbPath)) File.Delete(dbPath);
+        var dir = Path.GetDirectoryName(dbPath);
+        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
+        var options = DbBootstrap.Configure(dbPath);
+        await using var db = new AppDbContext(options);
+        await db.Database.EnsureCreatedAsync(ct);
+        SeedData.SeedMetadataOnly(db);
+
+        var report = await new EconomicDataImporter(db).ImportFromDirectoryAsync(dataDir, ct);
+
+        // 结构版本写入 PRAGMA user_version，桌面程序据此判断账套是否兼容。
+        await db.Database.ExecuteSqlRawAsync($"PRAGMA user_version = {DbBootstrap.SchemaVersion};", ct);
+        return (dbPath, report);
+    }
+
     public async Task<ImportReport> ImportFromDirectoryAsync(string dir, CancellationToken ct = default)
     {
         var entries = new List<ImportEntry>();

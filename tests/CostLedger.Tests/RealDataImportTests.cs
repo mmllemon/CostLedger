@@ -65,4 +65,33 @@ public class RealDataImportTests
         report.Rejected.Should().Be(0,
             "数据表应自洽；被拒记录：" + string.Join(" | ", report.Rejections.Select(r => $"{r.Table}/{r.Key}: {r.Message}")));
     }
+
+    [Fact]
+    public async Task 生成的真实数据账套可被桌面引导路径打开()
+    {
+        var dir = Path.Combine(AppContext.BaseDirectory, "Import");
+        var dbPath = Path.Combine(Path.GetTempPath(), $"costledger_realdata_{Guid.NewGuid():N}.db");
+        try
+        {
+            var (path, report) = await EconomicDataImporter.ImportToFileDatabaseAsync(dbPath, dir);
+            report.Rejected.Should().Be(0);
+            File.Exists(path).Should().BeTrue();
+
+            // 桌面程序打开账套走的就是 DbBootstrap.EnsureCreatedAndSeed：版本匹配则不抛异常。
+            var options = DbBootstrap.Configure(path);
+            using (var db = new AppDbContext(options))
+            {
+                DbBootstrap.EnsureCreatedAndSeed(db, path);   // 不兼容会抛 InvalidOperationException
+                (await db.Projects.CountAsync()).Should().Be(2);
+                (await db.ExternalAmountFacts.CountAsync()).Should().Be(2);
+                (await db.CostForecastVersions.CountAsync()).Should().Be(2);
+            }
+        }
+        finally
+        {
+            // SQLite 连接池会持有文件句柄，先清池再删。
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            try { if (File.Exists(dbPath)) File.Delete(dbPath); } catch (IOException) { }
+        }
+    }
 }
