@@ -25,7 +25,6 @@ public class CostControlView : UserControl, IProjectScoped
     private readonly EconomicFactsService _svc = null!;
     private Project? _current;
 
-    private ComboBox _projCombo = null!;
     private StackPanel _itemHost = null!;
     private ComboBox _factCombo = null!;
     private TextBlock _msg = null!;
@@ -60,19 +59,10 @@ public class CostControlView : UserControl, IProjectScoped
 
     private Control BuildUi()
     {
-        _projCombo = new ComboBox { Width = 300, PlaceholderText = "选择项目" };
-        _projCombo.DisplayMemberBinding = new Binding("Name");
-        _projCombo.SelectionChanged += async (_, _) => { if (_projCombo.SelectedItem is Project p) { _current = p; await RefreshAsync(); } };
-
         _msg = new TextBlock { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Foreground = Palette.Txt2 };
         _itemHost = new StackPanel();
 
-        var top = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-        top.Children.Add(new TextBlock { Text = "项目", VerticalAlignment = VerticalAlignment.Center, Foreground = Palette.Txt2 });
-        top.Children.Add(_projCombo);
-
         var root = new StackPanel { Spacing = 14, Margin = new Thickness(16) };
-        root.Children.Add(top);
         root.Children.Add(Widgets.Card("成本控制项（过程管理口径，不要求与合同清单逐项对齐）", BuildItemSection()));
         root.Children.Add(BuildRelationshipCard());
         root.Children.Add(BuildFactCard());
@@ -190,18 +180,17 @@ public class CostControlView : UserControl, IProjectScoped
     public void SelectProject(Project project)
     {
         _current = project;
-        if (_projCombo.ItemsSource != null) _projCombo.SelectedItem = project;
         _ = RefreshAsync();
     }
 
     private async Task InitAsync()
     {
+        // 项目由顶部全局切换器统一驱动，避免页内出现第二个项目下拉。
         var projects = await _db.Projects.OrderBy(p => p.Code).ToListAsync();
-        _projCombo.ItemsSource = projects;
         var parties = await _db.Parties.OrderBy(p => p.Name).ToListAsync();
         _relParty.ItemsSource = parties;
         _factParty.ItemsSource = parties;
-        if (projects.Count > 0) _projCombo.SelectedIndex = 0;
+        if (_current is null && projects.Count > 0) { _current = projects[0]; await RefreshAsync(); }
     }
 
     private async Task RefreshAsync()

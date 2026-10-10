@@ -41,7 +41,7 @@ public class AdminSettingsView : UserControl
         root.Children.Add(Widgets.Card(null, new TextBlock
         {
             Text = "这里集中「可增补项」：项目业务角色、板块角色授权、字典、字段、系统参数与账套。业务板块、金额方向、管理精度、数据状态属于口径骨架，是强类型，此页不提供新增或放宽入口。",
-            FontSize = 12, Foreground = Palette.Txt2, TextWrapping = TextWrapping.Wrap, LineHeight = 1.7
+            FontSize = 12, Foreground = Palette.Txt2, TextWrapping = TextWrapping.Wrap, LineHeight = 19
         }));
         root.Children.Add(Widgets.Card("项目业务角色（字典 ProjectPartyRole）", _roleList));
         root.Children.Add(Widgets.Card("板块角色授权（只增补角色，不放宽方向）", _grantList));

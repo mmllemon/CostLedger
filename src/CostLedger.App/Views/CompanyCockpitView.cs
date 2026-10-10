@@ -127,7 +127,7 @@ public class CompanyCockpitView : UserControl
                        ? $"其中 {s.MissingForecastCount} 个项目没有预测版本，其「预计最终」为 —，不计入公司合计。"
                        : "") +
                    "公司合计由项目口径逐列相加得到，不下钻、不重算；本表为内部管理信息，非财务结论。",
-            FontSize = 11, Foreground = Palette.Txt2, TextWrapping = TextWrapping.Wrap, LineHeight = 1.7
+            FontSize = 11, Foreground = Palette.Txt2, TextWrapping = TextWrapping.Wrap, LineHeight = 19
         }));
     }
 

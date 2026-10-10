@@ -26,7 +26,6 @@ public class ProjectCockpitView : UserControl, IProjectScoped
     private readonly EconomicFactsService _facts = null!;
     private readonly CostForecastService _forecast = null!;
 
-    private ComboBox _projCombo = null!;
     private WrapPanel _kpiHost = null!;
     private StackPanel _body = null!;
     private TextBlock _title = null!;
@@ -45,15 +44,9 @@ public class ProjectCockpitView : UserControl, IProjectScoped
 
     private Control BuildUi()
     {
-        _projCombo = new ComboBox { Width = 300, PlaceholderText = "选择项目" };
-        _projCombo.SelectionChanged += OnProjectChanged;
-        _projCombo.DisplayMemberBinding = new Binding("Name");
-
         _title = new TextBlock { FontSize = 15, FontWeight = FontWeight.Bold, Foreground = Palette.Ink, VerticalAlignment = VerticalAlignment.Center };
 
         var top = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-        top.Children.Add(new TextBlock { Text = "项目", VerticalAlignment = VerticalAlignment.Center, Foreground = Palette.Txt2 });
-        top.Children.Add(_projCombo);
         var refresh = new Button { Content = "刷新" };
         refresh.Classes.Add("pill");
         refresh.Click += async (_, _) => await LoadAsync();
@@ -76,21 +69,15 @@ public class ProjectCockpitView : UserControl, IProjectScoped
 
     private async Task InitAsync()
     {
+        // 项目由顶部全局切换器统一驱动，此处只加载默认第一个项目，避免出现第二个项目下拉。
         var projects = await _db.Projects.OrderBy(p => p.Code).ToListAsync();
-        _projCombo.ItemsSource = projects;
-        if (projects.Count > 0) _projCombo.SelectedIndex = 0;
-    }
-
-    private async void OnProjectChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        if (_projCombo.SelectedItem is Project p) { _current = p; await LoadAsync(); }
+        if (_current is null && projects.Count > 0) { _current = projects[0]; await LoadAsync(); }
     }
 
     /// <summary>由顶部全局项目切换器驱动。</summary>
     public void SelectProject(Project project)
     {
         _current = project;
-        if (_projCombo.ItemsSource != null) _projCombo.SelectedItem = project;
         _ = LoadAsync();
     }
 
@@ -262,7 +249,7 @@ public class ProjectCockpitView : UserControl, IProjectScoped
         FontSize = 11,
         Foreground = Palette.Txt2,
         TextWrapping = TextWrapping.Wrap,
-        LineHeight = 1.7
+        LineHeight = 19
     };
 
     private static decimal Parse(string s) =>

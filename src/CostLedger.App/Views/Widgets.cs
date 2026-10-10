@@ -73,7 +73,7 @@ internal static class Widgets
             panel.Children.Add(new TextBlock
             {
                 Text = desc, FontSize = 11, Foreground = Palette.Txt3,
-                TextWrapping = TextWrapping.Wrap, LineHeight = 1.5, Margin = new Thickness(0, 6, 0, 0)
+                TextWrapping = TextWrapping.Wrap, LineHeight = 17, Margin = new Thickness(0, 6, 0, 0)
             });
         return new Border
         {
@@ -313,13 +313,16 @@ internal static class Widgets
 
     public static LabeledControl Row(string label, Control control, double labelWidth = 84)
     {
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions($"{labelWidth},*"), Margin = new Thickness(0, 4, 0, 4) };
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions($"{labelWidth},*"), Margin = new Thickness(0, 5, 0, 5) };
         var tb = new TextBlock { Text = label, FontSize = 12, Foreground = Palette.Txt3, VerticalAlignment = VerticalAlignment.Center };
+        // 控件一律左对齐，避免固定宽度控件在列中居中导致各行不对齐
+        control.HorizontalAlignment = HorizontalAlignment.Left;
+        control.VerticalAlignment = VerticalAlignment.Center;
         Grid.SetColumn(tb, 0);
         Grid.SetColumn(control, 1);
         grid.Children.Add(tb);
         grid.Children.Add(control);
-        return new LabeledControl(grid);
+        return new LabeledControl(grid) { HorizontalAlignment = HorizontalAlignment.Stretch };
     }
 }
 

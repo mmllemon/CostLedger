@@ -191,7 +191,7 @@ public class InternalReportView : UserControl
             BorderBrush = Palette.Txt3,
             BorderThickness = new Thickness(3, 0, 0, 0),
             Padding = new Thickness(10, 4, 0, 4),
-            Child = new TextBlock { Text = caliber, FontSize = 11, Foreground = Palette.Txt2, TextWrapping = TextWrapping.Wrap, LineHeight = 1.7 }
+            Child = new TextBlock { Text = caliber, FontSize = 11, Foreground = Palette.Txt2, TextWrapping = TextWrapping.Wrap, LineHeight = 19 }
         };
         paper.Children.Add(caliberBlock);
         paper.Children.Add(new TextBlock { Text = "编制：成本岗　　审核：　　　　　日期：", FontSize = 12, Foreground = Palette.Txt2, Margin = new Thickness(0, 8, 0, 0) });

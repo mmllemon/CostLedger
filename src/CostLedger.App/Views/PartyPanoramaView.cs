@@ -93,7 +93,7 @@ public class PartyPanoramaView : UserControl
         _body.Children.Add(Widgets.Card(null, new TextBlock
         {
             Text = PartyLedgerCaliber.Build(UiText.Date(l.AsOfDate)),
-            FontSize = 11, Foreground = Palette.Txt2, TextWrapping = TextWrapping.Wrap, LineHeight = 1.7
+            FontSize = 11, Foreground = Palette.Txt2, TextWrapping = TextWrapping.Wrap, LineHeight = 19
         }));
     }
 
