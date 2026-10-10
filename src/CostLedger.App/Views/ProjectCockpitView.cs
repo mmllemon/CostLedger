@@ -1,0 +1,232 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Data;
+using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Media;
+using CostLedger.Domain;
+using CostLedger.Infrastructure;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace CostLedger.App.Views;
+
+/// <summary>
+/// 项目经济驾驶舱：消费 EconomicFactsService.SummarizeProjectAsync 与 CostForecastService.GetSummaryAsync。
+/// 收入 / 支出 / 已收 / 已付 / 资金压力 / 分配覆盖按栏分开，不跨栏相加；
+/// 预计最终成本只来自冻结或草稿预测版本，无用版本时显示"尚无预测版本"，绝不用已知支出冒充。
+/// </summary>
+public class ProjectCockpitView : UserControl, IProjectScoped
+{
+    private readonly AppDbContext _db = null!;
+    private readonly EconomicFactsService _facts = null!;
+    private readonly CostForecastService _forecast = null!;
+
+    private ComboBox _projCombo = null!;
+    private WrapPanel _kpiHost = null!;
+    private StackPanel _body = null!;
+    private TextBlock _title = null!;
+    private Project? _current;
+    private ProjectEconomySummary? _economy;
+    private CostForecastSummary? _summary;
+
+    public ProjectCockpitView(AppDbContext db)
+    {
+        _db = db;
+        _facts = new EconomicFactsService(db);
+        _forecast = new CostForecastService(db);
+        Content = BuildUi();
+        _ = InitAsync();
+    }
+
+    private Control BuildUi()
+    {
+        _projCombo = new ComboBox { Width = 300, PlaceholderText = "选择项目" };
+        _projCombo.SelectionChanged += OnProjectChanged;
+        _projCombo.DisplayMemberBinding = new Binding("Name");
+
+        _title = new TextBlock { FontSize = 15, FontWeight = FontWeight.Bold, Foreground = Palette.Ink, VerticalAlignment = VerticalAlignment.Center };
+
+        var top = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+        top.Children.Add(new TextBlock { Text = "项目", VerticalAlignment = VerticalAlignment.Center, Foreground = Palette.Txt2 });
+        top.Children.Add(_projCombo);
+        var refresh = new Button { Content = "刷新" };
+        refresh.Classes.Add("pill");
+        refresh.Click += async (_, _) => await LoadAsync();
+        top.Children.Add(refresh);
+        var print = new Button { Content = "打印项目经济一页" };
+        print.Classes.Add("pill");
+        print.Click += OnPrint;
+        top.Children.Add(print);
+        top.Children.Add(_title);
+
+        _kpiHost = new WrapPanel();
+        _body = new StackPanel { Spacing = 14 };
+
+        var root = new StackPanel { Spacing = 14, Margin = new Thickness(16) };
+        root.Children.Add(top);
+        root.Children.Add(_kpiHost);
+        root.Children.Add(_body);
+        return new ScrollViewer { Content = root, Background = Palette.Bg };
+    }
+
+    private async Task InitAsync()
+    {
+        var projects = await _db.Projects.OrderBy(p => p.Code).ToListAsync();
+        _projCombo.ItemsSource = projects;
+        if (projects.Count > 0) _projCombo.SelectedIndex = 0;
+    }
+
+    private async void OnProjectChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_projCombo.SelectedItem is Project p) { _current = p; await LoadAsync(); }
+    }
+
+    /// <summary>由顶部全局项目切换器驱动。</summary>
+    public void SelectProject(Project project)
+    {
+        _current = project;
+        if (_projCombo.ItemsSource != null) _projCombo.SelectedItem = project;
+        _ = LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (_current is null) return;
+        _economy = await _facts.SummarizeProjectAsync(_current.Id);
+        _summary = await _forecast.GetSummaryAsync(_current.Id);
+        Render();
+    }
+
+    private void Render()
+    {
+        if (_current is null || _economy is null) return;
+        var o = _economy;
+        var f = _summary;
+
+        _title.Text = $"{_current.Code} · {_current.Name}";
+
+        _kpiHost.Children.Clear();
+        void Kpi(string label, string value, bool bad = false) => _kpiHost.Children.Add(Widgets.Kpi(label, value, bad));
+        Kpi("项目预计收入", UiText.Money(o.ExpectedIncome));
+        Kpi("已知项目支出", UiText.Money(o.KnownExpenditure));
+        Kpi("已收（外部提供）", UiText.Money(o.Received));
+        Kpi("已付（外部提供）", UiText.Money(o.Paid));
+        Kpi("资金压力（已付−已收）", UiText.Money(o.FundingGap), o.FundingGap > 0);
+
+        _body.Children.Clear();
+        _body.Children.Add(BuildCostSummary(f));
+        if (f != null) _body.Children.Add(Widgets.Card("逐控制项预测（已知金额来自归属关系，不接受手填）", BuildForecastLines(f)));
+        _body.Children.Add(Widgets.Card("板块金额分栏（不跨栏相加）", BuildSegments(o)));
+        _body.Children.Add(Widgets.Card(null, BuildCaliberNote(o)));
+    }
+
+    private Control BuildCostSummary(CostForecastSummary? f)
+    {
+        var body = new StackPanel { Spacing = 10 };
+        if (f is null)
+        {
+            var hero = new TextBlock { Text = "尚无预测版本", FontSize = 30, FontWeight = FontWeight.Bold, Foreground = Palette.Txt3 };
+            body.Children.Add(new TextBlock { Text = "当前预计最终成本", FontSize = 11, Foreground = Palette.Txt3, LetterSpacing = 1.2 });
+            body.Children.Add(hero);
+            body.Children.Add(Widgets.Hint(
+                "没有冻结或草稿预测版本时，系统不给出预计最终成本，也不会用已知支出冒充它。" +
+                "请到「成本预测版本」建立版本并冻结。"));
+        }
+        else
+        {
+            var over = f.VarianceTotal;
+            body.Children.Add(new TextBlock { Text = $"当前预计最终成本（预测 v{f.VersionNumber} · {f.ForecastDate:yyyy-MM-dd} · {UiText.VersionStatus(f.Status)}）", FontSize = 11, Foreground = Palette.Txt3, LetterSpacing = 1.2 });
+            body.Children.Add(new TextBlock { Text = UiText.Money(f.EstimatedFinalTotal), FontSize = 40, FontWeight = FontWeight.Bold, Foreground = Palette.Ink });
+            var sub = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 14 };
+            sub.Children.Add(new TextBlock { Text = $"目标成本 {UiText.Money(f.TargetTotal)}", Foreground = Palette.Txt2, FontSize = 12.5 });
+            sub.Children.Add(new TextBlock { Text = $"预计超目标 {UiText.Money(over)}", Foreground = over > 0 ? Palette.Red : Palette.Txt2, FontSize = 12.5, FontWeight = FontWeight.Bold });
+            sub.Children.Add(new TextBlock { Text = $"可信度 {UiText.Confidence(f.Confidence)}", Foreground = Palette.AccentDeep, FontSize = 12.5 });
+            sub.Children.Add(new TextBlock { Text = $"覆盖 {f.ForecastLineCount}/{f.ActiveControlItemCount} 个控制项", Foreground = Palette.Txt2, FontSize = 12.5 });
+            body.Children.Add(sub);
+            body.Children.Add(Widgets.Hint($"编制假设：{f.Basis ?? "（未填写，冻结时必须填写）"}"));
+
+            var cards = new WrapPanel();
+            cards.Children.Add(Widgets.Kpi("已知金额（自动取）", UiText.Money(f.KnownTotal)));
+            cards.Children.Add(Widgets.Kpi("剩余估计", UiText.Money(f.RemainingTotal)));
+            cards.Children.Add(Widgets.Kpi("风险调整", UiText.Money(f.RiskTotal)));
+            cards.Children.Add(Widgets.Kpi("未归属金额", UiText.Money(f.UnallocatedAmount), f.UnallocatedAmount > 0));
+            cards.Children.Add(Widgets.Kpi("未纳入预测的变化", UiText.Money(f.UnincludedChangeAmount), f.UnincludedChangeAmount > 0));
+            cards.Children.Add(Widgets.Kpi("依赖未确认事项", UiText.Money(f.PendingConfirmationChangeAmount), f.PendingConfirmationChangeAmount > 0));
+            cards.Children.Add(Widgets.Kpi("覆盖率", (f.CoverageRate * 100m).ToString("0.0", CultureInfo.CurrentCulture) + "%"));
+            if (f.PreviousVersionId is int pv)
+                cards.Children.Add(Widgets.Kpi($"较上一冻结版本(v{pv})", UiText.Money(f.ChangeSincePrevious), f.ChangeSincePrevious > 0));
+            body.Children.Add(cards);
+        }
+        return Widgets.Card(null, body);
+    }
+
+    private static Control BuildForecastLines(CostForecastSummary f)
+    {
+        var headers = new[] { "控制项", "目标", "已知(自动)", "剩余估计", "风险调整", "预计最终", "偏差", "精度封顶" };
+        var right = new HashSet<int> { 1, 2, 3, 4, 5, 6 };
+        var rows = f.Lines.Select(l => new[]
+        {
+            l.Name, UiText.Money(l.TargetAmount), UiText.Money(l.KnownAmount),
+            UiText.Money(l.RemainingEstimate), UiText.Money(l.RiskAdjustment),
+            UiText.Money(l.EstimatedFinal), UiText.Money(l.Variance), UiText.Precision(l.PrecisionCap)
+        });
+        return Widgets.Table(headers, rows, right, r => Parse(r[6]) > 0);
+    }
+
+    private static Control BuildSegments(ProjectEconomySummary o)
+    {
+        var headers = new[] { "业务板块", "金额", "记录数", "最近截至日期", "是否计入可分配分母" };
+        var right = new HashSet<int> { 1, 2 };
+        var rows = o.Segments.Select(s => new[]
+        {
+            UiText.Segment(s.Segment), UiText.Money(s.Amount), s.FactCount.ToString(),
+            UiText.Date(s.LatestAsOfDate), AllocatableSegments.Values.Contains(s.Segment) ? "是" : "否"
+        });
+        return Widgets.Table(headers, rows, right);
+    }
+
+    private static Control BuildCaliberNote(ProjectEconomySummary o) => new TextBlock
+    {
+        Text = $"数据截至：{UiText.Date(o.LatestAsOfDate)}　编制：成本岗。" +
+               "已收 / 已付为外部提供的资金状态，不是财务确认；已知支出为成本岗登记的外部金额事实。" +
+               "预计最终成本来自成本人员预测版本，非财务结论。",
+        FontSize = 11,
+        Foreground = Palette.Txt2,
+        TextWrapping = TextWrapping.Wrap,
+        LineHeight = 1.7
+    };
+
+    private static decimal Parse(string s) =>
+        decimal.TryParse(s, NumberStyles.Any, CultureInfo.CurrentCulture, out var v) ? v : 0m;
+
+    private async void OnPrint(object? sender, RoutedEventArgs e)
+    {
+        if (_current is null || _economy is null) return;
+        var o = _economy;
+        var f = _summary;
+        var headers = new[] { "指标", "数值" };
+        var rows = new List<string[]>
+        {
+            new[] { "预计收入", UiText.Money(o.ExpectedIncome) },
+            new[] { "已知项目支出", UiText.Money(o.KnownExpenditure) },
+            new[] { "已收", UiText.Money(o.Received) },
+            new[] { "已付", UiText.Money(o.Paid) },
+            new[] { "资金压力（已付−已收）", UiText.Money(o.FundingGap) },
+            new[] { "目标成本", f is null ? "尚无预测版本" : UiText.Money(f.TargetTotal) },
+            new[] { "预计最终成本", f is null ? "尚无预测版本" : UiText.Money(f.EstimatedFinalTotal) },
+            new[] { "预计超目标", f is null ? "尚无预测版本" : UiText.Money(f.VarianceTotal) },
+            new[] { "未归属金额", UiText.Money(o.UnallocatedAmount) },
+            new[] { "覆盖率", (o.CoverageRate * 100m).ToString("0.0", CultureInfo.CurrentCulture) + "%" },
+        };
+        var ledger = new LedgerResult("项目经济一页", headers, rows, Array.Empty<string[]>());
+        var company = await new SystemParamService(_db).GetAsync("公司名称");
+        var caliber = _current.Name + "，数据截至 " + UiText.Date(o.LatestAsOfDate) +
+            "。本表为项目成本管理信息，已收/已付来自外部汇总，预计最终成本来自成本人员预测版本，非财务结论。";
+        PrintService.OpenInBrowser(PrintService.BuildHtml(_current.Name, ledger, DateTime.Now, company, caliber), "项目经济一页");
+    }
+}

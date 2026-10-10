@@ -1,11 +1,14 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Data;
 using Avalonia.Threading;
 using CostLedger.App.ViewModels;
 using CostLedger.App.Views;
 using CostLedger.Domain;
 using CostLedger.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace CostLedger.App;
@@ -20,6 +23,10 @@ public partial class MainWindow : Window
     private readonly AlertService _alerts = null!;
     private readonly SchedulerService _scheduler = null!;
     private readonly DynamicEntityService _dyn = null!;
+
+    private List<Project> _projects = new();
+    private Project? _currentProject;
+    private Control? _currentView;
 
     public MainWindow()
     {
@@ -39,7 +46,32 @@ public partial class MainWindow : Window
         InitializeComponent();
         Closed += (_, _) => _db.Dispose();
         StartScheduler();
+        _ = LoadProjectsAsync();
         NavigateTo("dashboard");
+    }
+
+    /// <summary>加载项目并填充顶部全局项目切换器；默认选中第一个项目。</summary>
+    private async System.Threading.Tasks.Task LoadProjectsAsync()
+    {
+        _projects = await _db.Projects.OrderBy(p => p.Code).ToListAsync();
+        ProjectSwitcher.ItemsSource = _projects;
+        ProjectSwitcher.DisplayMemberBinding = new Binding("Name");
+        if (_projects.Count > 0)
+        {
+            _currentProject = _projects[0];
+            ProjectSwitcher.SelectedItem = _currentProject;
+        }
+    }
+
+    /// <summary>全局项目切换：把选中项目推给当前经济视图（若其支持），并刷新数据截至提示。</summary>
+    private async void OnProjectSwitcherChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (ProjectSwitcher.SelectedItem is not Project p) return;
+        _currentProject = p;
+        var asOf = await _db.ExternalAmountFacts.Where(x => x.ProjectId == p.Id)
+            .Select(x => (DateOnly?)x.AsOfDate).MaxAsync();
+        AsOfText.Text = asOf is DateOnly d ? $"数据截至 {d:yyyy-MM-dd}" : "尚无外部金额事实";
+        if (_currentView is IProjectScoped scoped) scoped.SelectProject(p);
     }
 
     /// <summary>每 60 秒检查一次到期计划任务（预警评估等）；失败不阻塞 UI。</summary>
@@ -61,40 +93,82 @@ public partial class MainWindow : Window
         NavigateTo(btn.Name ?? "");
     }
 
+    private void SetActive(string key)
+    {
+        foreach (var b in new[] { NavCockpit, NavCostControl, NavForecast, NavDashboard, NavOverview, NavLedgers, NavParties, NavCost, NavMaster, NavDocs, NavProject, NavCategory, NavReports, NavBoardDesign, NavAlerts, NavRecon, NavSettings, NavObjects })
+            b.Classes.Remove("on");
+        var target = key switch
+        {
+            "NavCockpit" => NavCockpit,
+            "NavCostControl" => NavCostControl,
+            "NavForecast" => NavForecast,
+            "NavOverview" => NavOverview,
+            "NavLedgers" => NavLedgers,
+            "NavParties" => NavParties,
+            "NavCost" => NavCost,
+            "NavMaster" => NavMaster,
+            "NavDocs" => NavDocs,
+            "NavProject" => NavProject,
+            "NavCategory" => NavCategory,
+            "NavReports" => NavReports,
+            "NavBoardDesign" => NavBoardDesign,
+            "NavAlerts" => NavAlerts,
+            "NavRecon" => NavRecon,
+            "NavSettings" => NavSettings,
+            "NavObjects" => NavObjects,
+            _ => NavDashboard
+        };
+        target.Classes.Add("on");
+    }
+
+    private void Show(Control view)
+    {
+        _currentView = view;
+        MainArea.Content = view;
+        if (view is IProjectScoped && _currentProject != null) ((IProjectScoped)view).SelectProject(_currentProject);
+    }
+
     private void NavigateTo(string key)
     {
-        foreach (var b in new[] { NavDashboard, NavOverview, NavLedgers, NavParties, NavCost, NavMaster, NavDocs, NavProject, NavCategory, NavReports, NavBoardDesign, NavAlerts, NavRecon, NavSettings, NavObjects })
-            b.Classes.Remove("on");
+        SetActive(key);
 
         switch (key)
         {
+            case "NavCockpit":
+                Show(new ProjectCockpitView(_db));
+                break;
+            case "NavCostControl":
+                Show(new CostControlView(_db));
+                break;
+            case "NavForecast":
+                Show(new ForecastView(_db));
+                break;
             case "NavOverview":
-                NavOverview.Classes.Add("on");
                 MainArea.Content = new ProjectOverviewView(_db, _alerts);
+                _currentView = MainArea.Content as Control;
                 break;
             case "NavLedgers":
-                NavLedgers.Classes.Add("on");
-                MainArea.Content = new LedgerCenterView(_db);
+                _currentView = new LedgerCenterView(_db);
+                MainArea.Content = _currentView;
                 break;
             case "NavParties":
-                NavParties.Classes.Add("on");
-                MainArea.Content = new PartyLedgerView(_db);
+                _currentView = new PartyLedgerView(_db);
+                MainArea.Content = _currentView;
                 break;
             case "NavCost":
-                NavCost.Classes.Add("on");
-                MainArea.Content = new CostStructureView(_db);
+                _currentView = new CostStructureView(_db);
+                MainArea.Content = _currentView;
                 break;
             case "NavMaster":
-                NavMaster.Classes.Add("on");
-                MainArea.Content = new MasterDataView(_db, _metadata);
+                _currentView = new MasterDataView(_db, _metadata);
+                MainArea.Content = _currentView;
                 break;
             case "NavDocs":
-                NavDocs.Classes.Add("on");
-                MainArea.Content = new BusinessDocsView(_db);
+                _currentView = new BusinessDocsView(_db);
+                MainArea.Content = _currentView;
                 break;
             case "NavProject":
-                NavProject.Classes.Add("on");
-                MainArea.Content = new GenericRecordView(_db, _metadata, "Project", typeof(Project),
+                _currentView = new GenericRecordView(_db, _metadata, "Project", typeof(Project),
                     new[]
                     {
                         new CoreFieldDescriptor("项目编号", "Code", CoreFieldKind.Text, IsRequired: true),
@@ -104,10 +178,10 @@ public partial class MainWindow : Window
                     () => new Project(),
                     m => { var p = (Project)m; return $"{p.Code} · {p.Name}"; },
                     db => db.Projects.Cast<object>());
+                MainArea.Content = _currentView;
                 break;
             case "NavCategory":
-                NavCategory.Classes.Add("on");
-                MainArea.Content = new GenericRecordView(_db, _metadata, "CostCategory", typeof(CostCategory),
+                _currentView = new GenericRecordView(_db, _metadata, "CostCategory", typeof(CostCategory),
                     new[]
                     {
                         new CoreFieldDescriptor("科目编码", "Code", CoreFieldKind.Text, IsRequired: true),
@@ -118,36 +192,37 @@ public partial class MainWindow : Window
                     m => { var c = (CostCategory)m; return string.IsNullOrEmpty(c.FullPath) ? $"{c.Code} · {c.Name}" : c.FullPath; },
                     db => db.CostCategories.Cast<object>(),
                     parentField: "ParentId", pathField: "FullPath");
+                MainArea.Content = _currentView;
                 break;
             case "NavReports":
-                NavReports.Classes.Add("on");
-                MainArea.Content = new ReportCenterView(_reports);
+                _currentView = new ReportCenterView(_reports);
+                MainArea.Content = _currentView;
                 break;
             case "NavBoardDesign":
-                NavBoardDesign.Classes.Add("on");
-                MainArea.Content = new DashboardSettingsView(_dashboard);
+                _currentView = new DashboardSettingsView(_dashboard);
+                MainArea.Content = _currentView;
                 break;
             case "NavAlerts":
-                NavAlerts.Classes.Add("on");
-                MainArea.Content = new AlertCenterView(_alerts, _scheduler);
+                _currentView = new AlertCenterView(_alerts, _scheduler);
+                MainArea.Content = _currentView;
                 break;
             case "NavRecon":
-                NavRecon.Classes.Add("on");
-                MainArea.Content = new ReconciliationView(_db);
+                _currentView = new ReconciliationView(_db);
+                MainArea.Content = _currentView;
                 break;
             case "NavSettings":
-                NavSettings.Classes.Add("on");
-                MainArea.Content = new SystemSettingsView(_metadata, _db);
+                _currentView = new SystemSettingsView(_metadata, _db);
+                MainArea.Content = _currentView;
                 break;
             case "NavObjects":
-                NavObjects.Classes.Add("on");
-                MainArea.Content = new DynamicEntityView(_db, _metadata);
+                _currentView = new DynamicEntityView(_db, _metadata);
+                MainArea.Content = _currentView;
                 break;
             default:
-                NavDashboard.Classes.Add("on");
                 var vm = new DashboardViewModel(_spine, _dashboard);
                 var dash = new DashboardView { DataContext = vm };
                 MainArea.Content = dash;
+                _currentView = dash;
                 _ = vm.LoadAsync();
                 break;
         }
