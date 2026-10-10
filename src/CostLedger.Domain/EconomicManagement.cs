@@ -316,4 +316,11 @@ public class ManagementAllocation
     public ManagementPrecision Precision { get; set; }
     public AllocationStatus Status { get; set; }
     public string? Note { get; set; }
+
+    /// <summary>
+    /// 若本行是某条原分配的冲销（更正）行，指向被冲销的原分配；原分配本身不被修改或删除。
+    /// 冲销行金额为负，汇总时与原分配自然相抵，保证"已登记事实不被改写"。
+    /// </summary>
+    public int? ReversedAllocationId { get; set; }
+    public ManagementAllocation? ReversedAllocation { get; set; }
 }

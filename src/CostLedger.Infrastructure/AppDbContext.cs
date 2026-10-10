@@ -157,6 +157,8 @@ public class AppDbContext : DbContext
                 .HasForeignKey(x => x.ExternalAmountFactId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne(x => x.CostControlItem).WithMany()
                 .HasForeignKey(x => x.CostControlItemId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.ReversedAllocation).WithMany()
+                .HasForeignKey(x => x.ReversedAllocationId).OnDelete(DeleteBehavior.Restrict);
         });
 
         mb.Entity<CostForecastVersion>(b =>
@@ -499,7 +501,7 @@ public class AppDbContext : DbContext
 public static class DbBootstrap
 {
     /// <summary>当前库结构版本。变更模型后 +1；未支持迁移的账套拒绝打开，绝不重建。</summary>
-    public const int SchemaVersion = 12;
+    public const int SchemaVersion = 13;
 
     /// <summary>当前账套文件路径（Configure 时记录，供备份等使用）。</summary>
     public static string? CurrentDbPath { get; private set; }

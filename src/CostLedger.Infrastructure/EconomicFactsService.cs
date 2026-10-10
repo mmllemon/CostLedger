@@ -183,6 +183,43 @@ public sealed class EconomicFactsService
         return allocation;
     }
 
+    /// <summary>
+    /// 更正一条已登记分配：追加一条等额负数冲销行，原分配不被修改或删除。
+    /// 同一原分配只能冲销一次；冲销行不能再被冲销。汇总会自动与原分配相抵。
+    /// </summary>
+    public async Task<ManagementAllocation> ReverseAllocationAsync(
+        int allocationId, string? reason = null, CancellationToken ct = default)
+    {
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+        var original = await _db.ManagementAllocations
+            .SingleOrDefaultAsync(x => x.Id == allocationId, ct)
+            ?? throw new InvalidOperationException($"未找到分配记录 {allocationId}。");
+
+        if (original.Amount <= 0)
+            throw new InvalidOperationException("冲销行不能再被冲销。");
+        if (await _db.ManagementAllocations.AnyAsync(x => x.ReversedAllocationId == allocationId, ct))
+            throw new InvalidOperationException("该分配已被冲销，不能重复冲销。");
+
+        var reversal = new ManagementAllocation
+        {
+            ExternalAmountFactId = original.ExternalAmountFactId,
+            CostControlItemId = original.CostControlItemId,
+            Amount = -original.Amount,
+            Precision = original.Precision,
+            Status = original.Status,
+            ReversedAllocationId = original.Id,
+            Note = string.IsNullOrWhiteSpace(reason) ? "更正冲销" : $"更正冲销：{reason.Trim()}"
+        };
+        _db.ManagementAllocations.Add(reversal);
+        await _db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+        return reversal;
+    }
+
+    /// <summary>某条原分配是否已被冲销。</summary>
+    public Task<bool> IsAllocationReversedAsync(int allocationId, CancellationToken ct = default)
+        => _db.ManagementAllocations.AnyAsync(x => x.ReversedAllocationId == allocationId, ct);
+
     public async Task<List<ManagementAllocation>> ListAllocationsAsync(int projectId, CancellationToken ct = default)
         => await _db.ManagementAllocations
             .Where(x => x.ExternalAmountFact!.ProjectId == projectId)

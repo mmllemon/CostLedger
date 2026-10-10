@@ -167,6 +167,69 @@ public class VerticalSliceTests
     }
 
     [Fact]
+    public async Task 分配更正_追加反向冲销行_原分配不被改写()
+    {
+        using var db = CreateContext();
+        var project = new Project { Code = "P-1", Name = "项目一" };
+        db.Projects.Add(project);
+        await db.SaveChangesAsync();
+        var item = new CostControlItem { ProjectId = project.Id, Code = "01", Name = "控制项" };
+        db.CostControlItems.Add(item);
+        await db.SaveChangesAsync();
+
+        var svc = new EconomicFactsService(db);
+        var fact = await svc.RegisterFactAsync(new ExternalAmountFact
+        {
+            ProjectId = project.Id, Segment = BusinessSegment.MaterialSupply, Direction = EconomicDirection.Expenditure,
+            Amount = 1_000_000m, AsOfDate = new DateOnly(2026, 10, 10), Status = ExternalFactStatus.Checked,
+            Precision = ManagementPrecision.ContractPackage, Source = "来源"
+        });
+        var alloc = await svc.AllocateAsync(fact.Id, item.Id, 400_000m, ManagementPrecision.ContractPackage, AllocationStatus.Allocated);
+
+        // 更正：追加等额负数冲销
+        var rev = await svc.ReverseAllocationAsync(alloc.Id, "录错控制项");
+
+        // 原分配行保持不变（未被删除/改写）
+        var original = await db.ManagementAllocations.AsNoTracking().SingleAsync(x => x.Id == alloc.Id);
+        original.Amount.Should().Be(400_000m);
+        rev.Amount.Should().Be(-400_000m);
+        rev.ReversedAllocationId.Should().Be(alloc.Id);
+
+        // 汇总净额归零
+        var items = await svc.SummarizeControlItemsAsync(project.Id);
+        items.Single().AllocatedAmount.Should().Be(0m);
+
+        // 冲销后可重新分配（来源额度被释放）
+        await svc.AllocateAsync(fact.Id, item.Id, 400_000m, ManagementPrecision.ContractPackage, AllocationStatus.Allocated);
+        (await svc.SummarizeControlItemsAsync(project.Id)).Single().AllocatedAmount.Should().Be(400_000m);
+    }
+
+    [Fact]
+    public async Task 分配更正_不能重复冲销_冲销行不能再冲销()
+    {
+        using var db = CreateContext();
+        var project = new Project { Code = "P-1", Name = "项目一" };
+        db.Projects.Add(project);
+        await db.SaveChangesAsync();
+        var item = new CostControlItem { ProjectId = project.Id, Code = "01", Name = "控制项" };
+        db.CostControlItems.Add(item);
+        await db.SaveChangesAsync();
+
+        var svc = new EconomicFactsService(db);
+        var fact = await svc.RegisterFactAsync(new ExternalAmountFact
+        {
+            ProjectId = project.Id, Segment = BusinessSegment.MaterialSupply, Direction = EconomicDirection.Expenditure,
+            Amount = 1_000_000m, AsOfDate = new DateOnly(2026, 10, 10), Status = ExternalFactStatus.Checked,
+            Precision = ManagementPrecision.ContractPackage, Source = "来源"
+        });
+        var alloc = await svc.AllocateAsync(fact.Id, item.Id, 400_000m, ManagementPrecision.ContractPackage, AllocationStatus.Allocated);
+        var rev = await svc.ReverseAllocationAsync(alloc.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.ReverseAllocationAsync(alloc.Id));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.ReverseAllocationAsync(rev.Id));
+    }
+
+    [Fact]
     public async Task 公司汇总等于各项目逐列相加且无版本项目不计入预计最终()
     {
         using var db = CreateContext();

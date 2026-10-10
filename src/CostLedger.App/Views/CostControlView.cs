@@ -26,6 +26,7 @@ public class CostControlView : UserControl, IProjectScoped
     private Project? _current;
 
     private readonly StackPanel _itemHost = new();
+    private readonly StackPanel _allocHost = new();
     private readonly TextBlock _msg = new();
     private readonly TextBlock _title = new() { FontSize = 11.5, Foreground = Palette.Txt3, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
 
@@ -61,11 +62,13 @@ public class CostControlView : UserControl, IProjectScoped
             Widgets.ActionButton("分配到控制项", () => OpenAllocate()));
 
         var itemCard = Widgets.Card("成本控制项（汇总结论的可信颗粒度取该控制项所有来源中最粗的一档）", _itemHost);
+        var allocCard = Widgets.Card("分配明细（更正 = 追加反向冲销，原分配不被删除或改写）", _allocHost);
 
         var root = new StackPanel { Spacing = 14, Margin = new Thickness(20) };
         root.Children.Add(top);
         root.Children.Add(_msg);
         root.Children.Add(itemCard);
+        root.Children.Add(allocCard);
         return new ScrollViewer { Content = root, Background = Palette.Bg };
     }
 
@@ -95,7 +98,102 @@ public class CostControlView : UserControl, IProjectScoped
 
         var summary = await _svc.SummarizeControlItemsAsync(_current.Id);
         RenderItems(summary);
+        await RenderAllocationsAsync();
         _msg.Text = summary.Count == 0 ? "该项目还没有已归属金额。" : "";
+    }
+
+    private async Task RenderAllocationsAsync()
+    {
+        _allocHost.Children.Clear();
+        if (_current is null) return;
+        var allocs = await _svc.ListAllocationsAsync(_current.Id);
+        if (allocs.Count == 0)
+        {
+            _allocHost.Children.Add(Widgets.EmptyState("尚无分配记录"));
+            return;
+        }
+
+        var reversedIds = allocs.Where(a => a.ReversedAllocationId.HasValue)
+            .Select(a => a.ReversedAllocationId!.Value).ToHashSet();
+
+        var panel = new StackPanel { Spacing = 0 };
+        panel.Children.Add(AllocHeader());
+        for (int i = 0; i < allocs.Count; i++)
+            panel.Children.Add(AllocRow(allocs[i], i % 2 == 1, reversedIds.Contains(allocs[i].Id)));
+        _allocHost.Children.Add(panel);
+    }
+
+    private static Control AllocHeader()
+    {
+        var g = new Grid { ColumnDefinitions = new ColumnDefinitions("2*,2*,*,Auto,Auto") };
+        foreach (var (t, c) in new[] { ("来源", 0), ("控制项", 1), ("金额", 2), ("状态", 3) })
+        {
+            var tb = new TextBlock { Text = t, FontSize = 11.5, FontWeight = FontWeight.Bold, Foreground = Palette.Txt3 };
+            Grid.SetColumn(tb, c);
+            g.Children.Add(tb);
+        }
+        return new Border { Child = g, Padding = new Thickness(10, 8, 10, 8), Background = new SolidColorBrush(Color.Parse("#F4EEE5")) };
+    }
+
+    private Control AllocRow(ManagementAllocation a, bool alt, bool reversed)
+    {
+        var isReversal = a.Amount < 0;
+        var g = new Grid { ColumnDefinitions = new ColumnDefinitions("2*,2*,*,Auto,Auto") };
+
+        var src = new TextBlock { Text = a.ExternalAmountFact?.Source ?? a.ExternalAmountFactId.ToString(), FontSize = 12.5, Foreground = Palette.Ink, TextTrimming = TextTrimming.CharacterEllipsis };
+        var item = new TextBlock { Text = a.CostControlItem is null ? a.CostControlItemId.ToString() : $"{a.CostControlItem.Code} {a.CostControlItem.Name}", FontSize = 12.5, Foreground = Palette.Ink, TextTrimming = TextTrimming.CharacterEllipsis };
+        var amt = new TextBlock
+        {
+            Text = UiText.Money(a.Amount),
+            FontSize = 12.5,
+            FontWeight = FontWeight.SemiBold,
+            Foreground = isReversal ? Palette.Red : Palette.Ink,
+            TextAlignment = TextAlignment.Right
+        };
+        var st = new TextBlock { Text = isReversal ? "冲销" : (reversed ? "已冲销" : UiText.AllocationStatus(a.Status)), FontSize = 12, Foreground = isReversal || reversed ? Palette.Red : Palette.Txt2, Margin = new Thickness(14, 0, 14, 0), VerticalAlignment = VerticalAlignment.Center };
+
+        Grid.SetColumn(src, 0); Grid.SetColumn(item, 1); Grid.SetColumn(amt, 2); Grid.SetColumn(st, 3);
+        g.Children.Add(src); g.Children.Add(item); g.Children.Add(amt); g.Children.Add(st);
+
+        // 仅正向且未被冲销的行可冲销
+        if (!isReversal && !reversed)
+        {
+            var btn = new Button { Content = "冲销", FontSize = 11.5 };
+            btn.Classes.Add("pill");
+            btn.Click += (_, _) => OpenReverse(a);
+            Grid.SetColumn(btn, 4);
+            g.Children.Add(btn);
+        }
+
+        return new Border
+        {
+            Child = g,
+            Padding = new Thickness(10, 8, 10, 8),
+            Background = alt ? new SolidColorBrush(Color.Parse("#FBF7F0")) : null,
+            BorderBrush = Palette.Line,
+            BorderThickness = new Thickness(0, 0, 0, 1)
+        };
+    }
+
+    private void OpenReverse(ManagementAllocation a)
+    {
+        if (_current is null) return;
+        var reason = new TextBox { Width = 400, Watermark = "冲销原因（可空）" };
+        var body = new StackPanel { Spacing = 10 };
+        body.Children.Add(new TextBlock { Text = $"将对这条分配追加等额反向冲销（{UiText.Money(-a.Amount)}）；原记录保留不改写。", FontSize = 12.5, Foreground = Palette.Txt2, TextWrapping = TextWrapping.Wrap });
+        body.Children.Add(Widgets.Row("冲销原因", reason, 84));
+
+        Widgets.OpenForm(this, "冲销分配", "更正方式为追加反向冲销，不删除原记录。", body, "冲销", async () =>
+        {
+            try
+            {
+                await _svc.ReverseAllocationAsync(a.Id, reason.Text);
+                await RefreshAsync();
+                SetMsg("已追加反向冲销；原分配保留。");
+                return null;
+            }
+            catch (Exception ex) { return ex.Message; }
+        });
     }
 
     private void RenderItems(List<CostControlItemSummary> summary)
