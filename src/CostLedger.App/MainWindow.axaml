@@ -38,6 +38,7 @@
       <TextBlock Text="往来与报表" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Txt3Brush}" Margin="12,10,0,4"/>
       <Button x:Name="NavParties" Classes="nav" Content="往来单位全景" Click="OnNavClick"/>
       <Button x:Name="NavReports" Classes="nav" Content="内部汇报报表" Click="OnNavClick"/>
+      <Button x:Name="NavExternalResults" Classes="nav" Content="结算结果分析" Click="OnNavClick"/>
       <TextBlock Text="后台" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Txt3Brush}" Margin="12,10,0,4"/>
       <Button x:Name="NavAdmin" Classes="nav" Content="后台管理" Click="OnNavClick"/>
       <Button x:Name="NavSettings" Classes="nav" Content="系统设置" Click="OnNavClick"/>
