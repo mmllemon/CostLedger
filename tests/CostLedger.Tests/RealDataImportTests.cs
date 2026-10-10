@@ -1,0 +1,64 @@
+using CostLedger.Infrastructure;
+using FluentAssertions;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace CostLedger.Tests;
+
+/// <summary>
+/// 用用户填写的真实数据表跑一遍导入，把领域规则对真实数据的裁决打印出来。
+/// 这不是把表格当测试通过门槛，而是让"模型装不装得下真实业务"变成可复核的证据。
+/// </summary>
+public class RealDataImportTests
+{
+    private readonly ITestOutputHelper _out;
+    public RealDataImportTests(ITestOutputHelper output) => _out = output;
+
+    private static AppDbContext CreateContext()
+    {
+        var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseSqlite(connection).Options;
+        var db = new AppDbContext(options);
+        db.Database.EnsureCreated();
+        return db;
+    }
+
+    [Fact]
+    public async Task 导入用户填写的真实数据并输出逐条结果与项目摘要()
+    {
+        using var db = CreateContext();
+        SeedData.SeedMetadataOnly(db);
+
+        var dir = Path.Combine(AppContext.BaseDirectory, "Import");
+        Directory.Exists(dir).Should().BeTrue($"导入目录应存在：{dir}");
+
+        var report = await new EconomicDataImporter(db).ImportFromDirectoryAsync(dir);
+
+        _out.WriteLine($"== 导入结果：接受 {report.Imported} 条，拒绝 {report.Rejected} 条 ==");
+        foreach (var e in report.Entries)
+            _out.WriteLine($"[{(e.Imported ? "OK " : "拒 ")}] {e.Table} | {e.Key} | {e.Message}");
+
+        _out.WriteLine("");
+        _out.WriteLine("== 项目经济摘要 ==");
+        foreach (var s in report.ProjectSummaries)
+            _out.WriteLine(s);
+
+        _out.WriteLine("");
+        _out.WriteLine("== 被拒绝的记录（领域规则对真实数据的裁决）==");
+        foreach (var e in report.Rejections)
+            _out.WriteLine($"[拒] {e.Table} | {e.Key} | {e.Message}");
+
+        // 项目与单位应被接受
+        (await db.Projects.CountAsync()).Should().BeGreaterThanOrEqualTo(2);
+        (await db.CostControlItems.CountAsync()).Should().BeGreaterThanOrEqualTo(4);
+        // 至少能给出两个项目的摘要
+        report.ProjectSummaries.Should().HaveCountGreaterThanOrEqualTo(2);
+    }
+}

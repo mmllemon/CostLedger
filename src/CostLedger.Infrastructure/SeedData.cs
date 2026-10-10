@@ -15,17 +15,34 @@ public static class SeedData
         db.SuppressAudit = true;   // 种子/系统初始化不写审计
         try
         {
-            SeedMetadata(db);
-            SeedProjectPartyRoleDict(db);   // 幂等补种：SeedMetadata 遇已有字典会提前返回，新字典必须单独补
-            SeedParams(db);
-            SeedReports(db);            SeedDashboard(db);
-            SeedAlerts(db);
+            SeedMetadataOnly(db);
             if (db.Projects.Any()) return;
             SeedDemoData(db);
         }
         finally
         {
             db.SuppressAudit = false;
+        }
+    }
+
+    /// <summary>只种元数据/字典/参数/报表/看板/预警，不写入任何演示业务数据。
+    /// 供"导入真实数据"的账套使用，避免演示项目污染真实项目的经济摘要。
+    /// 保存并恢复调用方的 SuppressAudit，避免嵌套调用时提前解除审计抑制。</summary>
+    public static void SeedMetadataOnly(AppDbContext db)
+    {
+        var previous = db.SuppressAudit;
+        db.SuppressAudit = true;
+        try
+        {
+            SeedMetadata(db);
+            SeedProjectPartyRoleDict(db);   // 幂等补种：SeedMetadata 遇已有字典会提前返回，新字典必须单独补
+            SeedParams(db);
+            SeedReports(db); SeedDashboard(db);
+            SeedAlerts(db);
+        }
+        finally
+        {
+            db.SuppressAudit = previous;
         }
     }
 

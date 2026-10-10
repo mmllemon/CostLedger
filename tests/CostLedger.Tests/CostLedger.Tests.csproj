@@ -17,4 +17,7 @@
     <ProjectReference Include="..\..\src\CostLedger.Domain\CostLedger.Domain.csproj" />
     <ProjectReference Include="..\..\src\CostLedger.Infrastructure\CostLedger.Infrastructure.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Import\**\*.tsv" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
