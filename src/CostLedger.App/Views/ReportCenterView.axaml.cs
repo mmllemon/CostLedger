@@ -8,6 +8,7 @@ using CostLedger.Domain;
 using CostLedger.Infrastructure;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -30,6 +31,10 @@ public partial class ReportCenterView : UserControl
     private string? _currentCode;
     private bool _loading;
 
+    // 阶段3 图表视图
+    private static readonly string[] ViewModes = { "表格", "柱状图", "折线图", "饼图" };
+    private ReportResult? _last;   // 最近一次运行结果（表格/图表共用）
+
     private sealed record ColumnRow(ReportFieldDef Field, CheckBox Visible, TextBox Label, NumericUpDown Order, TextBox Format, ComboBox Agg);
     private sealed record FilterRow(ComboBox Field, ComboBox Op, TextBox Value, Control Container);
 
@@ -41,6 +46,9 @@ public partial class ReportCenterView : UserControl
     public ReportCenterView(ReportService reports) : this()
     {
         _reports = reports;
+        ViewMode.ItemsSource = ViewModes;
+        ViewMode.SelectedIndex = 0;
+        ExportSvgBtn.IsEnabled = false;
         _ = InitAsync();
     }
 
@@ -92,6 +100,8 @@ public partial class ReportCenterView : UserControl
         BuildFilters(new List<ReportFilter>());
         ResultTitle.Text = "运行结果";
         ResultHost.Children.Clear();
+        _last = null;
+        ExportSvgBtn.IsEnabled = false;
     }
 
     private void OnSourceChanged(object? sender, SelectionChangedEventArgs e)
@@ -245,7 +255,9 @@ public partial class ReportCenterView : UserControl
     {
         var def = BuildDefFromUi();
         var result = _reports.Run(def);
-        RenderResult(result);
+        _last = result;
+        PopulateChartColumns(result);
+        RenderCurrent();
     }
 
     private async void OnDeleteReport(object? sender, RoutedEventArgs e)
@@ -315,5 +327,84 @@ public partial class ReportCenterView : UserControl
         Grid.SetRow(tb, row);
         Grid.SetColumn(tb, col);
         return tb;
+    }
+
+    // ---------- 阶段3 图表视图 ----------
+    private void PopulateChartColumns(ReportResult r)
+    {
+        CatCombo.ItemsSource = r.Headers.ToList();
+        ValCombo.ItemsSource = r.Headers.ToList();
+
+        // 自动猜测：数值列=首个过半可解析为数字的列；类别列=首个非数值列（退而求其次取第 0 列）
+        bool NumericCol(int i) => r.Rows.Count > 0
+            && r.Rows.Count(row => row.Length > i && decimal.TryParse(row[i], NumberStyles.Any, CultureInfo.InvariantCulture, out _)) * 2 >= r.Rows.Count;
+        int valIdx = Enumerable.Range(0, r.Headers.Count).FirstOrDefault(NumericCol, -1);
+        int catIdx = Enumerable.Range(0, r.Headers.Count).FirstOrDefault(i => i != valIdx && !NumericCol(i), valIdx == 0 ? Math.Min(1, r.Headers.Count - 1) : 0);
+
+        CatCombo.SelectedIndex = r.Headers.Count > 0 ? Math.Clamp(catIdx, 0, r.Headers.Count - 1) : -1;
+        ValCombo.SelectedIndex = valIdx >= 0 ? valIdx : Math.Min(1, r.Headers.Count - 1);
+        ExportSvgBtn.IsEnabled = r.Headers.Count > 1 && r.Rows.Count > 0;
+    }
+
+    private void OnViewModeChanged(object? sender, SelectionChangedEventArgs e) => RenderCurrent();
+
+    private void OnChartColChanged(object? sender, SelectionChangedEventArgs e) => RenderCurrent();
+
+    private void RenderCurrent()
+    {
+        if (_last is null) return;
+        if (ViewMode.SelectedIndex <= 0)
+        {
+            RenderResult(_last);
+            return;
+        }
+        var (model, kind) = BuildChartModel(_last);
+        if (model is null) return;
+
+        ResultHost.Children.Clear();
+        ResultHost.ColumnDefinitions.Clear();
+        ResultHost.RowDefinitions.Clear();
+        var canvas = ChartControl.Build(model, kind);
+        canvas.HorizontalAlignment = HorizontalAlignment.Left;
+        ResultHost.Children.Add(canvas);
+    }
+
+    private (ChartModel?, ChartKind) BuildChartModel(ReportResult r)
+    {
+        int ci = CatCombo.SelectedIndex, vi = ValCombo.SelectedIndex;
+        if (ci < 0 || vi < 0 || ci >= r.Headers.Count || vi >= r.Headers.Count)
+            return (null, ChartKind.Bar);
+
+        var kind = ViewMode.SelectedIndex switch { 1 => ChartKind.Bar, 2 => ChartKind.Line, _ => ChartKind.Pie };
+        var categories = r.Rows.Select(row => row.Length > ci ? row[ci] : "").ToList();
+        var values = r.Rows.Select(row => row.Length > vi && decimal.TryParse(row[vi], NumberStyles.Any, CultureInfo.InvariantCulture, out var d) ? d : 0m).ToList();
+        if (categories.Count == 0) return (null, kind);
+
+        var model = new ChartModel
+        {
+            Title = string.IsNullOrWhiteSpace(r.Title) ? "图表" : r.Title,
+            Categories = categories,
+            Series = new[] { new ChartSeries(r.Headers[vi], values, ChartModel.DefaultPalette[0]) }
+        };
+        return (model, kind);
+    }
+
+    private async void OnExportSvg(object? sender, RoutedEventArgs e)
+    {
+        if (_last is null || ViewMode.SelectedIndex <= 0) return;
+        var (model, kind) = BuildChartModel(_last);
+        if (model is null) return;
+
+        var top = TopLevel.GetTopLevel(this);
+        if (top is null) return;
+        var file = await top.StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+        {
+            SuggestedFileName = $"{(string.IsNullOrWhiteSpace(model.Title) ? "chart" : model.Title)}.svg",
+            FileTypeChoices = new[] { new Avalonia.Platform.Storage.FilePickerFileType("SVG") { Patterns = new[] { "*.svg" } } }
+        });
+        if (file is null) return;
+        await using var stream = await file.OpenWriteAsync();
+        await using var writer = new System.IO.StreamWriter(stream, System.Text.Encoding.UTF8);
+        await writer.WriteAsync(ChartSvg.Build(model, kind));
     }
 }

@@ -54,5 +54,15 @@
         </ItemsControl>
       </StackPanel>
     </Border>
+
+    <!-- 阶段3 图表：成本脊柱柱状图（目标/已发生/预计最终，按科目） -->
+    <Border Classes="card">
+      <StackPanel>
+        <TextBlock Text="成本脊柱图（按科目）" FontSize="14.5" FontWeight="Bold" Margin="0,0,0,8"/>
+        <ScrollViewer HorizontalScrollBarVisibility="Auto">
+          <ContentControl x:Name="SpineChartHost"/>
+        </ScrollViewer>
+      </StackPanel>
+    </Border>
   </StackPanel>
 </UserControl>

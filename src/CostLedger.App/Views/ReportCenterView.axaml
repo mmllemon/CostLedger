@@ -67,6 +67,14 @@
         <Border Classes="card">
           <StackPanel Spacing="10">
             <TextBlock x:Name="ResultTitle" Classes="label" Text="运行结果"/>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <ComboBox x:Name="ViewMode" MinWidth="100" SelectionChanged="OnViewModeChanged"/>
+              <TextBlock Text="类别列" VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Txt3Brush}"/>
+              <ComboBox x:Name="CatCombo" MinWidth="130" SelectionChanged="OnChartColChanged"/>
+              <TextBlock Text="数值列" VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Txt3Brush}"/>
+              <ComboBox x:Name="ValCombo" MinWidth="130" SelectionChanged="OnChartColChanged"/>
+              <Button x:Name="ExportSvgBtn" Classes="pill" Content="导出 SVG" Click="OnExportSvg"/>
+            </StackPanel>
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
               <Grid x:Name="ResultHost" Margin="0,4,0,0"/>
             </ScrollViewer>
