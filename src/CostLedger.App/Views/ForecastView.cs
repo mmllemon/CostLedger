@@ -16,9 +16,9 @@ using System.Threading.Tasks;
 namespace CostLedger.App.Views;
 
 /// <summary>
-/// 成本预测版本与变化事项：新建版本 → 按控制项录剩余估计与风险调整 → 冻结。
-/// 预计最终 = 已知 + 剩余估计 + 风险调整（派生值，不是录入项）；已知金额由归属关系自动取，不接受手填。
-/// 变化事项四个金额相互独立，不互相覆盖。
+/// 成本预测版本与变化事项：页面只保留页头 + KPI + 版本历史 + 预测行表 + 变化事项表；
+/// 新建版本 / 录入预测行 / 冻结 / 登记变化事项 全部改用弹层卡片。
+/// 预计最终 = 已知 + 剩余估计 + 风险调整（派生值）；已知金额自动取、不接受手填。
 /// </summary>
 public class ForecastView : UserControl, IProjectScoped
 {
@@ -27,34 +27,26 @@ public class ForecastView : UserControl, IProjectScoped
     private Project? _current;
     private CostForecastSummary? _summary;
     private List<CostControlItem> _items = new();
+    private List<CostForecastVersion> _versions = new();
 
-    private ComboBox _versionCombo = null!;
-    private WrapPanel _kpiHost = null!;
-    private StackPanel _lineHost = null!, _versionHost = null!, _changeHost = null!;
-    private TextBlock _msg = null!;
-
-    private DatePicker _newDate = null!;
-    private ComboBox _newConfidence = null!;
-    private TextBox _newBasis = null!;
-    private ComboBox _lineItem = null!;
-    private NumericUpDown _lineTarget = null!, _lineRemaining = null!, _lineRisk = null!;
-    private Button _freezeBtn = null!;
-    private TextBox _chCode = null!, _chTitle = null!, _chSource = null!, _chBy = null!;
-    private ComboBox _chSegment = null!, _chItem = null!, _chStatus = null!;
-    private NumericUpDown _chEstimate = null!, _chSubmitted = null!, _chConfirmed = null!, _chIncluded = null!;
-    private DatePicker _chAsOf = null!;
+    private readonly ComboBox _versionCombo = new() { Width = 300, PlaceholderText = "预测版本" };
+    private readonly WrapPanel _kpiHost = new();
+    private readonly StackPanel _lineHost = new(), _versionHost = new(), _changeHost = new();
+    private readonly TextBlock _msg = new();
+    private readonly TextBlock _title = new() { FontSize = 11.5, Foreground = Palette.Txt3, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+    private readonly Button _freezeBtn;
 
     public ForecastView(AppDbContext db)
     {
         _db = db;
         _svc = new CostForecastService(db);
+        _freezeBtn = Widgets.ActionButton("冻结当前版本", () => OnFreeze());
         Content = BuildUi();
         _ = InitAsync();
     }
 
     private Control BuildUi()
     {
-        _versionCombo = new ComboBox { Width = 280, PlaceholderText = "预测版本" };
         _versionCombo.DisplayMemberBinding = new Binding("Label");
         _versionCombo.SelectionChanged += async (_, _) =>
         {
@@ -63,98 +55,30 @@ public class ForecastView : UserControl, IProjectScoped
             RenderSummary();
         };
 
-        _msg = new TextBlock { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Foreground = Palette.Txt2 };
-        _kpiHost = new WrapPanel();
-        _lineHost = new StackPanel();
-        _versionHost = new StackPanel();
-        _changeHost = new StackPanel();
+        _msg.FontSize = 12.5;
+        _msg.TextWrapping = TextWrapping.Wrap;
+        _msg.Foreground = Palette.Txt2;
 
-        var top = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-        top.Children.Add(new TextBlock { Text = "版本", VerticalAlignment = VerticalAlignment.Center, Foreground = Palette.Txt2 });
-        top.Children.Add(_versionCombo);
+        var top = Widgets.PageHeaderWithDynamicSubtitle("预测", "成本预测与变化事项",
+            "预计最终 = 已知 + 剩余估计 + 风险调整（派生值）", _title,
+            Widgets.PrimaryActionButton("＋ 新建版本", () => OpenCreateVersion()),
+            Widgets.ActionButton("录入 / 修订预测行", () => OpenUpsertLine()),
+            _freezeBtn,
+            Widgets.ActionButton("登记变化事项", () => OpenRegisterChange()));
 
-        var root = new StackPanel { Spacing = 14, Margin = new Thickness(16) };
+        var versionRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
+        versionRow.Children.Add(new TextBlock { Text = "查看版本", Foreground = Palette.Txt2, VerticalAlignment = VerticalAlignment.Center });
+        versionRow.Children.Add(_versionCombo);
+
+        var root = new StackPanel { Spacing = 14, Margin = new Thickness(20) };
         root.Children.Add(top);
-        root.Children.Add(BuildVersionSection());
+        root.Children.Add(_msg);
+        root.Children.Add(Widgets.Card(null, versionRow));
         root.Children.Add(Widgets.Card(null, _kpiHost));
         root.Children.Add(Widgets.Card("版本历史（修订产生新版本，冻结后不可改写）", _versionHost));
-        root.Children.Add(BuildLineSection());
-        root.Children.Add(BuildChangeSection());
-        root.Children.Add(_msg);
+        root.Children.Add(Widgets.Card("按控制项的预测行", _lineHost));
+        root.Children.Add(Widgets.Card("变化事项（四个金额相互独立，互不覆盖）", _changeHost));
         return new ScrollViewer { Content = root, Background = Palette.Bg };
-    }
-
-    private Control BuildVersionSection()
-    {
-        _newDate = new DatePicker { Width = 150, SelectedDate = new DateTimeOffset(DateTime.Today) };
-        _newConfidence = new ComboBox { ItemsSource = UiText.Confidences(), Width = 110, DisplayMemberBinding = new Binding("Label"), PlaceholderText = "可信度" };
-        _newBasis = new TextBox { Watermark = "编制假设（价格水平、剩余量依据、未确认事项）", Width = 360 };
-        var create = new Button { Content = "新建版本（草稿）" };
-        create.Classes.Add("primary");
-        create.Click += OnCreateVersion;
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
-        row.Children.Add(_newDate); row.Children.Add(_newConfidence); row.Children.Add(_newBasis); row.Children.Add(create);
-        return Widgets.Card("新建预测版本", row);
-    }
-
-    private Control BuildLineSection()
-    {
-        _lineItem = new ComboBox { Width = 220, PlaceholderText = "控制项" };
-        _lineItem.DisplayMemberBinding = new Binding("Label");
-        _lineTarget = new NumericUpDown { Width = 140, FormatString = "N2", Increment = 1000, Watermark = "目标成本" };
-        _lineRemaining = new NumericUpDown { Width = 140, FormatString = "N2", Increment = 1000, Watermark = "剩余估计" };
-        _lineRisk = new NumericUpDown { Width = 140, FormatString = "N2", Increment = 1000, Watermark = "风险调整" };
-        var save = new Button { Content = "录入 / 修订此行" };
-        save.Classes.Add("primary");
-        save.Click += OnUpsertLine;
-        _freezeBtn = new Button { Content = "冻结当前版本" };
-        _freezeBtn.Classes.Add("pill");
-        _freezeBtn.Click += OnFreeze;
-
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 0, 10) };
-        row.Children.Add(_lineItem); row.Children.Add(_lineTarget); row.Children.Add(_lineRemaining); row.Children.Add(_lineRisk);
-        row.Children.Add(save); row.Children.Add(_freezeBtn);
-
-        var stack = new StackPanel { Spacing = 8 };
-        stack.Children.Add(row);
-        stack.Children.Add(new ScrollViewer { Content = _lineHost, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, MaxHeight = 320 });
-        stack.Children.Add(Widgets.Hint("目标 / 剩余估计 / 风险调整由成本人员填写；已知金额由系统按归属关系自动计算。冻结必须写明编制假设并至少有一条预测行。"));
-        return Widgets.Card("按控制项录入预测", stack);
-    }
-
-    private Control BuildChangeSection()
-    {
-        _chCode = new TextBox { Watermark = "事项编号", Width = 90 };
-        _chTitle = new TextBox { Watermark = "事项名称", Width = 180 };
-        _chSegment = new ComboBox { ItemsSource = UiText.Segments(), Width = 130, DisplayMemberBinding = new Binding("Label"), PlaceholderText = "业务板块" };
-        _chItem = new ComboBox { Width = 180, PlaceholderText = "控制项（可空）" };
-        _chItem.DisplayMemberBinding = new Binding("Label");
-        _chEstimate = new NumericUpDown { Watermark = "我方测算", Width = 120, FormatString = "N2" };
-        _chSubmitted = new NumericUpDown { Watermark = "对方报送", Width = 120, FormatString = "N2" };
-        _chConfirmed = new NumericUpDown { Watermark = "外部确认", Width = 120, FormatString = "N2" };
-        _chIncluded = new NumericUpDown { Watermark = "纳入预测", Width = 120, FormatString = "N2" };
-        _chStatus = new ComboBox { ItemsSource = UiText.ChangeStatuses(), Width = 130, DisplayMemberBinding = new Binding("Label"), PlaceholderText = "状态" };
-        _chAsOf = new DatePicker { Width = 150, SelectedDate = new DateTimeOffset(DateTime.Today) };
-        _chSource = new TextBox { Watermark = "来源（必填）", Width = 200 };
-        _chBy = new TextBox { Watermark = "提供方", Width = 120 };
-        var save = new Button { Content = "登记变化事项" };
-        save.Classes.Add("primary");
-        save.Click += OnRegisterChange;
-
-        var form = new StackPanel { Spacing = 8 };
-        var r1 = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        r1.Children.Add(_chCode); r1.Children.Add(_chTitle); r1.Children.Add(_chSegment); r1.Children.Add(_chStatus);
-        var r2 = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        r2.Children.Add(_chEstimate); r2.Children.Add(_chSubmitted); r2.Children.Add(_chConfirmed); r2.Children.Add(_chIncluded);
-        var r3 = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        r3.Children.Add(_chItem); r3.Children.Add(_chAsOf); r3.Children.Add(_chSource); r3.Children.Add(_chBy); r3.Children.Add(save);
-        form.Children.Add(r1); form.Children.Add(r2); form.Children.Add(r3);
-
-        var stack = new StackPanel { Spacing = 8 };
-        stack.Children.Add(form);
-        stack.Children.Add(new ScrollViewer { Content = _changeHost, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, MaxHeight = 320 });
-        stack.Children.Add(Widgets.Hint("四个金额相互独立、互不覆盖：对方报送不覆盖我方测算，我方测算也不能写成对方已确认。尚未测算不能填纳入金额；标记不纳入时纳入金额必须为空。"));
-        return Widgets.Card("变化事项（不编制签证单，只记录对成本与收入的影响）", stack);
     }
 
     /// <summary>由顶部全局项目切换器驱动。</summary>
@@ -166,7 +90,6 @@ public class ForecastView : UserControl, IProjectScoped
 
     private async Task InitAsync()
     {
-        // 项目由顶部全局切换器统一驱动，避免页内出现第二个项目下拉。
         var projects = await _db.Projects.OrderBy(p => p.Code).ToListAsync();
         if (_current is null && projects.Count > 0) { _current = projects[0]; await ReloadAsync(); }
     }
@@ -174,29 +97,27 @@ public class ForecastView : UserControl, IProjectScoped
     private async Task ReloadAsync()
     {
         if (_current is null) return;
+        _title.Text = $"{_current.Code} · {_current.Name}";
         _items = await _db.CostControlItems.AsNoTracking()
             .Where(x => x.ProjectId == _current.Id).OrderBy(x => x.SortOrder).ThenBy(x => x.Code).ToListAsync();
-        var picks = _items.Select(i => new Pick<int>(i.Id, $"{i.Code} · {i.Name}")).ToList();
-        _lineItem.ItemsSource = picks;
-        _chItem.ItemsSource = picks;
 
-        var versions = await _db.CostForecastVersions.AsNoTracking()
+        _versions = await _db.CostForecastVersions.AsNoTracking()
             .Where(x => x.ProjectId == _current.Id).OrderByDescending(x => x.VersionNumber).ToListAsync();
-        _versionCombo.ItemsSource = versions.Select(v =>
+        _versionCombo.ItemsSource = _versions.Select(v =>
             new Pick<int>(v.Id, $"v{v.VersionNumber} · {v.ForecastDate:yyyy-MM-dd} · {UiText.VersionStatus(v.Status)}")).ToList();
 
-        RenderVersions(versions);
+        RenderVersions();
         await RenderChangesAsync();
 
-        if (versions.Count > 0) _versionCombo.SelectedIndex = 0;
+        if (_versions.Count > 0) _versionCombo.SelectedIndex = 0;
         else { _summary = null; RenderSummary(); }
     }
 
-    private void RenderVersions(List<CostForecastVersion> versions)
+    private void RenderVersions()
     {
         _versionHost.Children.Clear();
         var headers = new[] { "版本", "预测日期", "可信度", "状态", "编制假设" };
-        var rows = versions.Select(v => new[]
+        var rows = _versions.Select(v => new[]
         {
             "v" + v.VersionNumber, v.ForecastDate.ToString("yyyy-MM-dd"),
             UiText.Confidence(v.Confidence), UiText.VersionStatus(v.Status), v.Basis ?? "—"
@@ -232,17 +153,14 @@ public class ForecastView : UserControl, IProjectScoped
 
         if (f is null)
         {
-            _kpiHost.Children.Add(new TextBlock { Text = "尚无预测版本。请先新建版本并录入预测行。", FontSize = 13, Foreground = Palette.Txt3, Margin = new Thickness(0, 4, 0, 4) });
-            _lineTarget.IsEnabled = _lineRemaining.IsEnabled = _lineRisk.IsEnabled = false;
+            _kpiHost.Children.Add(new TextBlock { Text = "尚无预测版本。点击「新建版本」开始。", FontSize = 13, Foreground = Palette.Txt3, Margin = new Thickness(0, 4, 0, 4) });
             _freezeBtn.IsEnabled = false;
             return;
         }
 
-        var editable = f.Status != ForecastVersionStatus.Frozen;
-        _lineTarget.IsEnabled = _lineRemaining.IsEnabled = _lineRisk.IsEnabled = editable;
-        _freezeBtn.IsEnabled = editable;
+        _freezeBtn.IsEnabled = f.Status != ForecastVersionStatus.Frozen;
 
-        void Kpi(string l, string v, bool bad = false) => _kpiHost.Children.Add(Widgets.Kpi(l, v, bad));
+        void Kpi(string l, string v, bool bad = false) => _kpiHost.Children.Add(Widgets.Kpi(l, v, bad, 176));
         Kpi("目标成本", UiText.Money(f.TargetTotal));
         Kpi("已知金额（自动取）", UiText.Money(f.KnownTotal));
         Kpi("剩余估计", UiText.Money(f.RemainingTotal));
@@ -266,76 +184,139 @@ public class ForecastView : UserControl, IProjectScoped
         _lineHost.Children.Add(Widgets.Table(headers, rows, right, r => Parse(r[6]) > 0));
     }
 
-    private async void OnCreateVersion(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    // ==================== 弹层：新建版本 ====================
+    private void OpenCreateVersion()
     {
         if (_current is null) return;
-        var date = _newDate.SelectedDate is DateTimeOffset d ? DateOnly.FromDateTime(d.DateTime) : DateOnly.FromDateTime(DateTime.Today);
-        var conf = (_newConfidence.SelectedItem as Pick<ForecastConfidence>)?.Value ?? ForecastConfidence.Low;
-        try
+        var date = new DatePicker { Width = 400, SelectedDate = new DateTimeOffset(DateTime.Today) };
+        var confidence = new ComboBox { ItemsSource = UiText.Confidences(), DisplayMemberBinding = new Binding("Label"), PlaceholderText = "可信度", Width = 400 };
+        var basis = new TextBox { Watermark = "编制假设（价格水平、剩余量依据、未确认事项）", Width = 400, AcceptsReturn = true, Height = 80, TextWrapping = TextWrapping.Wrap };
+
+        var body = new StackPanel { Spacing = 10 };
+        body.Children.Add(Widgets.Row("预测日期", date, 90));
+        body.Children.Add(Widgets.Row("可信度", confidence, 90));
+        body.Children.Add(Widgets.Row("编制假设", basis, 90));
+
+        Widgets.OpenForm(this, "新建预测版本", "修订请新建版本；冻结后不可改写。", body, "新建版本", async () =>
         {
-            var v = await _svc.CreateVersionAsync(_current.Id, date, conf, string.IsNullOrWhiteSpace(_newBasis.Text) ? null : _newBasis.Text!.Trim());
-            SetMsg($"已新建预测版本 v{v.VersionNumber}（草稿）。");
-            await ReloadAsync();
-        }
-        catch (Exception ex) { SetMsg(ex.Message, true); }
+            var d = date.SelectedDate is DateTimeOffset dt ? DateOnly.FromDateTime(dt.DateTime) : DateOnly.FromDateTime(DateTime.Today);
+            var conf = (confidence.SelectedItem as Pick<ForecastConfidence>)?.Value ?? ForecastConfidence.Low;
+            try
+            {
+                var v = await _svc.CreateVersionAsync(_current.Id, d, conf, string.IsNullOrWhiteSpace(basis.Text) ? null : basis.Text!.Trim());
+                await ReloadAsync();
+                SetMsg($"已新建预测版本 v{v.VersionNumber}（草稿）。");
+                return null;
+            }
+            catch (Exception ex) { return ex.Message; }
+        });
     }
 
-    private async void OnUpsertLine(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    // ==================== 弹层：录入 / 修订预测行 ====================
+    private void OpenUpsertLine()
     {
         if (_current is null || _summary is null) { SetMsg("请先新建草稿版本。", true); return; }
-        if (_lineItem.SelectedItem is not Pick<int> item) { SetMsg("请选择控制项。", true); return; }
-        try
+        if (_summary.Status == ForecastVersionStatus.Frozen) { SetMsg("当前版本已冻结，请新建版本再修订。", true); return; }
+
+        var item = new ComboBox { ItemsSource = _items.Select(i => new Pick<int>(i.Id, $"{i.Code} · {i.Name}")).ToList(), DisplayMemberBinding = new Binding("Label"), PlaceholderText = "控制项", Width = 400 };
+        var target = new NumericUpDown { Width = 400, FormatString = "N2", Increment = 1000, Watermark = "目标成本" };
+        var remaining = new NumericUpDown { Width = 400, FormatString = "N2", Increment = 1000, Watermark = "剩余估计" };
+        var risk = new NumericUpDown { Width = 400, FormatString = "N2", Increment = 1000, Watermark = "风险调整" };
+
+        var body = new StackPanel { Spacing = 10 };
+        body.Children.Add(Widgets.Row("控制项", item, 90));
+        body.Children.Add(Widgets.Row("目标成本", target, 90));
+        body.Children.Add(Widgets.Row("剩余估计", remaining, 90));
+        body.Children.Add(Widgets.Row("风险调整", risk, 90));
+        body.Children.Add(Widgets.Hint("已知金额由系统按归属关系自动计算，不接受手填。"));
+
+        Widgets.OpenForm(this, "录入 / 修订预测行", $"当前版本 v{_summary.VersionNumber}（{UiText.VersionStatus(_summary.Status)}）。", body, "保存此行", async () =>
         {
-            await _svc.UpsertLineAsync(_summary.VersionId, item.Value,
-                _lineTarget.Value ?? 0m, _lineRemaining.Value ?? 0m, _lineRisk.Value ?? 0m);
-            SetMsg("已保存预测行；已知金额按当前归属自动重算。");
-            await ReloadAsync();
-        }
-        catch (Exception ex) { SetMsg(ex.Message, true); }
+            if (item.SelectedItem is not Pick<int> it) return "请选择控制项。";
+            try
+            {
+                await _svc.UpsertLineAsync(_summary.VersionId, it.Value, target.Value ?? 0m, remaining.Value ?? 0m, risk.Value ?? 0m);
+                await ReloadAsync();
+                SetMsg("已保存预测行；已知金额按当前归属自动重算。");
+                return null;
+            }
+            catch (Exception ex) { return ex.Message; }
+        });
     }
 
-    private async void OnFreeze(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    // ==================== 弹层：登记变化事项 ====================
+    private void OpenRegisterChange()
+    {
+        if (_current is null) return;
+        var code = new TextBox { Watermark = "事项编号", Width = 400 };
+        var title = new TextBox { Watermark = "事项名称", Width = 400 };
+        var segment = new ComboBox { ItemsSource = UiText.Segments(), DisplayMemberBinding = new Binding("Label"), PlaceholderText = "业务板块", Width = 400 };
+        var status = new ComboBox { ItemsSource = UiText.ChangeStatuses(), DisplayMemberBinding = new Binding("Label"), PlaceholderText = "状态", Width = 400 };
+        var item = new ComboBox { ItemsSource = _items.Select(i => new Pick<int>(i.Id, $"{i.Code} · {i.Name}")).ToList(), DisplayMemberBinding = new Binding("Label"), PlaceholderText = "控制项（可空）", Width = 400 };
+        var estimate = new NumericUpDown { Width = 400, FormatString = "N2", Watermark = "我方测算" };
+        var submitted = new NumericUpDown { Width = 400, FormatString = "N2", Watermark = "对方报送" };
+        var confirmed = new NumericUpDown { Width = 400, FormatString = "N2", Watermark = "外部确认" };
+        var included = new NumericUpDown { Width = 400, FormatString = "N2", Watermark = "纳入预测" };
+        var asOf = new DatePicker { Width = 400, SelectedDate = new DateTimeOffset(DateTime.Today) };
+        var source = new TextBox { Watermark = "来源（必填）", Width = 400 };
+        var by = new TextBox { Watermark = "提供方（可空）", Width = 400 };
+
+        var body = new StackPanel { Spacing = 10 };
+        body.Children.Add(Widgets.Row("事项编号", code, 90));
+        body.Children.Add(Widgets.Row("事项名称", title, 90));
+        body.Children.Add(Widgets.Row("业务板块", segment, 90));
+        body.Children.Add(Widgets.Row("控制项", item, 90));
+        body.Children.Add(Widgets.Row("我方测算", estimate, 90));
+        body.Children.Add(Widgets.Row("对方报送", submitted, 90));
+        body.Children.Add(Widgets.Row("外部确认", confirmed, 90));
+        body.Children.Add(Widgets.Row("纳入预测", included, 90));
+        body.Children.Add(Widgets.Row("状态", status, 90));
+        body.Children.Add(Widgets.Row("数据截至", asOf, 90));
+        body.Children.Add(Widgets.Row("来源", source, 90));
+        body.Children.Add(Widgets.Row("提供方", by, 90));
+        body.Children.Add(Widgets.Hint("四个金额相互独立：对方报送不覆盖我方测算，我方测算也不能写成对方已确认。"));
+
+        Widgets.OpenForm(this, "登记变化事项", "只记录对成本与收入的影响，不编制签证单。", body, "登记", async () =>
+        {
+            if (segment.SelectedItem is not Pick<BusinessSegment> seg) return "请选择业务板块。";
+            if (status.SelectedItem is not Pick<ChangeItemStatus> st) return "请选择状态。";
+            var d = asOf.SelectedDate is DateTimeOffset dt ? DateOnly.FromDateTime(dt.DateTime) : DateOnly.FromDateTime(DateTime.Today);
+            var entity = new ChangeItem
+            {
+                ProjectId = _current.Id,
+                Code = code.Text?.Trim() ?? "",
+                Title = title.Text?.Trim() ?? "",
+                Segment = seg.Value,
+                CostControlItemId = (item.SelectedItem as Pick<int>)?.Value,
+                CostOfficerEstimate = estimate.Value,
+                CounterpartySubmitted = submitted.Value,
+                ExternallyConfirmed = confirmed.Value,
+                IncludedInForecast = included.Value,
+                Status = st.Value,
+                AsOfDate = d,
+                Source = source.Text?.Trim() ?? "",
+                ProvidedBy = string.IsNullOrWhiteSpace(by.Text) ? null : by.Text!.Trim()
+            };
+            try
+            {
+                await _svc.RegisterChangeItemAsync(entity);
+                await RenderChangesAsync();
+                if (_summary != null) { _summary = await _svc.GetSummaryAsync(_current.Id, _summary.VersionId); RenderSummary(); }
+                SetMsg($"已登记变化事项 {entity.Code}。");
+                return null;
+            }
+            catch (Exception ex) { return ex.Message; }
+        });
+    }
+
+    private async void OnFreeze()
     {
         if (_summary is null) return;
         try
         {
             var v = await _svc.FreezeAsync(_summary.VersionId);
-            SetMsg($"已冻结版本 v{v.VersionNumber}；此后修订请新建版本。");
             await ReloadAsync();
-        }
-        catch (Exception ex) { SetMsg(ex.Message, true); }
-    }
-
-    private async void OnRegisterChange(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
-    {
-        if (_current is null) return;
-        if (_chSegment.SelectedItem is not Pick<BusinessSegment> seg) { SetMsg("请选择变化事项所属业务板块。", true); return; }
-        if (_chStatus.SelectedItem is not Pick<ChangeItemStatus> st) { SetMsg("请选择变化事项状态。", true); return; }
-        var asOf = _chAsOf.SelectedDate is DateTimeOffset d ? DateOnly.FromDateTime(d.DateTime) : DateOnly.FromDateTime(DateTime.Today);
-        var item = new ChangeItem
-        {
-            ProjectId = _current.Id,
-            Code = _chCode.Text?.Trim() ?? "",
-            Title = _chTitle.Text?.Trim() ?? "",
-            Segment = seg.Value,
-            CostControlItemId = (_chItem.SelectedItem as Pick<int>)?.Value,
-            CostOfficerEstimate = _chEstimate.Value,
-            CounterpartySubmitted = _chSubmitted.Value,
-            ExternallyConfirmed = _chConfirmed.Value,
-            IncludedInForecast = _chIncluded.Value,
-            Status = st.Value,
-            AsOfDate = asOf,
-            Source = _chSource.Text?.Trim() ?? "",
-            ProvidedBy = string.IsNullOrWhiteSpace(_chBy.Text) ? null : _chBy.Text!.Trim()
-        };
-        try
-        {
-            await _svc.RegisterChangeItemAsync(item);
-            SetMsg($"已登记变化事项 {item.Code}。");
-            _chCode.Text = _chTitle.Text = "";
-            _chEstimate.Value = _chSubmitted.Value = _chConfirmed.Value = _chIncluded.Value = null;
-            await RenderChangesAsync();
-            if (_summary != null) { _summary = await _svc.GetSummaryAsync(_current.Id, _summary.VersionId); RenderSummary(); }
+            SetMsg($"已冻结版本 v{v.VersionNumber}；此后修订请新建版本。");
         }
         catch (Exception ex) { SetMsg(ex.Message, true); }
     }

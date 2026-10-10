@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 using System;
@@ -350,6 +351,90 @@ internal static class Widgets
         b.Classes.Add("pill");
         b.Click += (_, _) => onClick();
         return b;
+    }
+
+    /// <summary>页头主按钮（强调色），用于页面最重要的那个动作。</summary>
+    public static Button PrimaryActionButton(string text, Action onClick)
+    {
+        var b = new Button { Content = text };
+        b.Classes.Add("primary");
+        b.Click += (_, _) => onClick();
+        return b;
+    }
+
+    /// <summary>
+    /// 打开居中模态卡片表单；提交委托返回 null 表示成功（关闭），返回中文文案表示失败（卡片内显示）。
+    /// </summary>
+    public static void OpenForm(Visual anchor, string title, string subtitle, Control body,
+        string primaryText, Func<Task<string?>> submit)
+    {
+        var dialog = new FormDialog(title, subtitle, body, primaryText, submit);
+        var owner = TopLevel.GetTopLevel(anchor) as Window;
+        if (owner != null) _ = dialog.ShowDialog(owner);
+        else dialog.Show();
+    }
+
+    /// <summary>居中模态输入卡片。宽 520，内容可滚动，底部取消 / 提交。</summary>
+    internal sealed class FormDialog : Window
+    {
+        private readonly TextBlock _error;
+        private readonly Button _primary;
+
+        public FormDialog(string title, string subtitle, Control body, string primaryText, Func<Task<string?>> submit)
+        {
+            Title = title;
+            Width = 520;
+            SizeToContent = SizeToContent.Height;
+            MaxHeight = 720;
+            CanResize = false;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            Background = Palette.Bg;
+            ShowInTaskbar = false;
+
+            _error = new TextBlock { FontSize = 12, Foreground = Palette.Red, TextWrapping = TextWrapping.Wrap, IsVisible = false, LineHeight = 19 };
+
+            var head = new StackPanel { Spacing = 3 };
+            head.Children.Add(new TextBlock { Text = title, FontSize = 16, FontWeight = FontWeight.Bold, Foreground = Palette.Ink });
+            if (!string.IsNullOrEmpty(subtitle))
+                head.Children.Add(new TextBlock { Text = subtitle, FontSize = 11.5, Foreground = Palette.Txt3, TextWrapping = TextWrapping.Wrap, LineHeight = 19 });
+
+            var cancel = new Button { Content = "取消" };
+            cancel.Classes.Add("pill");
+            cancel.Click += (_, _) => Close();
+            _primary = new Button { Content = primaryText };
+            _primary.Classes.Add("primary");
+            _primary.Click += async (_, _) =>
+            {
+                _primary.IsEnabled = false;
+                try
+                {
+                    var err = await submit();
+                    if (err is null) Close();
+                    else { _error.Text = err; _error.IsVisible = true; }
+                }
+                catch (Exception ex) { _error.Text = ex.Message; _error.IsVisible = true; }
+                finally { _primary.IsEnabled = true; }
+            };
+
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, HorizontalAlignment = HorizontalAlignment.Right };
+            buttons.Children.Add(cancel);
+            buttons.Children.Add(_primary);
+
+            var card = new StackPanel { Spacing = 14 };
+            card.Children.Add(head);
+            card.Children.Add(body);
+            card.Children.Add(_error);
+            card.Children.Add(buttons);
+
+            Content = new Border
+            {
+                Background = Palette.Card,
+                CornerRadius = new CornerRadius(18),
+                Padding = new Thickness(22),
+                Margin = new Thickness(14),
+                Child = new ScrollViewer { Content = card, MaxHeight = 640, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
+            };
+        }
     }
 
     /// <summary>同 PageHeader，但副标题是动态控件（例如显示当前项目名）。</summary>
