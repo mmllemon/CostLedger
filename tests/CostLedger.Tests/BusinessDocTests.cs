@@ -28,7 +28,7 @@ public class BusinessDocTests
     }
 
     private static int CableCategoryId(AppDbContext db)
-        => db.CostCategories.Single(c => c.Code == "M-CABLE").Id;
+        => db.CostCategories.Single(c => c.Code == "EQ-HVCABLE").Id;
 
     [Fact]
     public async Task 变更令确认_调整目标成本且幂等()
@@ -47,7 +47,7 @@ public class BusinessDocTests
         (await svc.ConfirmAsync(id)).Should().BeTrue();
         (await svc.ConfirmAsync(id)).Should().BeFalse(); // 幂等：重复确认不再计入
 
-        var cable = (await new CostSpineService(db).GetSpineAsync(1)).Single(l => l.CostCategoryName == "电力电缆");
+        var cable = (await new CostSpineService(db).GetSpineAsync(1)).Single(l => l.CostCategoryName == "高压电缆");
         cable.Target.Should().Be(1_913_000m);   // 目标：1,863,000 + 50,000
         cable.Incurred.Should().Be(2_000_000m); // 已发生不受影响
     }
@@ -68,7 +68,7 @@ public class BusinessDocTests
         await svc.ConfirmAsync(id);
         (await svc.ReopenAsync(id)).Should().BeTrue();
 
-        var cable = (await new CostSpineService(db).GetSpineAsync(1)).Single(l => l.CostCategoryName == "电力电缆");
+        var cable = (await new CostSpineService(db).GetSpineAsync(1)).Single(l => l.CostCategoryName == "高压电缆");
         cable.Target.Should().Be(1_863_000m); // 回落至原目标
     }
 
@@ -94,7 +94,7 @@ public class BusinessDocTests
         });
         (await svc.ConfirmAsync(self)).Should().BeTrue(); // 乙供计入成本
 
-        var cable = (await new CostSpineService(db).GetSpineAsync(1)).Single(l => l.CostCategoryName == "电力电缆");
+        var cable = (await new CostSpineService(db).GetSpineAsync(1)).Single(l => l.CostCategoryName == "高压电缆");
         cable.Incurred.Should().Be(2_002_000m); // 2,000,000 + 10×200
     }
 

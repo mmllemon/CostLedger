@@ -50,6 +50,10 @@ public partial class GenericRecordView : UserControl
     private DynamicFieldsPanel? _ext;
     private int _currentId;
     private object? _currentModel;
+    private readonly string? _parentField;
+    private readonly string? _pathField;
+    private List<object> _allModels = new();
+    private ComboBox? _parentInput;
 
     public GenericRecordView()
     {
@@ -58,11 +62,12 @@ public partial class GenericRecordView : UserControl
 
     public GenericRecordView(AppDbContext db, MetadataService metadata, string entityCode,
         Type entityType, CoreFieldDescriptor[] core, Func<object> factory, Func<object, string> display,
-        Func<AppDbContext, IEnumerable<object>> queryAll)
+        Func<AppDbContext, IEnumerable<object>> queryAll, string? parentField = null, string? pathField = null)
         : this()
     {
         _db = db; _metadata = metadata; _entityCode = entityCode;
         _entityType = entityType; _core = core; _factory = factory; _display = display; _queryAll = queryAll;
+        _parentField = parentField; _pathField = pathField;
         _ = InitAsync();
     }
 
@@ -85,6 +90,7 @@ public partial class GenericRecordView : UserControl
     private async Task RefreshListAsync(int selectId = 0)
     {
         var models = await Task.Run(() => _queryAll(_db).ToList());
+        _allModels = models;
         var rows = models.Select(m => new DisplayRow(
             (int)m.GetType().GetProperty("Id")!.GetValue(m)!, _display(m), m)).ToList();
         RecordList.ItemsSource = rows;
@@ -147,6 +153,44 @@ public partial class GenericRecordView : UserControl
             wrap.Children.Add(input);
             CoreHost.Children.Add(wrap);
         }
+        if (_parentField != null)
+            RenderParent(model);
+    }
+
+    private void RenderParent(object model)
+    {
+        var idProp = _entityType.GetProperty("Id")!;
+        var curId = (int)idProp.GetValue(model)!;
+        var candidates = _allModels
+            .Where(m => (int)idProp.GetValue(m)! != curId && !IsDescendant(idProp, m, curId))
+            .ToList();
+        var cb = new ComboBox
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            PlaceholderText = "（顶级节点，无父）",
+            DisplayMemberBinding = new Binding(_pathField ?? "Name"),
+            SelectedValueBinding = new Binding("Id")
+        };
+        cb.ItemsSource = candidates;
+        var curParent = model.GetType().GetProperty(_parentField!)!.GetValue(model);
+        cb.SelectedValue = curParent is int iv ? iv : null;
+        _parentInput = cb;
+
+        var label = new TextBlock { Text = "父节点", FontWeight = FontWeight.SemiBold, FontSize = 12.5, Margin = new Thickness(0, 0, 0, 4) };
+        var wrap = new StackPanel { Spacing = 4 };
+        wrap.Children.Add(label);
+        wrap.Children.Add(cb);
+        CoreHost.Children.Add(wrap);
+    }
+
+    private bool IsDescendant(System.Reflection.PropertyInfo idProp, object m, int ancestorId)
+    {
+        var p = m.GetType().GetProperty(_parentField!)!.GetValue(m);
+        if (p is null) return false;
+        var pid = (int)p;
+        if (pid == ancestorId) return true;
+        var parent = _allModels.FirstOrDefault(x => (int)idProp.GetValue(x)! == pid);
+        return parent != null && IsDescendant(idProp, parent, ancestorId);
     }
 
     private Control BuildEnumCombo(CoreFieldDescriptor d, string current)
@@ -185,12 +229,38 @@ public partial class GenericRecordView : UserControl
         }
         if (_ext != null) await _ext.SaveAsync();
 
+        if (_pathField != null) await RebuildPaths();
+
         await RefreshListAsync(selectId: _currentId);
+    }
+
+    private async Task RebuildPaths()
+    {
+        var all = _queryAll(_db).Cast<object>().ToList();
+        var idProp = _entityType.GetProperty("Id")!;
+        var childrenMap = all.ToLookup(m => (int?)_entityType.GetProperty(_parentField!)!.GetValue(m));
+        void Walk(int? pid, string prefix)
+        {
+            foreach (var k in childrenMap[pid])
+            {
+                var name = (string)_entityType.GetProperty("Name")!.GetValue(k)!;
+                var path = string.IsNullOrEmpty(prefix) ? name : prefix + "/" + name;
+                _entityType.GetProperty(_pathField!)!.SetValue(k, path);
+                Walk((int?)idProp.GetValue(k), path);
+            }
+        }
+        Walk(null, "");
+        await _db.SaveChangesAsync();
     }
 
     private async void OnDelete(object? sender, RoutedEventArgs e)
     {
         if (_currentId == 0 || _currentModel is null) return;
+        if (_parentField != null)
+        {
+            var hasChild = _queryAll(_db).Any(m => (int?)_entityType.GetProperty(_parentField)!.GetValue(m) == _currentId);
+            if (hasChild) { Warn("该节点下还有子节点，请先删除其子节点。"); return; }
+        }
         var orphans = await _db.CustomFieldValues
             .Where(x => x.EntityDefCode == _entityCode && x.OwnerId == _currentId).ToListAsync();
         _db.CustomFieldValues.RemoveRange(orphans);
@@ -199,6 +269,20 @@ public partial class GenericRecordView : UserControl
         _currentId = 0;
         _currentModel = null;
         await RefreshListAsync();
+    }
+
+    private void Warn(string msg)
+    {
+        var w = new Window
+        {
+            Title = "提示",
+            Width = 340,
+            Height = 150,
+            Content = new TextBlock { Text = msg, Margin = new Thickness(16), VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap }
+        };
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        if (owner != null) _ = w.ShowDialog(owner);
+        else w.Show();
     }
 
     private void ApplyCore(object model)
@@ -229,6 +313,11 @@ public partial class GenericRecordView : UserControl
                     prop.SetValue(model, str);
                     break;
             }
+        }
+        if (_parentField != null && _parentInput != null)
+        {
+            var pid = _parentInput.SelectedValue as int?;
+            _entityType.GetProperty(_parentField)!.SetValue(model, pid);
         }
     }
 }

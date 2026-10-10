@@ -173,24 +173,37 @@ public static class SeedData
     // ---------- M1 演示业务数据（残疾人项目 10KV 外线电缆工程） ----------
     private static void SeedDemoData(AppDbContext db)
     {
-        var catCable = new CostCategory { Code = "M-CABLE", Name = "电力电缆", Type = CostCategoryType.EquipmentMaterial };
-        var catSub = new CostCategory { Code = "S-SUB", Name = "分包工程", Type = CostCategoryType.Subcontract };
-        var catLabor = new CostCategory { Code = "L-LABOR", Name = "人工", Type = CostCategoryType.Labor };
-        db.CostCategories.AddRange(catCable, catSub, catLabor);
-
-        // 大类（配电项目日常管理粒度）：设备材料（变压器/高压柜/低压柜/高压电缆/低压电缆/配电箱）+ 人工（安装劳务/土建劳务）
+        // 成本科目：默认分层级模板（开箱即用、可删改扩，非强制业务分类）
+        // 4 根：设备材料 / 人工 / 分包工程 / 其他费用；设备材料下挂配电示例叶，人工下挂劳务示例叶
         var rootEquip = new CostCategory { Code = "EQ", Name = "设备材料", Type = CostCategoryType.EquipmentMaterial, FullPath = "设备材料" };
         var rootLabor = new CostCategory { Code = "LAB", Name = "人工", Type = CostCategoryType.Labor, FullPath = "人工" };
-        db.CostCategories.AddRange(rootEquip, rootLabor);
-        db.CostCategories.AddRange(
+        var rootSub = new CostCategory { Code = "SUB", Name = "分包工程", Type = CostCategoryType.Subcontract, FullPath = "分包工程" };
+        var rootOther = new CostCategory { Code = "OTHER", Name = "其他费用", Type = CostCategoryType.Other, FullPath = "其他费用" };
+        db.CostCategories.AddRange(rootEquip, rootLabor, rootSub, rootOther);
+
+        var eqLeaves = new[]
+        {
             new CostCategory { Code = "EQ-TR", Name = "变压器", Type = CostCategoryType.EquipmentMaterial, Parent = rootEquip, FullPath = "设备材料/变压器" },
             new CostCategory { Code = "EQ-HVC", Name = "高压柜", Type = CostCategoryType.EquipmentMaterial, Parent = rootEquip, FullPath = "设备材料/高压柜" },
             new CostCategory { Code = "EQ-LVC", Name = "低压柜", Type = CostCategoryType.EquipmentMaterial, Parent = rootEquip, FullPath = "设备材料/低压柜" },
             new CostCategory { Code = "EQ-HVCABLE", Name = "高压电缆", Type = CostCategoryType.EquipmentMaterial, Parent = rootEquip, FullPath = "设备材料/高压电缆" },
             new CostCategory { Code = "EQ-LVCABLE", Name = "低压电缆", Type = CostCategoryType.EquipmentMaterial, Parent = rootEquip, FullPath = "设备材料/低压电缆" },
             new CostCategory { Code = "EQ-BOX", Name = "配电箱", Type = CostCategoryType.EquipmentMaterial, Parent = rootEquip, FullPath = "设备材料/配电箱" },
+        };
+        var labLeaves = new[]
+        {
             new CostCategory { Code = "LAB-INST", Name = "安装劳务", Type = CostCategoryType.Labor, Parent = rootLabor, FullPath = "人工/安装劳务" },
-            new CostCategory { Code = "LAB-CIVIL", Name = "土建劳务", Type = CostCategoryType.Labor, Parent = rootLabor, FullPath = "人工/土建劳务" });
+            new CostCategory { Code = "LAB-CIVIL", Name = "土建劳务", Type = CostCategoryType.Labor, Parent = rootLabor, FullPath = "人工/土建劳务" },
+        };
+        db.CostCategories.AddRange(eqLeaves);
+        db.CostCategories.AddRange(labLeaves);
+
+        // 演示数据引用（保持变量名，定位到具体节点）
+        // 原则：日常按"大类级"归集——设备材料/人工/分包工程 走各自根节点；
+        // 叶子（变压器/电缆/安装劳务…）为可选底层，演示数据不强制落到叶。
+        var catCable = eqLeaves.First(c => c.Code == "EQ-HVCABLE");   // 高压电缆（设备材料下示例叶）
+        var catSub = rootSub;                                          // 分包工程（大类根）
+        var catLabor = rootLabor;                                      // 人工（大类根，大类级归集）
 
         var project = new Project
         {

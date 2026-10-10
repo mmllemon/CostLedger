@@ -30,7 +30,7 @@ public class M3BTests
     public async Task 六类口径_已完未结与预计最终()
     {
         using var db = CreateSeededContext();
-        var catId = db.CostCategories.Single(c => c.Code == "M-CABLE").Id;
+        var catId = db.CostCategories.Single(c => c.Code == "EQ-HVCABLE").Id;
 
         // 追加一个"已签认但未回写"的计量 → 形成已完未结
         var m = new Measurement { Code = "MS-1", ProjectId = 1, IsSigned = true, Date = new DateOnly(2026, 5, 1) };
@@ -38,7 +38,7 @@ public class M3BTests
         db.Measurements.Add(m);
         await db.SaveChangesAsync();
 
-        var cable = (await new CostSpineService(db).GetSpineAsync(1)).Single(l => l.CostCategoryName == "电力电缆");
+        var cable = (await new CostSpineService(db).GetSpineAsync(1)).Single(l => l.CostCategoryName == "高压电缆");
 
         cable.WorkDoneNotSettled.Should().Be(100_000m);
         // EAC = max(已承诺 1,863,000, 已发生 2,000,000 + 已完未结 100,000) = 2,100,000

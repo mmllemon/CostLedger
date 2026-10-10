@@ -113,8 +113,9 @@ public partial class MainWindow : Window
                         new CoreFieldDescriptor("类型", "Type", CoreFieldKind.Enum, EnumType: typeof(CostCategoryType)),
                     },
                     () => new CostCategory(),
-                    m => { var c = (CostCategory)m; return $"{c.Code} · {c.Name}"; },
-                    db => db.CostCategories.Cast<object>());
+                    m => { var c = (CostCategory)m; return string.IsNullOrEmpty(c.FullPath) ? $"{c.Code} · {c.Name}" : c.FullPath; },
+                    db => db.CostCategories.Cast<object>(),
+                    parentField: "ParentId", pathField: "FullPath");
                 break;
             case "NavReports":
                 NavReports.Classes.Add("on");

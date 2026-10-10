@@ -31,7 +31,7 @@ public class CostSpineServiceTests
         var spine = new CostSpineService(db);
         var lines = await spine.GetSpineAsync(1);
 
-        var cable = lines.Should().ContainSingle(l => l.CostCategoryName == "电力电缆").Subject;
+        var cable = lines.Should().ContainSingle(l => l.CostCategoryName == "高压电缆").Subject;
         cable.Target.Should().Be(1_863_000m);
         cable.Incurred.Should().Be(2_000_000m);
         cable.Variance.Should().Be(137_000m);
