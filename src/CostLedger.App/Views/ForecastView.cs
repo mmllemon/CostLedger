@@ -31,7 +31,7 @@ public class ForecastView : UserControl, IProjectScoped
 
     private readonly ComboBox _versionCombo = new() { Width = 300, PlaceholderText = "预测版本" };
     private readonly WrapPanel _kpiHost = new();
-    private readonly StackPanel _lineHost = new(), _versionHost = new(), _changeHost = new();
+    private readonly StackPanel _lineHost = new(), _versionHost = new();
     private readonly TextBlock _msg = new();
     private readonly TextBlock _title = new() { FontSize = 11.5, Foreground = Palette.Txt3, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
     private readonly Button _freezeBtn;
@@ -59,12 +59,11 @@ public class ForecastView : UserControl, IProjectScoped
         _msg.TextWrapping = TextWrapping.Wrap;
         _msg.Foreground = Palette.Txt2;
 
-        var top = Widgets.PageHeaderWithDynamicSubtitle("预测", "成本预测与变化事项",
+        var top = Widgets.PageHeaderWithDynamicSubtitle("预测", "成本预测版本",
             "预计最终 = 已知 + 剩余估计 + 风险调整（派生值）", _title,
             Widgets.PrimaryActionButton("＋ 新建版本", () => OpenCreateVersion()),
             Widgets.ActionButton("录入 / 修订预测行", () => OpenUpsertLine()),
-            _freezeBtn,
-            Widgets.ActionButton("登记变化事项", () => OpenRegisterChange()));
+            _freezeBtn);
 
         var versionRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
         versionRow.Children.Add(new TextBlock { Text = "查看版本", Foreground = Palette.Txt2, VerticalAlignment = VerticalAlignment.Center });
@@ -77,7 +76,6 @@ public class ForecastView : UserControl, IProjectScoped
         root.Children.Add(Widgets.Card(null, _kpiHost));
         root.Children.Add(Widgets.Card("版本历史（修订产生新版本，冻结后不可改写）", _versionHost));
         root.Children.Add(Widgets.Card("按控制项的预测行", _lineHost));
-        root.Children.Add(Widgets.Card("变化事项（四个金额相互独立，互不覆盖）", _changeHost));
         return new ScrollViewer { Content = root, Background = Palette.Bg };
     }
 
@@ -107,7 +105,6 @@ public class ForecastView : UserControl, IProjectScoped
             new Pick<int>(v.Id, $"v{v.VersionNumber} · {v.ForecastDate:yyyy-MM-dd} · {UiText.VersionStatus(v.Status)}")).ToList();
 
         RenderVersions();
-        await RenderChangesAsync();
 
         if (_versions.Count > 0) _versionCombo.SelectedIndex = 0;
         else { _summary = null; RenderSummary(); }
@@ -123,26 +120,6 @@ public class ForecastView : UserControl, IProjectScoped
             UiText.Confidence(v.Confidence), UiText.VersionStatus(v.Status), v.Basis ?? "—"
         });
         _versionHost.Children.Add(Widgets.Table(headers, rows));
-    }
-
-    private async Task RenderChangesAsync()
-    {
-        if (_current is null) return;
-        _changeHost.Children.Clear();
-        var changes = await _svc.ListChangeItemsAsync(_current.Id);
-        var headers = new[] { "编号", "事项", "板块", "控制项", "我方测算", "对方报送", "外部确认", "纳入预测", "状态", "截至" };
-        var right = new HashSet<int> { 4, 5, 6, 7 };
-        var rows = changes.Select(c => new[]
-        {
-            c.Code, c.Title, UiText.Segment(c.Segment),
-            _items.FirstOrDefault(i => i.Id == c.CostControlItemId)?.Name ?? "—",
-            c.CostOfficerEstimate is decimal a ? UiText.Money(a) : "—",
-            c.CounterpartySubmitted is decimal b ? UiText.Money(b) : "—",
-            c.ExternallyConfirmed is decimal d ? UiText.Money(d) : "—",
-            c.IncludedInForecast is decimal e ? UiText.Money(e) : "未纳入",
-            UiText.ChangeStatus(c.Status), c.AsOfDate.ToString("yyyy-MM-dd")
-        });
-        _changeHost.Children.Add(Widgets.Table(headers, rows, right));
     }
 
     private void RenderSummary()
@@ -238,71 +215,6 @@ public class ForecastView : UserControl, IProjectScoped
                 await _svc.UpsertLineAsync(_summary.VersionId, it.Value, target.Value ?? 0m, remaining.Value ?? 0m, risk.Value ?? 0m);
                 await ReloadAsync();
                 SetMsg("已保存预测行；已知金额按当前归属自动重算。");
-                return null;
-            }
-            catch (Exception ex) { return ex.Message; }
-        });
-    }
-
-    // ==================== 弹层：登记变化事项 ====================
-    private void OpenRegisterChange()
-    {
-        if (_current is null) return;
-        var code = new TextBox { Watermark = "事项编号", Width = 400 };
-        var title = new TextBox { Watermark = "事项名称", Width = 400 };
-        var segment = new ComboBox { ItemsSource = UiText.Segments(), DisplayMemberBinding = new Binding("Label"), PlaceholderText = "业务板块", Width = 400 };
-        var status = new ComboBox { ItemsSource = UiText.ChangeStatuses(), DisplayMemberBinding = new Binding("Label"), PlaceholderText = "状态", Width = 400 };
-        var item = new ComboBox { ItemsSource = _items.Select(i => new Pick<int>(i.Id, $"{i.Code} · {i.Name}")).ToList(), DisplayMemberBinding = new Binding("Label"), PlaceholderText = "控制项（可空）", Width = 400 };
-        var estimate = new NumericUpDown { Width = 400, FormatString = "N2", Watermark = "我方测算" };
-        var submitted = new NumericUpDown { Width = 400, FormatString = "N2", Watermark = "对方报送" };
-        var confirmed = new NumericUpDown { Width = 400, FormatString = "N2", Watermark = "外部确认" };
-        var included = new NumericUpDown { Width = 400, FormatString = "N2", Watermark = "纳入预测" };
-        var asOf = new DatePicker { Width = 400, SelectedDate = new DateTimeOffset(DateTime.Today) };
-        var source = new TextBox { Watermark = "来源（必填）", Width = 400 };
-        var by = new TextBox { Watermark = "提供方（可空）", Width = 400 };
-
-        var body = new StackPanel { Spacing = 10 };
-        body.Children.Add(Widgets.Row("事项编号", code, 90));
-        body.Children.Add(Widgets.Row("事项名称", title, 90));
-        body.Children.Add(Widgets.Row("业务板块", segment, 90));
-        body.Children.Add(Widgets.Row("控制项", item, 90));
-        body.Children.Add(Widgets.Row("我方测算", estimate, 90));
-        body.Children.Add(Widgets.Row("对方报送", submitted, 90));
-        body.Children.Add(Widgets.Row("外部确认", confirmed, 90));
-        body.Children.Add(Widgets.Row("纳入预测", included, 90));
-        body.Children.Add(Widgets.Row("状态", status, 90));
-        body.Children.Add(Widgets.Row("数据截至", asOf, 90));
-        body.Children.Add(Widgets.Row("来源", source, 90));
-        body.Children.Add(Widgets.Row("提供方", by, 90));
-        body.Children.Add(Widgets.Hint("四个金额相互独立：对方报送不覆盖我方测算，我方测算也不能写成对方已确认。"));
-
-        Widgets.OpenForm(this, "登记变化事项", "只记录对成本与收入的影响，不编制签证单。", body, "登记", async () =>
-        {
-            if (segment.SelectedItem is not Pick<BusinessSegment> seg) return "请选择业务板块。";
-            if (status.SelectedItem is not Pick<ChangeItemStatus> st) return "请选择状态。";
-            var d = asOf.SelectedDate is DateTimeOffset dt ? DateOnly.FromDateTime(dt.DateTime) : DateOnly.FromDateTime(DateTime.Today);
-            var entity = new ChangeItem
-            {
-                ProjectId = _current.Id,
-                Code = code.Text?.Trim() ?? "",
-                Title = title.Text?.Trim() ?? "",
-                Segment = seg.Value,
-                CostControlItemId = (item.SelectedItem as Pick<int>)?.Value,
-                CostOfficerEstimate = estimate.Value,
-                CounterpartySubmitted = submitted.Value,
-                ExternallyConfirmed = confirmed.Value,
-                IncludedInForecast = included.Value,
-                Status = st.Value,
-                AsOfDate = d,
-                Source = source.Text?.Trim() ?? "",
-                ProvidedBy = string.IsNullOrWhiteSpace(by.Text) ? null : by.Text!.Trim()
-            };
-            try
-            {
-                await _svc.RegisterChangeItemAsync(entity);
-                await RenderChangesAsync();
-                if (_summary != null) { _summary = await _svc.GetSummaryAsync(_current.Id, _summary.VersionId); RenderSummary(); }
-                SetMsg($"已登记变化事项 {entity.Code}。");
                 return null;
             }
             catch (Exception ex) { return ex.Message; }

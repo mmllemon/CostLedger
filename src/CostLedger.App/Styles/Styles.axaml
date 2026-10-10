@@ -81,6 +81,27 @@
     <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
   </Style>
 
+  <!-- ============ 分段选择按钮（枚举：板块/方向/状态/精度） ============ -->
+  <Style Selector="Button.seg">
+    <Setter Property="Background" Value="{StaticResource BgBrush}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="10"/>
+    <Setter Property="Padding" Value="12,7"/>
+    <Setter Property="Margin" Value="0,0,6,6"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="{StaticResource Txt2Brush}"/>
+  </Style>
+  <Style Selector="Button.seg:pointerover">
+    <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+  </Style>
+  <Style Selector="Button.seg.on">
+    <Setter Property="Background" Value="{StaticResource AccentDeepBrush}"/>
+    <Setter Property="Foreground" Value="{StaticResource WhiteBrush}"/>
+    <Setter Property="BorderBrush" Value="{StaticResource AccentDeepBrush}"/>
+  </Style>
+
   <Style Selector="Button.primary">
     <Setter Property="Background" Value="{StaticResource AccentDeepBrush}"/>
     <Setter Property="Foreground" Value="{StaticResource WhiteBrush}"/>

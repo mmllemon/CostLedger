@@ -484,6 +484,47 @@ internal static class Widgets
         grid.Children.Add(control);
         return new LabeledControl(grid) { HorizontalAlignment = HorizontalAlignment.Stretch };
     }
+
+    /// <summary>带分隔线的字段行：左侧标签列（固定宽），右侧控件；对应预览稿 .field。</summary>
+    public static Control FormField(string label, Control control, double labelWidth = 96)
+    {
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions($"{labelWidth},*") };
+        var tb = new TextBlock { Text = label, FontSize = 12, Foreground = Palette.Txt3, VerticalAlignment = VerticalAlignment.Center };
+        control.VerticalAlignment = VerticalAlignment.Center;
+        control.HorizontalAlignment = HorizontalAlignment.Left;
+        Grid.SetColumn(tb, 0);
+        Grid.SetColumn(control, 1);
+        grid.Children.Add(tb);
+        grid.Children.Add(control);
+        return new Border
+        {
+            Child = grid,
+            Padding = new Thickness(0, 9, 0, 9),
+            BorderBrush = Palette.Line,
+            BorderThickness = new Thickness(0, 0, 0, 1)
+        };
+    }
+
+    /// <summary>分段按钮组（枚举选择）：选中项高亮强调色，替代下拉框。</summary>
+    public static Control Segmented<T>(IReadOnlyList<Pick<T>> options, T? selected, Action<T> onPick)
+    {
+        var wrap = new WrapPanel();
+        foreach (var opt in options)
+        {
+            var b = new Button { Content = opt.Label, Tag = opt.Value };
+            b.Classes.Add("seg");
+            if (EqualityComparer<T?>.Default.Equals(selected, opt.Value)) b.Classes.Add("on");
+            b.Click += (_, _) =>
+            {
+                foreach (var child in wrap.Children)
+                    if (child is Button bb) bb.Classes.Remove("on");
+                b.Classes.Add("on");
+                onPick(opt.Value);
+            };
+            wrap.Children.Add(b);
+        }
+        return wrap;
+    }
 }
 
 /// <summary>包装一个字段行，便于加入表单 StackPanel。</summary>

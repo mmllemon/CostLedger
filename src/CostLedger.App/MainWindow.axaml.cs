@@ -136,14 +136,16 @@ public partial class MainWindow : Window
 
     private void SetActive(string key)
     {
-        foreach (var b in new[] { NavCompany, NavCockpit, NavCostControl, NavForecast, NavDashboard, NavOverview, NavLedgers, NavParties, NavCost, NavMaster, NavDocs, NavProject, NavCategory, NavReports, NavBoardDesign, NavAlerts, NavRecon, NavSettings, NavAdmin, NavObjects })
+        foreach (var b in new[] { NavCompany, NavCockpit, NavCostControl, NavRegister, NavForecast, NavChangeItems, NavDashboard, NavOverview, NavLedgers, NavParties, NavCost, NavMaster, NavDocs, NavProject, NavCategory, NavReports, NavBoardDesign, NavAlerts, NavRecon, NavSettings, NavAdmin, NavObjects })
             b.Classes.Remove("on");
         var target = key switch
         {
             "NavCompany" => NavCompany,
             "NavCockpit" => NavCockpit,
             "NavCostControl" => NavCostControl,
+            "NavRegister" => NavRegister,
             "NavForecast" => NavForecast,
+            "NavChangeItems" => NavChangeItems,
             "NavOverview" => NavOverview,
             "NavLedgers" => NavLedgers,
             "NavParties" => NavParties,
@@ -191,8 +193,14 @@ public partial class MainWindow : Window
             case "NavCostControl":
                 Show(new CostControlView(_db));
                 break;
+            case "NavRegister":
+                Show(new RegisterAmountView(_db));
+                break;
             case "NavForecast":
                 Show(new ForecastView(_db));
+                break;
+            case "NavChangeItems":
+                Show(new ChangeItemsView(_db));
                 break;
             case "NavOverview":
                 MainArea.Content = new ProjectOverviewView(_db, _alerts);
