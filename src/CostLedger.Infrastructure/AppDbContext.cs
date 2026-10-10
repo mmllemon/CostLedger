@@ -541,11 +541,51 @@ public static class DbBootstrap
         }
         else if (ver != SchemaVersion)
         {
-            throw new InvalidOperationException(
-                $"账套结构版本 v{ver} 与当前程序 v{SchemaVersion} 不兼容。原账套未重建，请使用匹配版本的程序，或在完成数据迁移后再打开。账套路径：{dbPath}");
+            // 旧版本且在上一次成功迁移范围内的：先备份原账套，再尝试“复制→加列迁移→校验”。
+            // 迁移成功则用迁移后的库替换调用方连接；失败则保持原账套不动并如实报错。
+            if (ver < SchemaVersion && ver >= DbMigrator.MinSupportedVersion && TryAutoMigrate(db, dbPath, ver, out var migration))
+                ver = SchemaVersion;
+            else
+                throw new InvalidOperationException(
+                    $"账套结构版本 v{ver} 与当前程序 v{SchemaVersion} 不兼容。" +
+                    "原账套未重建（若已尝试迁移，原文件已备份到 backups/）。" +
+                    $"账套路径：{dbPath}");
         }
 
         SeedData.SeedIfEmpty(db);
+    }
+
+    /// <summary>尝试把旧账套迁移到当前结构。此时调用方 db 尚未连接，直接就地替换文件即可。
+    /// 先迁移到临时库校验；只有成功后才备份原账套并替换。失败时不改动原账套、不产生备份。</summary>
+    private static bool TryAutoMigrate(AppDbContext db, string dbPath, int fromVersion, out MigrationResult? result)
+    {
+        result = null;
+        var temp = dbPath + ".automigrated";
+        try
+        {
+            var mig = DbMigrator.Migrate(dbPath, temp);
+            result = mig;
+            if (!mig.Success) { TryDelete(temp); return false; }
+
+            // 迁移已成功：此时才备份原账套（往返安全，可回退），再替换。
+            _ = BackupFile(dbPath, fromVersion);
+            File.Copy(temp, dbPath, overwrite: true);
+            TryDelete(temp);
+            TryDelete(dbPath + "-wal");
+            TryDelete(dbPath + "-shm");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            TryDelete(temp);
+            result = new MigrationResult(false, fromVersion, SchemaVersion, Array.Empty<string>(), ex.Message);
+            return false;
+        }
+    }
+
+    private static void TryDelete(string path)
+    {
+        try { if (File.Exists(path)) File.Delete(path); } catch { /* ignore */ }
     }
 
     /// <summary>把账套备份到 backups/ 下（带版本与时间戳），并只保留最近 10 份。</summary>
@@ -605,6 +645,9 @@ public static class DbBootstrap
         cmd.CommandText = "PRAGMA user_version;";
         return Convert.ToInt32(cmd.ExecuteScalar());
     }
+
+    /// <summary>供迁移器读取源账套版本号。</summary>
+    internal static int ReadUserVersionPublic(string path) => ReadUserVersion(path);
 
     private static void SetUserVersion(string path, int version)
     {

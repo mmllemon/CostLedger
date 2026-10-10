@@ -58,6 +58,83 @@ public class DbBootstrapTests : IDisposable
     }
 
     [Fact]
+    public void 新版本升级到当前_自动迁移并保留数据()
+    {
+        var path = Path.Combine(_dir, "costledger.db");
+        int oldVersion = DbBootstrap.SchemaVersion - 2;   // 模拟落后两个版本的旧账套
+
+        // 用当前结构建库（含全部真实表），写入业务数据，再把版本号改回旧值以模拟旧账套。
+        using (var db = Open(path))
+        {
+            DbBootstrap.EnsureCreatedAndSeed(db, path);
+            var p = db.Projects.Single();
+            p.Name = "升级前项目";
+            db.Parties.Add(new CostLedger.Domain.Party { Name = "升级前单位", RoleCode = "Supplier" });
+            db.SaveChanges();
+        }
+        using (var conn = Connect(path, SqliteOpenMode.ReadWrite))
+            Execute(conn, $"PRAGMA user_version = {oldVersion};");
+        ReadVersion(path).Should().Be(oldVersion);
+
+        // 打开时自动迁移：版本升到当前，业务数据保留，并生成可回退备份。
+        using (var db = Open(path))
+            DbBootstrap.EnsureCreatedAndSeed(db, path);
+
+        ReadVersion(path).Should().Be(DbBootstrap.SchemaVersion);
+        using (var check = Open(path))
+        {
+            check.Projects.Single().Name.Should().Be("升级前项目");
+            check.Parties.Any(x => x.Name == "升级前单位").Should().BeTrue();
+        }
+        Directory.Exists(Path.Combine(_dir, "backups")).Should().BeTrue();
+        Directory.GetFiles(Path.Combine(_dir, "backups")).Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public void 缺表缺列的旧结构_迁移补回新表新列且保留数据()
+    {
+        var path = Path.Combine(_dir, "costledger.db");
+
+        // 建当前结构 + 业务数据，然后真正删掉“较新”的表与列，模拟 v12 之前的旧结构。
+        using (var db = Open(path))
+        {
+            DbBootstrap.EnsureCreatedAndSeed(db, path);
+            var p = db.Projects.Single();
+            p.Name = "旧结构项目";
+            db.Parties.Add(new CostLedger.Domain.Party { Name = "旧结构单位", RoleCode = "Supplier" });
+            db.SaveChanges();
+            // 造一条外部金额事实，验证它在新旧结构间被完整搬运。
+            db.ExternalAmountFacts.Add(new CostLedger.Domain.ExternalAmountFact
+            {
+                ProjectId = p.Id, Segment = CostLedger.Domain.BusinessSegment.MaterialSupply,
+                Direction = CostLedger.Domain.EconomicDirection.Expenditure, Amount = 123m,
+                AsOfDate = new DateOnly(2026, 1, 1), Status = CostLedger.Domain.ExternalFactStatus.Checked,
+                Precision = CostLedger.Domain.ManagementPrecision.Project, Source = "旧结构来源"
+            });
+            db.SaveChanges();
+        }
+        using (var conn = Connect(path, SqliteOpenMode.ReadWrite))
+        {
+            // ExternalResultRecords 是 v14 新增表：删掉它模拟缺表的旧结构。
+            // （列删除因 SQLite 外键限制不便直接模拟，由 Drop 表代表增量补齐能力。）
+            Execute(conn, "DROP TABLE ExternalResultRecords;");
+            Execute(conn, $"PRAGMA user_version = {DbBootstrap.SchemaVersion - 1};");
+        }
+
+        using (var db = Open(path))
+            DbBootstrap.EnsureCreatedAndSeed(db, path);
+
+        ReadVersion(path).Should().Be(DbBootstrap.SchemaVersion);
+        using (var check = Open(path))
+        {
+            check.Projects.Single().Name.Should().Be("旧结构项目");
+            check.ExternalAmountFacts.Single().Source.Should().Be("旧结构来源");
+            // 新表被补回（空表可用）。
+            check.ExternalResultRecords.Count().Should().Be(0);
+        }
+    }
+
+    [Fact]
     public void 新建账套_写入结构版本并种子()
     {
         var path = Path.Combine(_dir, "costledger.db");
