@@ -175,6 +175,19 @@ public class EconomicFactsTests
     }
 
     [Fact]
+    public void 纠正文案使用中文口径名而不是枚举名()
+    {
+        var roleViolation = BusinessSegmentRules.FindViolation(
+            PartyRoleCodes.Owner, BusinessSegment.MaterialSupply, EconomicDirection.Expenditure);
+        roleViolation.Should().Contain("材料供应").And.NotContain("MaterialSupply");
+
+        var dirViolation = BusinessSegmentRules.FindViolation(
+            PartyRoleCodes.MaterialSupplier, BusinessSegment.FundingStatus, EconomicDirection.Expenditure);
+        dirViolation.Should().Contain("项目资金状态").And.NotContain("FundingStatus");
+        dirViolation.Should().Contain("已收").And.Contain("已付").And.NotContain("Receipt");
+    }
+
+    [Fact]
     public async Task 登记关系拒绝板块与角色不匹配()
     {
         using var db = CreateContext();

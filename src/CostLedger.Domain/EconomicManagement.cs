@@ -85,6 +85,39 @@ public enum AllocationStatus
 /// </summary>
 public static class BusinessSegmentRules
 {
+    /// <summary>面向成本岗的中文口径名。提示文案必须用中文名，不能把枚举名抛给用户。</summary>
+    private static readonly Dictionary<BusinessSegment, string> SegmentNames = new()
+    {
+        [BusinessSegment.UpstreamRevenue] = "对上收入",
+        [BusinessSegment.MaterialSupply] = "材料供应",
+        [BusinessSegment.LaborSubcontract] = "劳务分包",
+        [BusinessSegment.SpecialistSubcontract] = "专业分包",
+        [BusinessSegment.ProfessionalService] = "专业服务",
+        [BusinessSegment.ProjectOverhead] = "项目间接费用",
+        [BusinessSegment.FundingStatus] = "项目资金状态",
+        [BusinessSegment.CostForecastRisk] = "成本预测与风险",
+        [BusinessSegment.SettlementResult] = "结算结果"
+    };
+
+    private static readonly Dictionary<EconomicDirection, string> DirectionNames = new()
+    {
+        [EconomicDirection.Income] = "收入",
+        [EconomicDirection.Expenditure] = "支出",
+        [EconomicDirection.Receipt] = "已收",
+        [EconomicDirection.Payment] = "已付",
+        [EconomicDirection.Neutral] = "中性"
+    };
+
+    public static string DisplayName(BusinessSegment segment)
+        => SegmentNames.GetValueOrDefault(segment, segment.ToString())!;
+
+    public static string DisplayName(EconomicDirection direction)
+        => DirectionNames.GetValueOrDefault(direction, direction.ToString())!;
+
+    /// <summary>面向用户展示的允许金额方向（中文，斜杠分隔）。</summary>
+    public static string AllowedDirectionsText(BusinessSegment segment)
+        => string.Join(" / ", AllowedDirections(segment).Select(DisplayName));
+
     /// <summary>开放板块（可跨所有角色观察）使用内置全角色；后台增补角色另经 extraAllowedRoles 并入。</summary>
     private static readonly string[] All = PartyRoleCodes.BuiltIn.ToArray();
 
@@ -142,10 +175,10 @@ public static class BusinessSegmentRules
                 if (!string.IsNullOrWhiteSpace(code)) allowed.Add(code);
 
         if (!allowed.Contains(roleCode))
-            return $"业务板块 {segment} 不允许角色 {roleCode}；如需使用，请在后台「板块角色授权」中增补该角色到此板块。";
+            return $"业务板块「{DisplayName(segment)}」不允许角色 {roleCode}；如需使用，请在后台「板块角色授权」中增补该角色到此板块。";
 
         if (!AllowedDirections(segment).Contains(direction))
-            return $"业务板块 {segment} 的金额方向只能是 {string.Join(" / ", AllowedDirections(segment))}，当前为 {direction}。";
+            return $"业务板块「{DisplayName(segment)}」的金额方向只能是 {AllowedDirectionsText(segment)}，当前为 {DisplayName(direction)}。";
 
         return null;
     }

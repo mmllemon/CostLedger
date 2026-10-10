@@ -119,7 +119,7 @@ public sealed class EconomicFactsService
 
         if (!BusinessSegmentRules.AllowedDirections(fact.Segment).Contains(fact.Direction))
             throw new InvalidOperationException(
-                $"业务板块 {fact.Segment} 的金额方向只能是 {string.Join(" / ", BusinessSegmentRules.AllowedDirections(fact.Segment))}，当前为 {fact.Direction}。");
+                $"业务板块「{BusinessSegmentRules.DisplayName(fact.Segment)}」的金额方向只能是 {BusinessSegmentRules.AllowedDirectionsText(fact.Segment)}，当前为 {BusinessSegmentRules.DisplayName(fact.Direction)}。");
 
         if (fact.PartyId is int partyId)
         {
@@ -130,7 +130,7 @@ public sealed class EconomicFactsService
                     (x.ContractId == fact.ContractId || (x.ContractId == null && fact.ContractId == null)), ct);
             if (relationship == null)
                 throw new InvalidOperationException(
-                    $"项目 {fact.ProjectId} 中该往来单位尚未在 {fact.Segment} 板块建立业务关系，不能直接登记金额。");
+                    $"项目 {fact.ProjectId} 中该往来单位尚未在「{BusinessSegmentRules.DisplayName(fact.Segment)}」板块建立业务关系，不能直接登记金额。");
 
             fact.Direction = relationship.Direction;
         }
