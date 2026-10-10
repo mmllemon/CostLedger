@@ -60,17 +60,17 @@ public partial class PartyLedgerView : UserControl
         Card("对上合同额", l.UpstreamAmount);
         Card("对下合同额", l.DownstreamAmount);
         Card("累计付款", l.Paid);
-        Card("未付", l.Unpaid, l.Unpaid > 0);
+        Card("未付（推算）", l.Unpaid, l.Unpaid > 0);
         Card("累计收款", l.Received);
-        Card("未收", l.Unreceived, l.Unreceived > 0);
+        Card("未收（推算）", l.Unreceived, l.Unreceived > 0);
 
         FillTable(ProjectHost,
-            new[] { "项目", "合同额", "累计付款", "未付", "累计收款" },
+            new[] { "项目", "合同额", "累计付款", "未付（推算）", "累计收款" },
             l.ByProject.Select(r => (new[] { r.ProjectName, Money(r.ContractAmount), Money(r.Paid), Money(r.Unpaid), Money(r.Received) }, r.Unpaid > 0)).ToList(),
             breachColumn: 3);
 
         FillTable(ContractHost,
-            new[] { "项目", "合同编号", "类型", "合同额", "已付", "未付" },
+            new[] { "项目", "合同编号", "类型", "合同额", "已付", "未付（推算）" },
             l.Contracts.Select(r => (new[] { r.ProjectName, r.ContractCode, r.TypeCode, Money(r.Amount), Money(r.Paid), Money(r.Unpaid) }, r.Unpaid > 0)).ToList(),
             breachColumn: 5);
     }
@@ -139,7 +139,7 @@ public partial class PartyLedgerView : UserControl
     {
         if (_current is null) return;
         var l = _current;
-        var headers = new[] { "项目", "合同编号", "类型", "合同额", "已付", "未付" };
+        var headers = new[] { "项目", "合同编号", "类型", "合同额", "已付", "未付（推算）" };
         var rows = l.Contracts
             .Select(r => new[] { r.ProjectName, r.ContractCode, r.TypeCode, Money(r.Amount), Money(r.Paid), Money(r.Unpaid) })
             .ToList();
@@ -150,6 +150,8 @@ public partial class PartyLedgerView : UserControl
         };
         var ledger = new LedgerResult($"往来单位台账 · {l.PartyName}", headers, rows, footers);
         var company = await new SystemParamService(_db).GetAsync("公司名称");
-        PrintService.OpenInBrowser(PrintService.BuildHtml(l.PartyName, ledger, DateTime.Now, company), "往来单位台账");
+        var asOf = l.AsOfDate is DateOnly d ? d.ToString("yyyy-MM-dd") : "无业务日期";
+        var caliber = PartyLedgerCaliber.Build(asOf);
+        PrintService.OpenInBrowser(PrintService.BuildHtml(l.PartyName, ledger, DateTime.Now, company, caliber), "往来单位台账");
     }
 }

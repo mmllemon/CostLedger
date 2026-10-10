@@ -21,7 +21,9 @@ public record PartyLedger(
     decimal Paid, decimal Unpaid, decimal Received, decimal Unreceived,
     int ProjectCount, int ContractCount,
     IReadOnlyList<PartyProjectRow> ByProject,
-    IReadOnlyList<PartyContractRow> Contracts);
+    IReadOnlyList<PartyContractRow> Contracts,
+    /// <summary>数据截至日期：本台账所依据的最晚合同签约日/收付款日。口径声明必须随报表一起打印。</summary>
+    DateOnly? AsOfDate = null);
 
 /// <summary>
 /// 往来单位台账（跨项目）：选一个单位 → 一下子看清它在公司所有项目的合同额、已付/未付、已收/未收。
@@ -89,10 +91,16 @@ public class PartyLedgerService
             .OrderBy(x => x.ProjectName).ThenBy(x => x.ContractCode)
             .ToList();
 
+        // 数据截至：取本单位所依据的最晚业务日期（合同签约日 / 收付款日）。
+        var asOfDates = new List<DateOnly>();
+        asOfDates.AddRange(contracts.Where(c => c.SignDate != default).Select(c => c.SignDate));
+        asOfDates.AddRange(partiesPayments.Where(p => p.Date != default).Select(p => p.Date));
+        DateOnly? asOf = asOfDates.Count == 0 ? null : asOfDates.Max();
+
         return new PartyLedger(
             party?.Name ?? $"单位 {partyId}", party?.RoleCode,
             contractTotal, upstream, downstream,
             paid, downstream - paid, received, upstream - received,
-            byProject.Count, contracts.Count, byProject, contractRows);
+            byProject.Count, contracts.Count, byProject, contractRows, asOf);
     }
 }

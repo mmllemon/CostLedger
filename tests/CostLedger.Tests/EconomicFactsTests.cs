@@ -35,14 +35,14 @@ public class EconomicFactsTests
             new ProjectPartyRelationship
             {
                 ProjectId = project.Id, PartyId = party.Id,
-                Role = ProjectPartyRole.MaterialSupplier,
+                RoleCode = PartyRoleCodes.MaterialSupplier,
                 Segment = BusinessSegment.MaterialSupply,
                 Direction = EconomicDirection.Expenditure
             },
             new ProjectPartyRelationship
             {
                 ProjectId = project.Id, PartyId = party.Id,
-                Role = ProjectPartyRole.ProfessionalServiceProvider,
+                RoleCode = PartyRoleCodes.ProfessionalServiceProvider,
                 Segment = BusinessSegment.ProfessionalService,
                 Direction = EconomicDirection.Expenditure
             });
@@ -159,17 +159,17 @@ public class EconomicFactsTests
     };
 
     [Theory]
-    [InlineData(ProjectPartyRole.Owner, BusinessSegment.UpstreamRevenue, EconomicDirection.Income, true)]
-    [InlineData(ProjectPartyRole.MaterialSupplier, BusinessSegment.MaterialSupply, EconomicDirection.Expenditure, true)]
-    [InlineData(ProjectPartyRole.LaborSubcontractor, BusinessSegment.LaborSubcontract, EconomicDirection.Expenditure, true)]
-    [InlineData(ProjectPartyRole.Owner, BusinessSegment.MaterialSupply, EconomicDirection.Expenditure, false)]
-    [InlineData(ProjectPartyRole.MaterialSupplier, BusinessSegment.UpstreamRevenue, EconomicDirection.Income, false)]
-    [InlineData(ProjectPartyRole.MaterialSupplier, BusinessSegment.FundingStatus, EconomicDirection.Payment, true)]
-    [InlineData(ProjectPartyRole.MaterialSupplier, BusinessSegment.FundingStatus, EconomicDirection.Expenditure, false)]
-    [InlineData(ProjectPartyRole.InternalProvider, BusinessSegment.ProjectOverhead, EconomicDirection.Expenditure, true)]
-    public void 板块决定允许的角色与金额方向(ProjectPartyRole role, BusinessSegment segment, EconomicDirection direction, bool allowed)
+    [InlineData(PartyRoleCodes.Owner, BusinessSegment.UpstreamRevenue, EconomicDirection.Income, true)]
+    [InlineData(PartyRoleCodes.MaterialSupplier, BusinessSegment.MaterialSupply, EconomicDirection.Expenditure, true)]
+    [InlineData(PartyRoleCodes.LaborSubcontractor, BusinessSegment.LaborSubcontract, EconomicDirection.Expenditure, true)]
+    [InlineData(PartyRoleCodes.Owner, BusinessSegment.MaterialSupply, EconomicDirection.Expenditure, false)]
+    [InlineData(PartyRoleCodes.MaterialSupplier, BusinessSegment.UpstreamRevenue, EconomicDirection.Income, false)]
+    [InlineData(PartyRoleCodes.MaterialSupplier, BusinessSegment.FundingStatus, EconomicDirection.Payment, true)]
+    [InlineData(PartyRoleCodes.MaterialSupplier, BusinessSegment.FundingStatus, EconomicDirection.Expenditure, false)]
+    [InlineData(PartyRoleCodes.InternalProvider, BusinessSegment.ProjectOverhead, EconomicDirection.Expenditure, true)]
+    public void 板块决定允许的角色与金额方向(string roleCode, BusinessSegment segment, EconomicDirection direction, bool allowed)
     {
-        var violation = BusinessSegmentRules.FindViolation(role, segment, direction);
+        var violation = BusinessSegmentRules.FindViolation(roleCode, segment, direction);
         if (allowed) violation.Should().BeNull();
         else violation.Should().NotBeNullOrWhiteSpace();
     }
@@ -186,7 +186,7 @@ public class EconomicFactsTests
         var act = () => new EconomicFactsService(db).RegisterRelationshipAsync(new ProjectPartyRelationship
         {
             ProjectId = project.Id, PartyId = party.Id,
-            Role = ProjectPartyRole.MaterialSupplier,
+            RoleCode = PartyRoleCodes.MaterialSupplier,
             Segment = BusinessSegment.UpstreamRevenue,
             Direction = EconomicDirection.Income
         });
@@ -211,7 +211,7 @@ public class EconomicFactsTests
         var act = () => new EconomicFactsService(db).RegisterRelationshipAsync(new ProjectPartyRelationship
         {
             ProjectId = p1.Id, PartyId = party.Id, ContractId = contract.Id,
-            Role = ProjectPartyRole.LaborSubcontractor,
+            RoleCode = PartyRoleCodes.LaborSubcontractor,
             Segment = BusinessSegment.LaborSubcontract,
             Direction = EconomicDirection.Expenditure
         });
@@ -230,7 +230,7 @@ public class EconomicFactsTests
         await new EconomicFactsService(db).RegisterRelationshipAsync(new ProjectPartyRelationship
         {
             ProjectId = project.Id, PartyId = party.Id,
-            Role = ProjectPartyRole.Owner,
+            RoleCode = PartyRoleCodes.Owner,
             Segment = BusinessSegment.UpstreamRevenue,
             Direction = EconomicDirection.Income
         });
@@ -373,5 +373,174 @@ public class EconomicFactsTests
         row.CoarsestSourcePrecision.Should().Be(ManagementPrecision.Professional);
         row.SourceCount.Should().Be(2);
         row.CheckedAmount.Should().Be(200_000m);
+    }
+
+    // ---------- 方案 A：角色由字典驱动，板块可增补授权，方向不可放宽 ----------
+
+    private static async Task SeedRoleDictAsync(AppDbContext db, params (string Code, string Name)[] extra)
+    {
+        var def = new LookupDef { Code = PartyRoleCodes.RoleLookupCode, Name = "项目业务角色" };
+        int sort = 1;
+        foreach (var code in PartyRoleCodes.BuiltIn)
+            def.Items.Add(new LookupItem { LookupDef = def, Code = code, Name = code, SortOrder = sort++ });
+        foreach (var (code, name) in extra)
+            def.Items.Add(new LookupItem { LookupDef = def, Code = code, Name = name, SortOrder = sort++ });
+        db.LookupDefs.Add(def);
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task 字典新增角色默认不被板块接受_授权后可登记()
+    {
+        using var db = CreateContext();
+        await SeedRoleDictAsync(db, ("PlantLease", "机械租赁单位"));
+        var project = new Project { Code = "P-1", Name = "项目一" };
+        var party = new Party { Name = "某机械租赁公司", RoleCode = "Supplier" };
+        db.AddRange(project, party);
+        await db.SaveChangesAsync();
+        var service = new EconomicFactsService(db);
+
+        Func<Task> beforeGrant = () => service.RegisterRelationshipAsync(new ProjectPartyRelationship
+        {
+            ProjectId = project.Id, PartyId = party.Id,
+            RoleCode = "PlantLease", Segment = BusinessSegment.MaterialSupply,
+            Direction = EconomicDirection.Expenditure
+        });
+        await beforeGrant.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*不允许角色 PlantLease*板块角色授权*");
+
+        await service.GrantSegmentRoleAsync(BusinessSegment.MaterialSupply, "PlantLease", "现场临设机械租赁计入材料供应口径");
+
+        var saved = await service.RegisterRelationshipAsync(new ProjectPartyRelationship
+        {
+            ProjectId = project.Id, PartyId = party.Id,
+            RoleCode = "PlantLease", Segment = BusinessSegment.MaterialSupply,
+            Direction = EconomicDirection.Expenditure
+        });
+        saved.RoleCode.Should().Be("PlantLease");
+        (await service.ExtraRolesAsync(BusinessSegment.MaterialSupply)).Should().Contain("PlantLease");
+    }
+
+    [Fact]
+    public async Task 授权不会放宽金额方向()
+    {
+        using var db = CreateContext();
+        await SeedRoleDictAsync(db, ("PlantLease", "机械租赁单位"));
+        var project = new Project { Code = "P-1", Name = "项目一" };
+        var party = new Party { Name = "机械租赁", RoleCode = "Supplier" };
+        db.AddRange(project, party);
+        await db.SaveChangesAsync();
+        var service = new EconomicFactsService(db);
+        await service.GrantSegmentRoleAsync(BusinessSegment.MaterialSupply, "PlantLease");
+
+        Func<Task> wrongDirection = () => service.RegisterRelationshipAsync(new ProjectPartyRelationship
+        {
+            ProjectId = project.Id, PartyId = party.Id,
+            RoleCode = "PlantLease", Segment = BusinessSegment.MaterialSupply,
+            Direction = EconomicDirection.Income
+        });
+        await wrongDirection.Should().ThrowAsync<InvalidOperationException>().WithMessage("*金额方向只能是*");
+    }
+
+    [Fact]
+    public async Task 拒绝授权字典中不存在的角色()
+    {
+        using var db = CreateContext();
+        await SeedRoleDictAsync(db);
+        var service = new EconomicFactsService(db);
+
+        Func<Task> grant = () => service.GrantSegmentRoleAsync(BusinessSegment.MaterialSupply, "GhostRole");
+        await grant.Should().ThrowAsync<InvalidOperationException>().WithMessage("*尚未在字典*定义*");
+        (await db.SegmentRolePermissions.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task 停用的字典角色不能再登记业务关系()
+    {
+        using var db = CreateContext();
+        await SeedRoleDictAsync(db, ("PlantLease", "机械租赁单位"));
+        var project = new Project { Code = "P-1", Name = "项目一" };
+        var party = new Party { Name = "机械租赁", RoleCode = "Supplier" };
+        db.AddRange(project, party);
+        await db.SaveChangesAsync();
+        var service = new EconomicFactsService(db);
+
+        var item = await db.LookupItems.SingleAsync(x => x.Code == "PlantLease");
+        item.IsEnabled = false;
+        await db.SaveChangesAsync();
+
+        Func<Task> register = () => service.RegisterRelationshipAsync(new ProjectPartyRelationship
+        {
+            ProjectId = project.Id, PartyId = party.Id,
+            RoleCode = "PlantLease", Segment = BusinessSegment.MaterialSupply,
+            Direction = EconomicDirection.Expenditure
+        });
+        await register.Should().ThrowAsync<InvalidOperationException>().WithMessage("*不在字典*启用项*");
+    }
+
+    [Fact]
+    public async Task 撤权只影响后续登记_不抹掉已建立关系()
+    {
+        using var db = CreateContext();
+        await SeedRoleDictAsync(db, ("PlantLease", "机械租赁单位"));
+        var project = new Project { Code = "P-1", Name = "项目一" };
+        var party = new Party { Name = "机械租赁", RoleCode = "Supplier" };
+        db.AddRange(project, party);
+        await db.SaveChangesAsync();
+        var service = new EconomicFactsService(db);
+        var grant = await service.GrantSegmentRoleAsync(BusinessSegment.MaterialSupply, "PlantLease");
+        await service.RegisterRelationshipAsync(new ProjectPartyRelationship
+        {
+            ProjectId = project.Id, PartyId = party.Id,
+            RoleCode = "PlantLease", Segment = BusinessSegment.MaterialSupply,
+            Direction = EconomicDirection.Expenditure
+        });
+
+        await service.RevokeSegmentRoleAsync(grant.Id);
+
+        (await db.ProjectPartyRelationships.CountAsync()).Should().Be(1);
+        Func<Task> afterRevoke = () => service.RegisterRelationshipAsync(new ProjectPartyRelationship
+        {
+            ProjectId = project.Id, PartyId = party.Id,
+            RoleCode = "PlantLease", Segment = BusinessSegment.MaterialSupply,
+            Direction = EconomicDirection.Expenditure
+        });
+        await afterRevoke.Should().ThrowAsync<InvalidOperationException>().WithMessage("*不允许角色*");
+    }
+
+    [Fact]
+    public async Task 同一角色重复授权不产生第二条记录()
+    {
+        using var db = CreateContext();
+        await SeedRoleDictAsync(db, ("PlantLease", "机械租赁单位"));
+        var service = new EconomicFactsService(db);
+        var first = await service.GrantSegmentRoleAsync(BusinessSegment.MaterialSupply, "PlantLease");
+        var second = await service.GrantSegmentRoleAsync(BusinessSegment.MaterialSupply, "PlantLease");
+        second.Id.Should().Be(first.Id);
+        (await db.SegmentRolePermissions.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public void 已有字典的旧账套仍能补种项目业务角色()
+    {
+        // SeedMetadata 遇已有 LookupDefs 会提前 return；新字典必须走独立幂等补种，
+        // 否则旧账套升级后角色下拉为空、业务关系根本无法登记（此前 SeedParams 踩过同一坑）。
+        var conn = new SqliteConnection("DataSource=:memory:");
+        conn.Open();
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseSqlite(conn).Options;
+        using var db = new AppDbContext(options);
+        db.Database.EnsureCreated();
+
+        db.LookupDefs.Add(new LookupDef { Code = "PartyRole", Name = "往来单位角色", Items = { new LookupItem { Code = "Supplier", Name = "供方" } } });
+        db.SaveChanges();
+
+        SeedData.SeedIfEmpty(db);   // 第二次进入：SeedMetadata 提前 return，补种仍生效
+
+        var def = db.LookupDefs.SingleOrDefault(d => d.Code == PartyRoleCodes.RoleLookupCode);
+        def.Should().NotBeNull();
+        def!.Items.Select(i => i.Code).Should().Contain(PartyRoleCodes.BuiltIn);
+        // 补种幂等：再次运行不产生第二份字典
+        SeedData.SeedIfEmpty(db);
+        db.LookupDefs.Count(d => d.Code == PartyRoleCodes.RoleLookupCode).Should().Be(1);
     }
 }

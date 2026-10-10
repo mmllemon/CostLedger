@@ -73,6 +73,7 @@ public class AppDbContext : DbContext
     public DbSet<CostForecastVersion> CostForecastVersions => Set<CostForecastVersion>();
     public DbSet<CostForecastLine> CostForecastLines => Set<CostForecastLine>();
     public DbSet<ChangeItem> ChangeItems => Set<ChangeItem>();
+    public DbSet<SegmentRolePermission> SegmentRolePermissions => Set<SegmentRolePermission>();
 
     /// <summary>为 true 时不写审计（用于种子/系统初始化）。</summary>
     public bool SuppressAudit { get; set; }
@@ -102,14 +103,24 @@ public class AppDbContext : DbContext
         mb.Entity<ProjectPartyRelationship>(b =>
         {
             b.HasKey(x => x.Id);
+            b.Property(x => x.RoleCode).HasMaxLength(48).IsRequired();
             b.Property(x => x.Note).HasMaxLength(500);
-            b.HasIndex(x => new { x.ProjectId, x.PartyId, x.ContractId, x.Segment, x.Role });
+            b.HasIndex(x => new { x.ProjectId, x.PartyId, x.ContractId, x.Segment, x.RoleCode });
+            b.HasIndex(x => new { x.ProjectId, x.Segment });
             b.HasOne(x => x.Project).WithMany(x => x.PartyRelationships)
                 .HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne(x => x.Party).WithMany(x => x.ProjectRelationships)
                 .HasForeignKey(x => x.PartyId).OnDelete(DeleteBehavior.Restrict);
             b.HasOne(x => x.Contract).WithMany(x => x.ProjectPartyRelationships)
                 .HasForeignKey(x => x.ContractId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        mb.Entity<SegmentRolePermission>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.RoleCode).HasMaxLength(48).IsRequired();
+            b.Property(x => x.Note).HasMaxLength(200);
+            b.HasIndex(x => new { x.Segment, x.RoleCode }).IsUnique();
         });
 
         mb.Entity<CostControlItem>(b =>
@@ -488,7 +499,7 @@ public class AppDbContext : DbContext
 public static class DbBootstrap
 {
     /// <summary>当前库结构版本。变更模型后 +1；未支持迁移的账套拒绝打开，绝不重建。</summary>
-    public const int SchemaVersion = 11;
+    public const int SchemaVersion = 12;
 
     /// <summary>当前账套文件路径（Configure 时记录，供备份等使用）。</summary>
     public static string? CurrentDbPath { get; private set; }

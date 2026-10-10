@@ -22,12 +22,20 @@ public sealed class EconomicFactsService
     public async Task<ProjectPartyRelationship> RegisterRelationshipAsync(
         ProjectPartyRelationship relationship, CancellationToken ct = default)
     {
+        await EnsureProjectAsync(relationship.ProjectId, ct);
+
+        // 角色代码必须是字典「项目业务角色」中已启用的项（内置六个代码由种子保证存在）。
+        var knownRoles = await ListRoleCodesAsync(ct);
+        if (knownRoles.Count > 0 && !knownRoles.Contains(relationship.RoleCode))
+            throw new InvalidOperationException(
+                $"角色 {relationship.RoleCode} 不在字典「项目业务角色」的启用项中；请先在后台字典维护中新增该角色。");
+
+        var extra = await ExtraRolesAsync(relationship.Segment, ct);
         var violation = BusinessSegmentRules.FindViolation(
-            relationship.Role, relationship.Segment, relationship.Direction);
+            relationship.RoleCode, relationship.Segment, relationship.Direction, extra);
         if (violation != null)
             throw new InvalidOperationException(violation);
 
-        await EnsureProjectAsync(relationship.ProjectId, ct);
         if (relationship.ContractId is int contractId)
         {
             var contract = await _db.Contracts.SingleOrDefaultAsync(x => x.Id == contractId, ct);
@@ -40,6 +48,63 @@ public sealed class EconomicFactsService
         await _db.SaveChangesAsync(ct);
         return relationship;
     }
+
+    /// <summary>
+    /// 后台「板块角色授权」：把字典新增的角色增补到某板块（如机械租赁单位 → 材料供应）。
+    /// 只能增补角色，不能新增板块或放宽金额方向。
+    /// </summary>
+    public async Task<SegmentRolePermission> GrantSegmentRoleAsync(
+        BusinessSegment segment, string roleCode, string? note = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(roleCode))
+            throw new InvalidOperationException("必须指定要增补的角色代码。");
+
+        var knownRoles = await ListRoleCodesAsync(ct);
+        if (knownRoles.Count > 0 && !knownRoles.Contains(roleCode))
+            throw new InvalidOperationException(
+                $"角色 {roleCode} 尚未在字典「项目业务角色」中定义，不能授权到板块。");
+
+        var existing = await _db.SegmentRolePermissions.SingleOrDefaultAsync(
+            x => x.Segment == segment && x.RoleCode == roleCode, ct);
+        if (existing != null) return existing;
+
+        var grant = new SegmentRolePermission { Segment = segment, RoleCode = roleCode, Note = note };
+        _db.SegmentRolePermissions.Add(grant);
+        await _db.SaveChangesAsync(ct);
+        return grant;
+    }
+
+    public Task<List<SegmentRolePermission>> ListSegmentRolePermissionsAsync(CancellationToken ct = default)
+        => _db.SegmentRolePermissions.AsNoTracking().OrderBy(x => x.Segment).ThenBy(x => x.RoleCode).ToListAsync(ct);
+
+    public async Task RevokeSegmentRoleAsync(int permissionId, CancellationToken ct = default)
+    {
+        var row = await _db.SegmentRolePermissions.SingleOrDefaultAsync(x => x.Id == permissionId, ct);
+        if (row == null) return;
+        // 已建立的业务关系不被抹掉：撤权只影响后续登记。
+        _db.SegmentRolePermissions.Remove(row);
+        await _db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>可选择的业务角色（字典启用项，含内置代码兜底）。</summary>
+    public async Task<List<string>> ListRoleCodesAsync(CancellationToken ct = default)
+    {
+        var fromLookup = await _db.LookupItems
+            .AsNoTracking()
+            .Where(i => i.IsEnabled && i.LookupDef!.Code == PartyRoleCodes.RoleLookupCode)
+            .OrderBy(i => i.SortOrder)
+            .Select(i => i.Code)
+            .ToListAsync(ct);
+        return fromLookup.Count > 0 ? fromLookup : PartyRoleCodes.BuiltIn.ToList();
+    }
+
+    /// <summary>该板块在内置矩阵之外被增补授权的角色代码。</summary>
+    public async Task<List<string>> ExtraRolesAsync(BusinessSegment segment, CancellationToken ct = default)
+        => await _db.SegmentRolePermissions
+            .AsNoTracking()
+            .Where(x => x.Segment == segment)
+            .Select(x => x.RoleCode)
+            .ToListAsync(ct);
 
     /// <summary>登记外部金额事实。金额带来源、截至日期、状态和精度；成本岗不因此核验财务正确性。</summary>
     public async Task<ExternalAmountFact> RegisterFactAsync(

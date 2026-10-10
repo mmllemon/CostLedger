@@ -44,15 +44,28 @@ public enum ManagementPrecision
     ContractLine
 }
 
-/// <summary>施工单位与往来单位在某个项目关系中的角色。</summary>
-public enum ProjectPartyRole
+/// <summary>
+/// 内置项目业务角色代码。角色本身由字典 <c>ProjectPartyRole</c> 定义（后台可增补，
+/// 如机械租赁单位、检测单位、运输单位），这里只固定"口径骨架"依赖的六个内置代码：
+/// 板块允许集合 = 内置代码 ∪ 后台增补授权。<b>业务板块不可增补</b>（仍为强类型枚举）。
+/// </summary>
+public static class PartyRoleCodes
 {
-    Owner,
-    MaterialSupplier,
-    LaborSubcontractor,
-    SpecialistSubcontractor,
-    ProfessionalServiceProvider,
-    InternalProvider
+    public const string Owner = "Owner";
+    public const string MaterialSupplier = "MaterialSupplier";
+    public const string LaborSubcontractor = "LaborSubcontractor";
+    public const string SpecialistSubcontractor = "SpecialistSubcontractor";
+    public const string ProfessionalServiceProvider = "ProfessionalServiceProvider";
+    public const string InternalProvider = "InternalProvider";
+
+    /// <summary>字典 LookupDef.Code：项目业务角色（区别于全局单位档案的 PartyRole）。</summary>
+    public const string RoleLookupCode = "ProjectPartyRole";
+
+    public static readonly IReadOnlyList<string> BuiltIn = new[]
+    {
+        Owner, MaterialSupplier, LaborSubcontractor, SpecialistSubcontractor,
+        ProfessionalServiceProvider, InternalProvider
+    };
 }
 
 /// <summary>来源金额分配状态。Unallocated 允许过程数据暂时无法归类。</summary>
@@ -67,24 +80,29 @@ public enum AllocationStatus
 /// 业务板块规则：板块决定对方单位可承担的角色与金额方向。
 /// 施工单位成本岗的对上收入、材料供应、劳务/专业分包、专业服务、间接费用、资金状态口径不同，
 /// 不能因为共用同一往来单位就跨板块混用方向。规则放在领域层，避免由 UI 或配置绕过。
+/// 角色代码来自字典（可增补），<see cref="extraAllowedRoles"/> 承载后台"板块角色授权"的增补项；
+/// 金额方向永远是内置矩阵，配置不得放宽方向。
 /// </summary>
 public static class BusinessSegmentRules
 {
-    private static readonly Dictionary<BusinessSegment, ProjectPartyRole[]> Roles = new()
+    /// <summary>开放板块（可跨所有角色观察）使用内置全角色；后台增补角色另经 extraAllowedRoles 并入。</summary>
+    private static readonly string[] All = PartyRoleCodes.BuiltIn.ToArray();
+
+    private static readonly Dictionary<BusinessSegment, string[]> Roles = new()
     {
-        [BusinessSegment.UpstreamRevenue] = new[] { ProjectPartyRole.Owner },
-        [BusinessSegment.MaterialSupply] = new[] { ProjectPartyRole.MaterialSupplier },
-        [BusinessSegment.LaborSubcontract] = new[] { ProjectPartyRole.LaborSubcontractor },
-        [BusinessSegment.SpecialistSubcontract] = new[] { ProjectPartyRole.SpecialistSubcontractor },
-        [BusinessSegment.ProfessionalService] = new[] { ProjectPartyRole.ProfessionalServiceProvider },
-        [BusinessSegment.ProjectOverhead] = new[] { ProjectPartyRole.InternalProvider },
+        [BusinessSegment.UpstreamRevenue] = new[] { PartyRoleCodes.Owner },
+        [BusinessSegment.MaterialSupply] = new[] { PartyRoleCodes.MaterialSupplier },
+        [BusinessSegment.LaborSubcontract] = new[] { PartyRoleCodes.LaborSubcontractor },
+        [BusinessSegment.SpecialistSubcontract] = new[] { PartyRoleCodes.SpecialistSubcontractor },
+        [BusinessSegment.ProfessionalService] = new[] { PartyRoleCodes.ProfessionalServiceProvider },
+        [BusinessSegment.ProjectOverhead] = new[] { PartyRoleCodes.InternalProvider },
         [BusinessSegment.FundingStatus] = new[]
         {
-            ProjectPartyRole.Owner, ProjectPartyRole.MaterialSupplier, ProjectPartyRole.LaborSubcontractor,
-            ProjectPartyRole.SpecialistSubcontractor, ProjectPartyRole.ProfessionalServiceProvider
+            PartyRoleCodes.Owner, PartyRoleCodes.MaterialSupplier, PartyRoleCodes.LaborSubcontractor,
+            PartyRoleCodes.SpecialistSubcontractor, PartyRoleCodes.ProfessionalServiceProvider
         },
-        [BusinessSegment.CostForecastRisk] = Enum.GetValues<ProjectPartyRole>(),
-        [BusinessSegment.SettlementResult] = Enum.GetValues<ProjectPartyRole>()
+        [BusinessSegment.CostForecastRisk] = All,
+        [BusinessSegment.SettlementResult] = All
     };
 
     private static readonly Dictionary<BusinessSegment, EconomicDirection[]> Directions = new()
@@ -106,18 +124,44 @@ public static class BusinessSegmentRules
     public static IReadOnlyCollection<EconomicDirection> AllowedDirections(BusinessSegment segment)
         => Directions.TryGetValue(segment, out var list) ? list : Array.Empty<EconomicDirection>();
 
+    /// <summary>板块内置允许的角色代码（不含后台增补授权）。</summary>
+    public static IReadOnlyCollection<string> BuiltInAllowedRoles(BusinessSegment segment)
+        => Roles.TryGetValue(segment, out var list) ? list : Array.Empty<string>();
+
     /// <summary>返回 null 表示组合成立；否则返回可直接展示给成本人员的纠正文案。</summary>
-    public static string? FindViolation(ProjectPartyRole role, BusinessSegment segment, EconomicDirection direction)
+    public static string? FindViolation(
+        string roleCode, BusinessSegment segment, EconomicDirection direction,
+        IEnumerable<string>? extraAllowedRoles = null)
     {
-        var allowedRoles = Roles.TryGetValue(segment, out var r) ? r : Array.Empty<ProjectPartyRole>();
-        if (!allowedRoles.Contains(role))
-            return $"业务板块 {segment} 不允许角色 {role}。";
+        if (string.IsNullOrWhiteSpace(roleCode))
+            return "业务关系必须指定对方单位在该板块中的角色（来自字典「项目业务角色」）。";
+
+        var allowed = new HashSet<string>(BuiltInAllowedRoles(segment), StringComparer.Ordinal);
+        if (extraAllowedRoles != null)
+            foreach (var code in extraAllowedRoles)
+                if (!string.IsNullOrWhiteSpace(code)) allowed.Add(code);
+
+        if (!allowed.Contains(roleCode))
+            return $"业务板块 {segment} 不允许角色 {roleCode}；如需使用，请在后台「板块角色授权」中增补该角色到此板块。";
 
         if (!AllowedDirections(segment).Contains(direction))
             return $"业务板块 {segment} 的金额方向只能是 {string.Join(" / ", AllowedDirections(segment))}，当前为 {direction}。";
 
         return null;
     }
+}
+
+/// <summary>
+/// 后台"板块角色授权"：把字典里新增的角色增补到某业务板块。
+/// 只能增补角色，不能新增业务板块、不能改变金额方向（那是强类型口径骨架）。
+/// </summary>
+public class SegmentRolePermission
+{
+    public int Id { get; set; }
+    public BusinessSegment Segment { get; set; }
+    /// <summary>角色代码，须存在于字典 ProjectPartyRole。</summary>
+    public string RoleCode { get; set; } = string.Empty;
+    public string? Note { get; set; }
 }
 
 /// <summary>成本控制项级过程汇总：保留来源精度，不把粗颗粒数据伪装成清单级结果。</summary>
@@ -185,7 +229,8 @@ public class ProjectPartyRelationship
     public Party? Party { get; set; }
     public int? ContractId { get; set; }
     public Contract? Contract { get; set; }
-    public ProjectPartyRole Role { get; set; }
+    /// <summary>角色代码，取自字典 ProjectPartyRole（后台可增补）。</summary>
+    public string RoleCode { get; set; } = string.Empty;
     public BusinessSegment Segment { get; set; }
     public EconomicDirection Direction { get; set; }
     public string? Note { get; set; }

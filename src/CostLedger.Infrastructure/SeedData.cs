@@ -16,6 +16,7 @@ public static class SeedData
         try
         {
             SeedMetadata(db);
+            SeedProjectPartyRoleDict(db);   // 幂等补种：SeedMetadata 遇已有字典会提前返回，新字典必须单独补
             SeedParams(db);
             SeedReports(db);            SeedDashboard(db);
             SeedAlerts(db);
@@ -85,6 +86,26 @@ public static class SeedData
         db.SaveChanges();
     }
 
+    /// <summary>
+    /// 幂等补种「项目业务角色」字典：SeedMetadata 在已有字典的账套会提前 return，
+    /// 故新增字典必须单独补种，否则旧账套升级后角色下拉为空、业务关系无法登记。
+    /// </summary>
+    private static void SeedProjectPartyRoleDict(AppDbContext db)
+    {
+        if (db.LookupDefs.Any(d => d.Code == "ProjectPartyRole")) return;
+
+        var def = new LookupDef { Code = "ProjectPartyRole", Name = "项目业务角色", Description = "成本岗在业务板块中对该单位的角色认定（可后台增补）", Items = {
+            new LookupItem { Code = "Owner", Name = "建设单位/甲方", SortOrder = 1 },
+            new LookupItem { Code = "MaterialSupplier", Name = "材料供应单位", SortOrder = 2 },
+            new LookupItem { Code = "LaborSubcontractor", Name = "劳务分包单位", SortOrder = 3 },
+            new LookupItem { Code = "SpecialistSubcontractor", Name = "专业分包单位", SortOrder = 4 },
+            new LookupItem { Code = "ProfessionalServiceProvider", Name = "专业服务单位", SortOrder = 5 },
+            new LookupItem { Code = "InternalProvider", Name = "项目部/内部", SortOrder = 6 },
+        } };
+        db.LookupDefs.Add(def);
+        db.SaveChanges();
+    }
+
     // ---------- M2-A 元数据（字典 + 实体/字段注册表） ----------
     private static void SeedMetadata(AppDbContext db)
     {
@@ -132,6 +153,7 @@ public static class SeedData
             new LookupItem { Code = "CON", Name = "施工", SortOrder = 2 },
             new LookupItem { Code = "SET", Name = "结算", SortOrder = 3 },
         } };
+        // 项目业务角色字典由 SeedProjectPartyRoleDict 单独幂等补种（单一来源，见上）
         db.LookupDefs.AddRange(partyRole, contractType, taxRate, unit, projCat, volt, stage);
 
         // 实体注册表 + 字段注册表（核心字段 IsCore=true；扩展字段 IsCore=false，由动态面板渲染）
