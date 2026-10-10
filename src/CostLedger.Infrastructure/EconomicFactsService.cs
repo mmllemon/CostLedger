@@ -193,6 +193,27 @@ public sealed class EconomicFactsService
             .ToListAsync(ct);
 
     /// <summary>
+    /// 新建成本控制项。编号与名称必填，编号在项目内唯一。
+    /// 校验放在服务层，界面与测试共用同一套规则，避免只在界面里做导致无测试覆盖。
+    /// </summary>
+    public async Task<CostControlItem> CreateControlItemAsync(
+        int projectId, string code, string name, int sortOrder = 0, CancellationToken ct = default)
+    {
+        await EnsureProjectAsync(projectId, ct);
+        code = (code ?? "").Trim();
+        name = (name ?? "").Trim();
+        if (code.Length == 0 || name.Length == 0)
+            throw new InvalidOperationException("控制项编号与名称必填。");
+        if (await _db.CostControlItems.AnyAsync(x => x.ProjectId == projectId && x.Code == code, ct))
+            throw new InvalidOperationException($"控制项编号 {code} 在本项目已存在。");
+
+        var item = new CostControlItem { ProjectId = projectId, Code = code, Name = name, SortOrder = sortOrder, IsActive = true };
+        _db.CostControlItems.Add(item);
+        await _db.SaveChangesAsync(ct);
+        return item;
+    }
+
+    /// <summary>
     /// 按成本控制项汇总已分配金额。同一项目允许粗颗粒过程数据与细颗粒结算数据并存：
     /// 每行保留最粗的来源精度，不提升为清单级。
     /// </summary>

@@ -252,15 +252,15 @@ public class CostControlView : UserControl, IProjectScoped
         if (_current is null) return;
         var code = _newCode.Text?.Trim() ?? "";
         var name = _newName.Text?.Trim() ?? "";
-        if (code.Length == 0 || name.Length == 0) { SetMsg("控制项编号与名称必填。", true); return; }
-        if (await _db.CostControlItems.AnyAsync(x => x.ProjectId == _current.Id && x.Code == code))
-        { SetMsg($"控制项编号 {code} 在本项目已存在。", true); return; }
         int.TryParse(_newSort.Text, out var sort);
-        _db.CostControlItems.Add(new CostControlItem { ProjectId = _current.Id, Code = code, Name = name, SortOrder = sort, IsActive = true });
-        await _db.SaveChangesAsync();
-        _newCode.Text = _newName.Text = "";
-        SetMsg($"已新建控制项 {code} {name}。");
-        await RefreshAsync();
+        try
+        {
+            await _svc.CreateControlItemAsync(_current.Id, code, name, sort);
+            _newCode.Text = _newName.Text = "";
+            SetMsg($"已新建控制项 {code} {name}。");
+            await RefreshAsync();
+        }
+        catch (Exception ex) { SetMsg(ex.Message, true); }
     }
 
     private async void OnRegisterRelationship(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

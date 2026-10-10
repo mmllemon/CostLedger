@@ -144,6 +144,29 @@ public class VerticalSliceTests
     }
 
     [Fact]
+    public async Task 新建控制项_编号或名称空则拒绝_重复编号则拒绝()
+    {
+        using var db = CreateContext();
+        var project = new Project { Code = "P-1", Name = "项目一" };
+        db.Projects.Add(project);
+        await db.SaveChangesAsync();
+        var svc = new EconomicFactsService(db);
+
+        // 名称空 → 拒绝
+        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.CreateControlItemAsync(project.Id, "01", "  "));
+        // 编号空 → 拒绝
+        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.CreateControlItemAsync(project.Id, "", "材料"));
+
+        // 正常新建 → 落库
+        var item = await svc.CreateControlItemAsync(project.Id, "01", "高压电缆材料", 10);
+        item.Id.Should().BeGreaterThan(0);
+        (await db.CostControlItems.CountAsync(x => x.ProjectId == project.Id)).Should().Be(1);
+
+        // 重复编号 → 拒绝
+        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.CreateControlItemAsync(project.Id, "01", "另一项"));
+    }
+
+    [Fact]
     public async Task 公司汇总等于各项目逐列相加且无版本项目不计入预计最终()
     {
         using var db = CreateContext();
