@@ -16,8 +16,8 @@ public static class SeedData
         try
         {
             SeedMetadata(db);
-            SeedReports(db);
-            SeedDashboard(db);
+            SeedParams(db);
+            SeedReports(db);            SeedDashboard(db);
             SeedAlerts(db);
             if (db.Projects.Any()) return;
             SeedDemoData(db);
@@ -72,6 +72,16 @@ public static class SeedData
         ledger.Columns.Add(new ReportColumn { FieldKey = "Status", Label = "状态", Visible = true, DisplayOrder = 5 });
 
         db.ReportDefs.Add(ledger);
+        db.SaveChanges();
+    }
+
+    // ---------- 阶段2 系统参数种子（幂等；值留空由用户在后台「系统参数」填） ----------
+    private static void SeedParams(AppDbContext db)
+    {
+        if (db.SystemParams.Any()) return;
+        db.SystemParams.AddRange(
+            new SystemParam { Key = "公司名称", Value = "", Description = "打印页眉显示的公司全称（选填）" },
+            new SystemParam { Key = "公司地址", Value = "", Description = "打印页眉显示的地址（选填）" });
         db.SaveChanges();
     }
 

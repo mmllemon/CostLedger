@@ -59,12 +59,14 @@ public partial class MasterDataView : UserControl
             PartyList.SelectedIndex = 0;
     }
 
-    private static void WireCombo(ComboBox cb, List<LookupItem> items)
+    /// <summary>阶段2：下拉只列启用字典项；current 为已停用历史值时保留显示，防止保存时静默丢值。</summary>
+    private void WireCombo(ComboBox cb, List<LookupItem> items, string? current = null)
     {
-        cb.ItemsSource = items;
+        var visible = LookupFilter.Visible(items, current);
+        cb.ItemsSource = visible;
         cb.DisplayMemberBinding = new Binding("Name");
         cb.SelectedValueBinding = new Binding("Code");
-        cb.SelectedValue = items.Count > 0 ? items[0].Code : null;
+        cb.SelectedValue = current ?? (visible.Count > 0 ? visible[0].Code : null);
     }
 
     // ---------------- 往来单位 ----------------
@@ -73,7 +75,7 @@ public partial class MasterDataView : UserControl
         if (PartyList.SelectedItem is not Party p) return;
         _currentPartyId = p.Id;
         PartyName.Text = p.Name;
-        PartyRole.SelectedValue = p.RoleCode;
+        WireCombo(PartyRole, _roleItems, p.RoleCode);
         PartyTaxNo.Text = p.TaxNo;
         PartyContact.Text = p.Contact;
         await PartyExt.LoadAsync("Party", p.Id);
@@ -83,7 +85,7 @@ public partial class MasterDataView : UserControl
     {
         _currentPartyId = 0;
         PartyName.Text = "";
-        PartyRole.SelectedValue = _roleItems.Count > 0 ? _roleItems[0].Code : null;
+        WireCombo(PartyRole, _roleItems);
         PartyTaxNo.Text = "";
         PartyContact.Text = "";
         PartyList.SelectedItem = null;
@@ -132,10 +134,11 @@ public partial class MasterDataView : UserControl
         if (ContractList.SelectedItem is not Contract c) return;
         _currentContractId = c.Id;
         ConCode.Text = c.Code;
-        ConType.SelectedValue = c.TypeCode;
+        WireCombo(ConType, _typeItems, c.TypeCode);
         ConTitle.Text = c.Title;
         ConAmount.Value = c.Amount;
-        ConTax.SelectedValue = c.TaxRate switch { 0.13m => "T13", 0.09m => "T09", 0.03m => "T03", 0.06m => "T06", _ => _taxItems.Count > 0 ? _taxItems[0].Code : null };
+        var taxCode = c.TaxRate switch { 0.13m => "T13", 0.09m => "T09", 0.03m => "T03", 0.06m => "T06", _ => null };
+        WireCombo(ConTax, _taxItems, taxCode);
         ConSignDate.SelectedDate = new DateTimeOffset(c.SignDate.ToDateTime(TimeOnly.MinValue));
         ConStatus.Text = c.Status;
         ConRetention.Value = c.RetentionRate;
@@ -147,10 +150,10 @@ public partial class MasterDataView : UserControl
     {
         _currentContractId = 0;
         ConCode.Text = "";
-        ConType.SelectedValue = _typeItems.Count > 0 ? _typeItems[0].Code : null;
+        WireCombo(ConType, _typeItems);
         ConTitle.Text = "";
         ConAmount.Value = 0;
-        ConTax.SelectedValue = _taxItems.Count > 0 ? _taxItems[0].Code : null;
+        WireCombo(ConTax, _taxItems);
         ConSignDate.SelectedDate = null;
         ConStatus.Text = "执行中";
         ConRetention.Value = 0;

@@ -20,6 +20,7 @@ namespace CostLedger.App.Views;
 public partial class PartyLedgerView : UserControl
 {
     private readonly PartyLedgerService _svc = null!;
+    private readonly AppDbContext _db = null!;   // 供打印页眉读取系统参数
     private PartyLedger? _current;
 
     public PartyLedgerView()
@@ -29,6 +30,7 @@ public partial class PartyLedgerView : UserControl
 
     public PartyLedgerView(AppDbContext db) : this()
     {
+        _db = db;
         _svc = new PartyLedgerService(db);
         _ = InitAsync();
     }
@@ -133,7 +135,7 @@ public partial class PartyLedgerView : UserControl
 
     private static string Money(decimal v) => v.ToString("N2", CultureInfo.CurrentCulture);
 
-    private void OnPrint(object? sender, RoutedEventArgs e)
+    private async void OnPrint(object? sender, RoutedEventArgs e)
     {
         if (_current is null) return;
         var l = _current;
@@ -147,6 +149,7 @@ public partial class PartyLedgerView : UserControl
             new[] { "累计收款", "", "", "", Money(l.Received), "" },
         };
         var ledger = new LedgerResult($"往来单位台账 · {l.PartyName}", headers, rows, footers);
-        PrintService.OpenInBrowser(PrintService.BuildHtml(l.PartyName, ledger, DateTime.Now), "往来单位台账");
+        var company = await new SystemParamService(_db).GetAsync("公司名称");
+        PrintService.OpenInBrowser(PrintService.BuildHtml(l.PartyName, ledger, DateTime.Now, company), "往来单位台账");
     }
 }

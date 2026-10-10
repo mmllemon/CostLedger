@@ -141,7 +141,7 @@ public partial class ProjectOverviewView : UserControl
 
     private static string Money(decimal v) => v.ToString("N2", CultureInfo.CurrentCulture);
 
-    private void OnPrint(object? sender, RoutedEventArgs e)
+    private async void OnPrint(object? sender, RoutedEventArgs e)
     {
         if (_current is null) return;
         var o = _current;
@@ -166,6 +166,7 @@ public partial class ProjectOverviewView : UserControl
             new[] { "毛利（对上−预计最终）", Money(o.GrossProfit) },
         };
         var ledger = new LedgerResult("项目总览", headers, rows, Array.Empty<string[]>());
-        PrintService.OpenInBrowser(PrintService.BuildHtml(o.ProjectName, ledger, DateTime.Now), "项目总览");
+        var company = await new SystemParamService(_db).GetAsync("公司名称");
+        PrintService.OpenInBrowser(PrintService.BuildHtml(o.ProjectName, ledger, DateTime.Now, company), "项目总览");
     }
 }

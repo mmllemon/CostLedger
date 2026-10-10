@@ -24,7 +24,7 @@ public class AuditInterceptor : SaveChangesInterceptor
         typeof(ChangeOrder), typeof(MaterialReceipt), typeof(Invoice), typeof(Settlement),
         typeof(Payment), typeof(Measurement), typeof(CostEntry), typeof(Project), typeof(Party), typeof(CostCategory),
         typeof(AlertRule), typeof(ScheduledTask),
-        typeof(DynamicRecord)
+        typeof(DynamicRecord), typeof(SystemParam)
     };
 
     public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result)

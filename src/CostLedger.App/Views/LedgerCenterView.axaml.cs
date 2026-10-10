@@ -174,10 +174,11 @@ public partial class LedgerCenterView : UserControl
     }
 
     // ---------- 打印 ----------
-    private void OnPrint(object? sender, RoutedEventArgs e)
+    private async void OnPrint(object? sender, RoutedEventArgs e)
     {
         if (_current is null) return;
-        PrintService.OpenInBrowser(PrintService.BuildHtml(_projectName, _current, DateTime.Now), _current.Title);
+        var company = await new SystemParamService(_db).GetAsync("公司名称");
+        PrintService.OpenInBrowser(PrintService.BuildHtml(_projectName, _current, DateTime.Now, company), _current.Title);
     }
 
     // ---------- 导出 CSV ----------

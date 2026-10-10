@@ -379,7 +379,8 @@ public partial class CostStructureView : UserControl
             Money(l.Incurred), Money(l.Variance), Money(l.EstimatedFinal)
         }).ToList();
         var ledger = new LedgerResult("按部位成本", headers, rows, Array.Empty<string[]>());
-        PrintService.OpenInBrowser(PrintService.BuildHtml(_projectName, ledger, DateTime.Now), "按部位成本");
+        var company = await new SystemParamService(_db).GetAsync("公司名称");
+        PrintService.OpenInBrowser(PrintService.BuildHtml(_projectName, ledger, DateTime.Now, company), "按部位成本");
     }
 
     private static string Money(decimal v) => v.ToString("N2", CultureInfo.CurrentCulture);

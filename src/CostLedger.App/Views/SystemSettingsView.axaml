@@ -42,6 +42,27 @@
         </StackPanel>
       </TabItem>
 
+      <!-- 系统参数 -->
+      <TabItem Header="系统参数">
+        <StackPanel Spacing="10" Margin="4,8,0,0">
+          <Grid ColumnDefinitions="1*,Auto" VerticalAlignment="Center">
+            <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource Txt3Brush}"
+                       Text="运行时键值配置（公司名称等）。改完保存即生效，免编译。注意：只放展示类参数，税率等业务口径仍走字典，不改算账逻辑。"/>
+            <Button Grid.Column="1" Classes="primary" Content="新增参数" Click="OnAddParam"/>
+          </Grid>
+          <Border Classes="sidecard">
+            <ScrollViewer MaxHeight="420">
+              <StackPanel x:Name="ParamPanel" Spacing="8"/>
+            </ScrollViewer>
+          </Border>
+          <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+            <TextBlock x:Name="ParamStatus" VerticalAlignment="Center" FontSize="12.5"
+                       Foreground="{StaticResource AccentDeepBrush}"/>
+            <Button Classes="primary" Content="保存参数" Click="OnSaveParams"/>
+          </StackPanel>
+        </StackPanel>
+      </TabItem>
+
       <!-- 数据备份 -->
       <TabItem Header="数据备份">
         <StackPanel Spacing="12" Margin="4,8,0,0">

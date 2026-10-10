@@ -8,6 +8,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
 using CostLedger.Domain;
 using CostLedger.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -24,7 +25,10 @@ public partial class SystemSettingsView : UserControl
     private List<LookupDef> _lookupDefs = new();
     private LookupDef? _selectedLookupDef;
     private List<LookupItem> _lookupItems = new();
-    private readonly List<(LookupItem Item, TextBox Code, TextBox Name, NumericUpDown Order)> _itemRows = new();
+    private readonly List<(LookupItem Item, TextBox Code, TextBox Name, NumericUpDown Order, CheckBox Enabled, TextBox Color)> _itemRows = new();
+
+    private readonly SystemParamService? _params;
+    private readonly List<(SystemParam Param, TextBox Key, TextBox Value, TextBox Desc)> _paramRows = new();
 
     private List<EntityDef> _entities = new();
     private EntityDef? _selectedEntity;
@@ -56,7 +60,10 @@ public partial class SystemSettingsView : UserControl
     public SystemSettingsView(MetadataService metadata, AppDbContext db) : this(metadata)
     {
         _audit = new AuditService(db);
+        _params = new SystemParamService(db);
+        _pdb = db;
         _ = LoadAuditAsync();
+        _ = LoadParamsAsync();
     }
 
     private AuditService? _audit;
@@ -189,6 +196,8 @@ public partial class SystemSettingsView : UserControl
             var code = new TextBox { Text = it.Code, Width = 120, Padding = new Thickness(8) };
             var name = new TextBox { Text = it.Name, Width = 200, Padding = new Thickness(8) };
             var order = new NumericUpDown { Value = it.SortOrder, Minimum = 0, Maximum = 9999, Width = 90 };
+            var enabled = new CheckBox { IsChecked = it.IsEnabled, Content = "启用", VerticalAlignment = VerticalAlignment.Center };
+            var color = new TextBox { Text = it.Color ?? "", Width = 92, Padding = new Thickness(8), Watermark = "#CC785C" };
             var del = new Button { Content = "删除" }; del.Classes.Add("danger");
             var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
             row.Children.Add(new TextBlock { Text = "代码", VerticalAlignment = VerticalAlignment.Center, Foreground = (SolidColorBrush)Brush("Txt3Brush") });
@@ -197,9 +206,12 @@ public partial class SystemSettingsView : UserControl
             row.Children.Add(name);
             row.Children.Add(new TextBlock { Text = "序", VerticalAlignment = VerticalAlignment.Center, Foreground = Brush("Txt3Brush") });
             row.Children.Add(order);
+            row.Children.Add(enabled);
+            row.Children.Add(new TextBlock { Text = "色", VerticalAlignment = VerticalAlignment.Center, Foreground = Brush("Txt3Brush") });
+            row.Children.Add(color);
             row.Children.Add(del);
             del.Click += (_, _) => { _lookupItems.Remove(it); BuildLookupItemRows(); };
-            _itemRows.Add((it, code, name, order));
+            _itemRows.Add((it, code, name, order, enabled, color));
             LookupItemPanel.Children.Add(row);
         }
     }
@@ -215,11 +227,14 @@ public partial class SystemSettingsView : UserControl
     {
         if (_selectedLookupDef is null) return;
         var def = _selectedLookupDef;
-        foreach (var (item, code, name, order) in _itemRows)
+        foreach (var (item, code, name, order, enabled, color) in _itemRows)
         {
             item.Code = code.Text?.Trim() ?? "";
             item.Name = name.Text?.Trim() ?? "";
             item.SortOrder = (int)(order.Value ?? 0);
+            item.IsEnabled = enabled.IsChecked == true;
+            var c = color.Text?.Trim();
+            item.Color = string.IsNullOrEmpty(c) ? null : c;
             item.LookupDefId = def.Id;
             if (!string.IsNullOrEmpty(item.Code) && !string.IsNullOrEmpty(item.Name))
                 await _metadata.SaveLookupItemAsync(item);
@@ -317,5 +332,65 @@ public partial class SystemSettingsView : UserControl
                 await _metadata.SaveFieldDefAsync(def);
         }
         await LoadFieldsAsync(ent.Code);
+    }
+
+    // ---------------- 系统参数（阶段2） ----------------
+    private AppDbContext? _pdb;                       // 与 _audit 同源，仅两参构造时有
+    private List<SystemParam> _paramsList = new();
+
+    private async Task LoadParamsAsync()
+    {
+        if (_pdb is null) return;
+        _paramsList = await _pdb.SystemParams.OrderBy(p => p.Key).ToListAsync();
+        BuildParamRows();
+    }
+
+    private void BuildParamRows()
+    {
+        ParamPanel.Children.Clear();
+        _paramRows.Clear();
+        foreach (var p in _paramsList)
+        {
+            var key = new TextBox { Text = p.Key, Width = 160, Padding = new Thickness(8) };
+            var value = new TextBox { Text = p.Value, Width = 260, Padding = new Thickness(8) };
+            var desc = new TextBox { Text = p.Description ?? "", Width = 260, Padding = new Thickness(8), Watermark = "用途说明（选填）" };
+            var del = new Button { Content = "删除" }; del.Classes.Add("danger");
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
+            row.Children.Add(new TextBlock { Text = "键", VerticalAlignment = VerticalAlignment.Center, Foreground = Brush("Txt3Brush") });
+            row.Children.Add(key);
+            row.Children.Add(new TextBlock { Text = "值", VerticalAlignment = VerticalAlignment.Center, Foreground = Brush("Txt3Brush") });
+            row.Children.Add(value);
+            row.Children.Add(desc);
+            row.Children.Add(del);
+            del.Click += async (_, _) =>
+            {
+                if (_params is null) return;
+                await _params.DeleteAsync(p.Key);      // 立即落库删除
+                await LoadParamsAsync();
+            };
+            _paramRows.Add((p, key, value, desc));
+            ParamPanel.Children.Add(row);
+        }
+    }
+
+    private void OnAddParam(object? sender, RoutedEventArgs e)
+    {
+        _paramsList.Add(new SystemParam { Key = "", Value = "", Description = "" });
+        BuildParamRows();
+    }
+
+    private async void OnSaveParams(object? sender, RoutedEventArgs e)
+    {
+        if (_params is null) return;
+        var seen = new HashSet<string>();
+        foreach (var (p, key, value, desc) in _paramRows)
+        {
+            var k = key.Text?.Trim() ?? "";
+            if (string.IsNullOrEmpty(k) || !seen.Add(k)) continue;   // 空键跳过、重复键只存第一条
+            await _params.SetAsync(k, value.Text?.Trim() ?? "", desc.Text?.Trim());
+            if (p.Key != k && !string.IsNullOrEmpty(p.Key)) await _params.DeleteAsync(p.Key);   // 改键 = 删旧建新
+        }
+        await LoadParamsAsync();
+        ParamStatus.Text = "已保存，立即生效";
     }
 }

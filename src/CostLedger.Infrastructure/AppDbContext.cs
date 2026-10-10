@@ -34,6 +34,9 @@ public class AppDbContext : DbContext
     public DbSet<DynamicRecord> DynamicRecords => Set<DynamicRecord>();
     public DbSet<DynamicValue> DynamicValues => Set<DynamicValue>();
 
+    // 阶段2：系统参数（运行时 key-value 配置）
+    public DbSet<SystemParam> SystemParams => Set<SystemParam>();
+
     // M2-C 报表层
     public DbSet<ReportDef> ReportDefs => Set<ReportDef>();
     public DbSet<ReportColumn> ReportColumns => Set<ReportColumn>();
@@ -212,8 +215,17 @@ public class AppDbContext : DbContext
             b.HasKey(x => x.Id);
             b.Property(x => x.Code).HasMaxLength(48);
             b.Property(x => x.Name).HasMaxLength(80);
+            b.Property(x => x.Color).HasMaxLength(9);   // #RRGGBB 或 #RRGGBBAA
             b.HasOne(x => x.LookupDef).WithMany(x => x.Items)
                 .HasForeignKey(x => x.LookupDefId).OnDelete(DeleteBehavior.Cascade);
+        });
+        mb.Entity<SystemParam>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Key).HasMaxLength(64);
+            b.Property(x => x.Value).HasMaxLength(500);
+            b.Property(x => x.Description).HasMaxLength(200);
+            b.HasIndex(x => x.Key).IsUnique();
         });
         mb.Entity<EntityDef>(b =>
         {
@@ -379,7 +391,7 @@ public class AppDbContext : DbContext
 public static class DbBootstrap
 {
     /// <summary>当前库结构版本。每次变更模型后 +1，旧库会自动备份并重建。</summary>
-    public const int SchemaVersion = 8;
+    public const int SchemaVersion = 9;
 
     /// <summary>当前账套文件路径（Configure 时记录，供备份等使用）。</summary>
     public static string? CurrentDbPath { get; private set; }

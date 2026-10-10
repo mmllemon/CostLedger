@@ -49,9 +49,10 @@ internal static class ControlFactory
 
             case FieldType.Lookup:
                 var combo = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = "请选择" };
-                if (lookupItems is { Count: > 0 })
+                var visible = LookupFilter.Visible(lookupItems, current);
+                if (visible.Count > 0)
                 {
-                    combo.ItemsSource = lookupItems;
+                    combo.ItemsSource = visible;
                     combo.DisplayMemberBinding = new Binding("Name");
                     combo.SelectedValueBinding = new Binding("Code");
                     combo.SelectedValue = current;

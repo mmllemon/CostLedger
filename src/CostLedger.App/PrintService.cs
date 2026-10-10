@@ -13,7 +13,7 @@ namespace CostLedger.App;
 /// </summary>
 public static class PrintService
 {
-    public static string BuildHtml(string projectName, LedgerResult ledger, DateTime printedAt)
+    public static string BuildHtml(string projectName, LedgerResult ledger, DateTime printedAt, string? company = null)
     {
         var sb = new StringBuilder();
         sb.Append("<!DOCTYPE html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\"/>");
@@ -38,6 +38,12 @@ tfoot td { font-weight:700; background:#fafafa; }
 </style></head><body>");
 
         sb.Append("<div class=\"bar\"><button onclick=\"window.print()\">打印 / 另存为 PDF</button></div>");
+        // 阶段2 系统参数：公司名称/地址填了才显示（后台「系统参数」维护）
+        if (!string.IsNullOrWhiteSpace(company))
+        {
+            sb.Append("<div style=\"text-align:center;font-size:13px;font-weight:700;letter-spacing:1px;\">")
+              .Append(Esc(company)).Append("</div>");
+        }
         sb.Append("<div class=\"hd\"><div class=\"t\">").Append(Esc(ledger.Title)).Append("</div>");
         sb.Append("<div class=\"s\">项目：").Append(Esc(projectName)).Append("　打印日期：")
           .Append(printedAt.ToString("yyyy-MM-dd")).Append("</div></div>");

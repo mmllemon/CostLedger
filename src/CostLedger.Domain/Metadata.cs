@@ -34,6 +34,23 @@ public class LookupItem
     public string Code { get; set; } = string.Empty;   // 值代码，如 "Supplier"
     public string Name { get; set; } = string.Empty;   // 显示名，如 "供方"
     public int SortOrder { get; set; }
+    /// <summary>false=已停用：新录入的下拉不再出现，但历史数据回显保留（渲染层 ControlFactory.VisibleLookupItems 过滤）。</summary>
+    public bool IsEnabled { get; set; } = true;
+    /// <summary>标记色（可选，#RRGGBB），列表/看板展示时用于视觉区分。</summary>
+    public string? Color { get; set; }
+}
+
+/// <summary>
+/// 系统参数（运行时 key-value 配置）：公司信息等可在后台"系统参数"页维护，改完即生效，免编译。
+/// 铁律：只放"边框与标签"类参数（公司名称、打印页脚等），绝不放成本脊柱算账参数（税率模板仍走字典）。
+/// </summary>
+public class SystemParam
+{
+    public int Id { get; set; }
+    public string Key { get; set; } = string.Empty;        // 唯一键，如 "公司名称"
+    public string Value { get; set; } = string.Empty;
+    public string? Description { get; set; }               // 用途说明，便于他人维护
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
 /// <summary>
