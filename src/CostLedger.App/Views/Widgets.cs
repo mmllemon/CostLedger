@@ -395,35 +395,43 @@ internal static class Widgets
     }
 
     /// <summary>
-    /// 打开居中模态卡片表单；提交委托返回 null 表示成功（关闭），返回中文文案表示失败（卡片内显示）。
+    /// 以半透明遮罩 + 居中卡片的形式打开模态表单（挂在宿主窗口根层，不新开窗口）。
+    /// 提交委托返回 null 表示成功（关闭），返回中文文案表示失败（卡片内显示）。
     /// </summary>
     public static void OpenForm(Visual anchor, string title, string subtitle, Control body,
         string primaryText, Func<Task<string?>> submit)
     {
-        var dialog = new FormDialog(title, subtitle, body, primaryText, submit);
         var owner = TopLevel.GetTopLevel(anchor) as Window;
-        if (owner != null) _ = dialog.ShowDialog(owner);
-        else dialog.Show();
+        if (owner?.Content is not Control root) return;
+
+        if (owner.Content is not Grid host)
+        {
+            // 把原内容包进 Grid，便于叠加遮罩层
+            owner.Content = null;
+            host = new Grid();
+            host.Children.Add(root);
+            owner.Content = host;
+        }
+
+        var overlay = FormDialog.Build(title, subtitle, body, primaryText, submit, () =>
+        {
+            host.Children.Remove(host.Children[^1]);
+        });
+        // 宿主 Grid 有行列定义时，叠加层必须跨满整张网格，否则会缩到首格（左上角）。
+        Grid.SetRow(overlay, 0);
+        Grid.SetColumn(overlay, 0);
+        Grid.SetRowSpan(overlay, Math.Max(1, host.RowDefinitions.Count));
+        Grid.SetColumnSpan(overlay, Math.Max(1, host.ColumnDefinitions.Count));
+        host.Children.Add(overlay);
     }
 
-    /// <summary>居中模态输入卡片。宽 520，内容可滚动，底部取消 / 提交。</summary>
-    internal sealed class FormDialog : Window
+    /// <summary>居中模态输入卡片（以遮罩层形式叠加在宿主窗口内）。</summary>
+    internal static class FormDialog
     {
-        private readonly TextBlock _error;
-        private readonly Button _primary;
-
-        public FormDialog(string title, string subtitle, Control body, string primaryText, Func<Task<string?>> submit)
+        public static Control Build(string title, string subtitle, Control body, string primaryText,
+            Func<Task<string?>> submit, Action onClose)
         {
-            Title = title;
-            Width = 520;
-            SizeToContent = SizeToContent.Height;
-            MaxHeight = 720;
-            CanResize = false;
-            WindowStartupLocation = WindowStartupLocation.CenterOwner;
-            Background = Palette.Bg;
-            ShowInTaskbar = false;
-
-            _error = new TextBlock { FontSize = 12, Foreground = Palette.Red, TextWrapping = TextWrapping.Wrap, IsVisible = false, LineHeight = 19 };
+            var error = new TextBlock { FontSize = 12, Foreground = Palette.Red, TextWrapping = TextWrapping.Wrap, IsVisible = false, LineHeight = 19 };
 
             var head = new StackPanel { Spacing = 3 };
             head.Children.Add(new TextBlock { Text = title, FontSize = 16, FontWeight = FontWeight.Bold, Foreground = Palette.Ink });
@@ -432,40 +440,51 @@ internal static class Widgets
 
             var cancel = new Button { Content = "取消" };
             cancel.Classes.Add("pill");
-            cancel.Click += (_, _) => Close();
-            _primary = new Button { Content = primaryText };
-            _primary.Classes.Add("primary");
-            _primary.Click += async (_, _) =>
+            cancel.Click += (_, _) => onClose();
+            var primary = new Button { Content = primaryText };
+            primary.Classes.Add("primary");
+            primary.Click += async (_, _) =>
             {
-                _primary.IsEnabled = false;
+                primary.IsEnabled = false;
                 try
                 {
                     var err = await submit();
-                    if (err is null) Close();
-                    else { _error.Text = err; _error.IsVisible = true; }
+                    if (err is null) onClose();
+                    else { error.Text = err; error.IsVisible = true; }
                 }
-                catch (Exception ex) { _error.Text = ex.Message; _error.IsVisible = true; }
-                finally { _primary.IsEnabled = true; }
+                catch (Exception ex) { error.Text = ex.Message; error.IsVisible = true; }
+                finally { primary.IsEnabled = true; }
             };
 
             var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, HorizontalAlignment = HorizontalAlignment.Right };
             buttons.Children.Add(cancel);
-            buttons.Children.Add(_primary);
+            buttons.Children.Add(primary);
 
             var card = new StackPanel { Spacing = 14 };
             card.Children.Add(head);
             card.Children.Add(body);
-            card.Children.Add(_error);
+            card.Children.Add(error);
             card.Children.Add(buttons);
 
-            Content = new Border
+            var cardBorder = new Border
             {
                 Background = Palette.Card,
                 CornerRadius = new CornerRadius(18),
                 Padding = new Thickness(22),
-                Margin = new Thickness(14),
+                MaxWidth = 520,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                BoxShadow = new BoxShadows(new BoxShadow { Blur = 40, Color = Color.Parse("#40000000"), OffsetY = 8 }),
                 Child = new ScrollViewer { Content = card, MaxHeight = 640, VerticalScrollBarVisibility = ScrollBarVisibility.Auto }
             };
+
+            // 半透明遮罩：拦截下层交互，点击遮罩空白不关闭（避免误失输入）
+            var scrim = new Border
+            {
+                Background = new SolidColorBrush(Color.Parse("#661E1810")),
+                Child = cardBorder
+            };
+            return scrim;
         }
     }
 
@@ -537,22 +556,33 @@ internal static class Widgets
         };
     }
 
-    /// <summary>分段按钮组（枚举选择）：选中项高亮强调色，替代下拉框。</summary>
-    public static Control Segmented<T>(IReadOnlyList<Pick<T>> options, T? selected, Action<T> onPick)
+    /// <summary>
+    /// 分段按钮组（枚举选择）：选中项高亮强调色，替代下拉框。
+    /// columns &gt; 0 时用等分列网格排布，消除参差换行；否则流式换行。
+    /// </summary>
+    public static Control Segmented<T>(IReadOnlyList<Pick<T>> options, T? selected, Action<T> onPick, int columns = 0)
     {
-        var wrap = new WrapPanel();
+        var buttons = new List<Button>();
+        Panel wrap;
+        if (columns > 0)
+            wrap = new UniformGrid { Columns = columns };
+        else
+            wrap = new WrapPanel();
+
+        var isUniform = wrap is UniformGrid;
         foreach (var opt in options)
         {
-            var b = new Button { Content = opt.Label, Tag = opt.Value };
+            var b = new Button { Content = opt.Label, Tag = opt.Value, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Center };
             b.Classes.Add("seg");
+            if (isUniform) b.Margin = new Thickness(0, 0, 6, 6);
             if (EqualityComparer<T?>.Default.Equals(selected, opt.Value)) b.Classes.Add("on");
             b.Click += (_, _) =>
             {
-                foreach (var child in wrap.Children)
-                    if (child is Button bb) bb.Classes.Remove("on");
+                foreach (var bb in buttons) bb.Classes.Remove("on");
                 b.Classes.Add("on");
                 onPick(opt.Value);
             };
+            buttons.Add(b);
             wrap.Children.Add(b);
         }
         return wrap;

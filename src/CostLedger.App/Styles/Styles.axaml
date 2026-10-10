@@ -158,6 +158,16 @@
     <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
   </Style>
 
+  <!-- ============ 键盘焦点可见环（Tab 导航用，鼠标点击不触发） ============ -->
+  <Style Selector="Button:focus-visible">
+    <Setter Property="BorderBrush" Value="{StaticResource AccentDeepBrush}"/>
+    <Setter Property="BorderThickness" Value="2"/>
+  </Style>
+  <Style Selector="TextBox:focus-visible, ComboBox:focus-visible, NumericUpDown:focus-visible, DatePicker:focus-visible">
+    <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+    <Setter Property="BorderThickness" Value="2"/>
+  </Style>
+
   <!-- ============ 状态标签 Badge ============ -->
   <Style Selector="Border.badge">
     <Setter Property="CornerRadius" Value="{StaticResource BlockRadius}"/>

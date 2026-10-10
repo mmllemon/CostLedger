@@ -121,7 +121,7 @@ public class RegisterAmountView : UserControl, IProjectScoped
             _direction = BusinessSegmentRules.AllowedDirections(v).FirstOrDefault();
             if (_direction == default) _direction = EconomicDirection.Expenditure;
             UpdateDirectionText();
-        }));
+        }, columns: 4));
     }
 
     private void UpdateDirectionText() => _directionText.Text = UiText.Direction(_direction);
