@@ -125,6 +125,31 @@
     <Setter Property="FontWeight" Value="SemiBold"/>
   </Style>
 
+  <!-- ============ 自绘标题栏窗口按钮（最小化/最大化/关闭） ============ -->
+  <Style Selector="Button.wbtn">
+    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="BorderThickness" Value="0"/>
+    <Setter Property="CornerRadius" Value="0"/>
+    <Setter Property="Width" Value="46"/>
+    <Setter Property="Padding" Value="0"/>
+    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Button.wbtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#E7DAC9"/>
+  </Style>
+  <Style Selector="Button.wbtn.close:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#BE4A3C"/>
+  </Style>
+  <Style Selector="Button.wbtn.close:pointerover TextBlock.wico">
+    <Setter Property="Foreground" Value="{StaticResource WhiteBrush}"/>
+  </Style>
+  <Style Selector="TextBlock.wico">
+    <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+    <Setter Property="FontSize" Value="11"/>
+    <Setter Property="Foreground" Value="{StaticResource Txt2Brush}"/>
+  </Style>
+
   <Style Selector="Button.icon">
     <Setter Property="Width" Value="36"/>
     <Setter Property="Height" Value="36"/>

@@ -4,11 +4,39 @@
         x:Class="CostLedger.App.MainWindow"
         Title="成本台账 · CostLedger"
         Width="1180" Height="760"
+        MinWidth="900" MinHeight="600"
         Background="{StaticResource BgBrush}"
-        FontFamily="Microsoft YaHei, Segoe UI, sans-serif">
-  <Grid RowDefinitions="Auto,*" ColumnDefinitions="208,1*">
-    <!-- 全局栏：公司 + 当前项目切换 + 数据截至 -->
+        FontFamily="Microsoft YaHei, Segoe UI, sans-serif"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="PreferSystemChrome"
+        ExtendClientAreaTitleBarHeightHint="42">
+  <Grid RowDefinitions="42,Auto,*" ColumnDefinitions="208,1*">
+    <!-- 自绘标题栏：拖动区 + 窗口按钮；去掉系统标题栏，让应用连成一体 -->
     <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+            Background="{StaticResource CardBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="*,Auto">
+        <!-- 拖动区：按下拖动窗口，双击最大化/还原 -->
+        <StackPanel Grid.Column="0" x:Name="TitleDragArea" Orientation="Horizontal" Spacing="9"
+                    VerticalAlignment="Center" Margin="14,0"
+                    Background="Transparent"
+                    PointerPressed="OnTitleBarPointerPressed">
+          <Border Classes="brandmark" Width="24" Height="24" VerticalAlignment="Center">
+            <TextBlock Text="诺" FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+          </Border>
+          <TextBlock Text="诺亨成本" FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
+          <TextBlock Text="综合成本管理" FontSize="11" Foreground="{StaticResource Txt3Brush}" VerticalAlignment="Center"/>
+        </StackPanel>
+        <!-- 窗口按钮 -->
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Stretch">
+          <Button x:Name="WinMin" Classes="wbtn" Click="OnMinimize"><TextBlock Text="&#xE921;" Classes="wico"/></Button>
+          <Button x:Name="WinMax" Classes="wbtn" Click="OnToggleMaximize"><TextBlock x:Name="WinMaxGlyph" Text="&#xE922;" Classes="wico"/></Button>
+          <Button x:Name="WinClose" Classes="wbtn close" Click="OnClose"><TextBlock Text="&#xE8BB;" Classes="wico"/></Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- 全局栏：公司 + 当前项目切换 + 数据截至 -->
+    <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
             Background="{StaticResource CardBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1"
             Padding="16,10">
       <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
@@ -21,7 +49,7 @@
     </Border>
 
     <!-- 侧栏（可滚动，避免下方导航在矮窗口不可达） -->
-    <ScrollViewer Grid.Row="1" Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0">
+    <ScrollViewer Grid.Row="2" Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0">
     <StackPanel Margin="14,16">
       <StackPanel Orientation="Horizontal" Spacing="10" Margin="6,6,6,18">
         <Border Classes="brandmark"><TextBlock Text="诺"/></Border>
@@ -70,6 +98,6 @@
     </ScrollViewer>
 
     <!-- 主区 -->
-    <ContentControl Grid.Row="1" Grid.Column="1" x:Name="MainArea" Margin="0,0,0,0"/>
+    <ContentControl Grid.Row="2" Grid.Column="1" x:Name="MainArea" Margin="0,0,0,0"/>
   </Grid>
 </Window>

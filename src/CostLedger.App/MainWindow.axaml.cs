@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 using CostLedger.App.ViewModels;
 using CostLedger.App.Views;
@@ -55,6 +57,39 @@ public partial class MainWindow : Window
         StartScheduler();
         _ = LoadProjectsAsync();
         NavigateTo("NavCompany");
+        this.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == WindowStateProperty) UpdateMaxGlyph();
+        };
+    }
+
+    /// <summary>自绘标题栏拖动：双击切换最大化/还原，否则按系统方式拖动窗口。</summary>
+    private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.ClickCount == 2)
+        {
+            ToggleMaximize();
+            return;
+        }
+        BeginMoveDrag(e);
+    }
+
+    private void OnMinimize(object? sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+    private void OnToggleMaximize(object? sender, RoutedEventArgs e) => ToggleMaximize();
+
+    private void OnClose(object? sender, RoutedEventArgs e) => Close();
+
+    private void ToggleMaximize()
+    {
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+        UpdateMaxGlyph();
+    }
+
+    private void UpdateMaxGlyph()
+    {
+        if (WinMaxGlyph is not null)
+            WinMaxGlyph.Text = WindowState == WindowState.Maximized ? "\uE923" : "\uE922";
     }
 
     /// <summary>把异常就地显示在主区，而不是让程序崩溃退出。</summary>
