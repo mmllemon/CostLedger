@@ -136,7 +136,7 @@ public partial class MainWindow : Window
 
     private void SetActive(string key)
     {
-        foreach (var b in new[] { NavCompany, NavProjects, NavCockpit, NavCostControl, NavRegister, NavForecast, NavChangeItems, NavDashboard, NavOverview, NavLedgers, NavParties, NavCost, NavMaster, NavDocs, NavProject, NavCategory, NavReports, NavExternalResults, NavBoardDesign, NavAlerts, NavRecon, NavSettings, NavAdmin, NavObjects })
+        foreach (var b in new[] { NavCompany, NavProjects, NavCockpit, NavCostControl, NavRegister, NavForecast, NavChangeItems, NavOverview, NavLedgers, NavParties, NavCost, NavMaster, NavDocs, NavCategory, NavReports, NavExternalResults, NavAlerts, NavRecon, NavSettings, NavAdmin, NavObjects })
             b.Classes.Remove("on");
         var target = key switch
         {
@@ -154,16 +154,14 @@ public partial class MainWindow : Window
             "NavCost" => NavCost,
             "NavMaster" => NavMaster,
             "NavDocs" => NavDocs,
-            "NavProject" => NavProject,
             "NavCategory" => NavCategory,
             "NavReports" => NavReports,
-            "NavBoardDesign" => NavBoardDesign,
             "NavAlerts" => NavAlerts,
             "NavRecon" => NavRecon,
             "NavSettings" => NavSettings,
             "NavAdmin" => NavAdmin,
             "NavObjects" => NavObjects,
-            _ => NavDashboard
+            _ => NavCompany
         };
         target.Classes.Add("on");
     }
@@ -232,19 +230,6 @@ public partial class MainWindow : Window
                 _currentView = new BusinessDocsView(_db);
                 MainArea.Content = _currentView;
                 break;
-            case "NavProject":
-                _currentView = new GenericRecordView(_db, _metadata, "Project", typeof(Project),
-                    new[]
-                    {
-                        new CoreFieldDescriptor("项目编号", "Code", CoreFieldKind.Text, IsRequired: true),
-                        new CoreFieldDescriptor("项目名称", "Name", CoreFieldKind.Text, IsRequired: true),
-                        new CoreFieldDescriptor("建设单位", "OwnerName", CoreFieldKind.Text),
-                    },
-                    () => new Project(),
-                    m => { var p = (Project)m; return $"{p.Code} · {p.Name}"; },
-                    db => db.Projects.Cast<object>());
-                MainArea.Content = _currentView;
-                break;
             case "NavCategory":
                 _currentView = new GenericRecordView(_db, _metadata, "CostCategory", typeof(CostCategory),
                     new[]
@@ -266,10 +251,6 @@ public partial class MainWindow : Window
             case "NavExternalResults":
                 Show(new ExternalResultsView(_db));
                 break;
-            case "NavBoardDesign":
-                _currentView = new DashboardSettingsView(_dashboard);
-                MainArea.Content = _currentView;
-                break;
             case "NavAlerts":
                 _currentView = new AlertCenterView(_alerts, _scheduler);
                 MainArea.Content = _currentView;
@@ -287,11 +268,8 @@ public partial class MainWindow : Window
                 MainArea.Content = _currentView;
                 break;
             default:
-                var vm = new DashboardViewModel(_spine, _dashboard);
-                var dash = new DashboardView { DataContext = vm };
-                MainArea.Content = dash;
-                _currentView = dash;
-                _ = vm.LoadAsync();
+                _currentView = new CompanyCockpitView(_db);
+                MainArea.Content = _currentView;
                 break;
         }
     }
