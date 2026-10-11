@@ -83,3 +83,19 @@ public sealed record ExternalResultLine(
     DateOnly AsOfDate,
     string Source,
     string? ControlItemName);
+
+/// <summary>
+/// 结算结果对目标/预测的差异（P4）。三个口径并列、**不加总**：
+/// 报送/确认是外部成果结果（收入侧），预计收入来自对上收入事实，预计最终成本来自预测版本。
+/// 差额只作管理提示，不是财务结论；无预测版本时成本侧为 null。
+/// </summary>
+public sealed record SettlementVarianceSummary(
+    decimal SubmittedRevenue,
+    decimal ConfirmedRevenue,
+    decimal ExpectedIncome,
+    decimal RevenueVarianceVsSubmitted,
+    decimal RevenueVarianceVsExpected,
+    decimal? EstimatedFinalCost,
+    decimal? TargetCost,
+    bool HasForecast,
+    DateOnly? LatestAsOfDate);

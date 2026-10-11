@@ -30,6 +30,7 @@ public class ExternalResultsView : UserControl, IProjectScoped
     private readonly TextBlock _msg = new() { FontSize = 12.5, TextWrapping = TextWrapping.Wrap, Foreground = Palette.Txt2 };
     private readonly UniformGrid _kpis = Widgets.KpiGrid();
     private readonly StackPanel _host = new();
+    private readonly StackPanel _varianceHost = new();
 
     public ExternalResultsView(AppDbContext db)
     {
@@ -49,6 +50,7 @@ public class ExternalResultsView : UserControl, IProjectScoped
         root.Children.Add(top);
         root.Children.Add(_msg);
         root.Children.Add(Widgets.Card(null, _kpis));
+        root.Children.Add(Widgets.Card("结算对目标/预测的差异（三口径并列，不加总）", _varianceHost));
         root.Children.Add(Widgets.Card("成果结果明细（报送/确认两金额独立；差额 = 确认 − 报送）", _host));
         return new ScrollViewer { Content = root, Background = Palette.Bg };
     }
@@ -75,6 +77,8 @@ public class ExternalResultsView : UserControl, IProjectScoped
         _kpis.Children.Add(Widgets.Kpi("差额（确认−报送）", UiText.Money(s.VarianceTotal), s.VarianceTotal < 0));
         _kpis.Children.Add(Widgets.Kpi("数据截至", UiText.Date(s.LatestAsOfDate)));
 
+        await RenderVarianceAsync();
+
         _host.Children.Clear();
         if (s.Lines.Count == 0) { _host.Children.Add(Widgets.EmptyState("尚无可比的成果结果")); return; }
 
@@ -87,6 +91,34 @@ public class ExternalResultsView : UserControl, IProjectScoped
             UiText.Money(l.Variance), l.AsOfDate.ToString("yyyy-MM-dd")
         });
         _host.Children.Add(Widgets.Table(headers, rows, right, r => Parse(r[5]) < 0));
+    }
+
+    private async Task RenderVarianceAsync()
+    {
+        _varianceHost.Children.Clear();
+        if (_current is null) return;
+        var v = await _svc.SummarizeVarianceAsync(_current.Id);
+
+        var rows = new List<string[]>
+        {
+            new[] { "报送合计（外部成果）", UiText.Money(v.SubmittedRevenue) },
+            new[] { "确认合计（外部核对/审定）", UiText.Money(v.ConfirmedRevenue) },
+            new[] { "项目预计收入（对上收入事实）", UiText.Money(v.ExpectedIncome) },
+            new[] { "确认收入 − 报送收入", UiText.Money(v.RevenueVarianceVsSubmitted) },
+            new[] { "确认收入 − 预计收入", UiText.Money(v.RevenueVarianceVsExpected) },
+        };
+        if (v.HasForecast)
+        {
+            rows.Add(new[] { "预计最终成本（预测版本）", UiText.Money(v.EstimatedFinalCost ?? 0m) });
+            rows.Add(new[] { "目标成本（预测版本）", UiText.Money(v.TargetCost ?? 0m) });
+        }
+        else
+        {
+            rows.Add(new[] { "预计最终成本（预测版本）", "尚无预测版本" });
+        }
+        _varianceHost.Children.Add(Widgets.Table(new[] { "口径", "金额" }, rows, new HashSet<int> { 1 },
+            r => r[0].Contains("−") && Parse(r[1]) < 0));
+        _varianceHost.Children.Add(Widgets.Hint("三个口径不同，不跨口径相加：报送/确认是外部成果结果（收入侧），预计收入来自对上收入事实，预计最终成本来自成本人员预测版本。差额为管理提示，非财务结论。"));
     }
 
     private void OpenRegister()

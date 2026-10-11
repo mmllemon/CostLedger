@@ -66,4 +66,33 @@ public sealed class ExternalResultService
             rows.Count == 0 ? null : rows.Max(r => r.AsOfDate),
             lines);
     }
+
+    /// <summary>
+    /// 结算结果对目标/预测的差异（P4）：把外部成果结果与项目的收入预测、成本预测并列，
+    /// 让成本人员看清"送审/审定 vs 预计收入 vs 预计最终成本"三者的口径差异。
+    /// 三者口径不同、**不加总**；这里只并列与相减，不合成利润结论。
+    /// </summary>
+    public async Task<SettlementVarianceSummary> SummarizeVarianceAsync(int projectId, CancellationToken ct = default)
+    {
+        var result = await SummarizeAsync(projectId, ct);
+        var economy = await new EconomicFactsService(_db).SummarizeProjectAsync(projectId, ct);
+        var forecast = await new CostForecastService(_db).GetSummaryAsync(projectId, ct: ct);
+
+        // 审定结算视为收入侧最可信的外部结果；没有审定时退而用送审。
+        var approved = (await ListAsync(projectId, ct))
+            .Where(r => r.Type == ResultRecordType.ApprovedSettlement).Sum(r => r.ConfirmedAmount);
+        var audited = result.ConfirmedTotal;
+        var effectiveRevenue = approved > 0 ? approved : audited;
+
+        return new SettlementVarianceSummary(
+            SubmittedRevenue: result.SubmittedTotal,
+            ConfirmedRevenue: result.ConfirmedTotal,
+            ExpectedIncome: economy.ExpectedIncome,
+            RevenueVarianceVsSubmitted: effectiveRevenue - result.SubmittedTotal,
+            RevenueVarianceVsExpected: effectiveRevenue - economy.ExpectedIncome,
+            EstimatedFinalCost: forecast?.EstimatedFinalTotal,
+            TargetCost: forecast?.TargetTotal,
+            HasForecast: forecast != null,
+            LatestAsOfDate: result.LatestAsOfDate);
+    }
 }
