@@ -122,6 +122,21 @@ public class ExternalResultsView : UserControl, IProjectScoped
         }
         _varianceHost.Children.Add(Widgets.Table(new[] { "口径", "金额" }, rows, new HashSet<int> { 1 },
             r => r[0].Contains("−") && Parse(r[1]) < 0));
+
+        // 收入侧：按期次的报送 / 确认 / 差额明细（成果结果本身的期次口径）。
+        var byPeriod = await _svc.ListAsync(_current.Id);
+        if (byPeriod.Count > 0)
+        {
+            var periodHeaders = new[] { "期次 / 批次", "类型", "报送", "确认", "差额（确认−报送）" };
+            var periodRows = byPeriod.Select(r => new[]
+            {
+                r.Period, TypeName(r.Type), UiText.Money(r.SubmittedAmount),
+                UiText.Money(r.ConfirmedAmount), UiText.Money(r.Variance)
+            });
+            _varianceHost.Children.Add(new TextBlock { Text = "收入侧 · 按期次", FontSize = 12, FontWeight = FontWeight.SemiBold, Foreground = Palette.Ink, Margin = new Thickness(0, 10, 0, 4) });
+            _varianceHost.Children.Add(Widgets.Table(periodHeaders, periodRows, new HashSet<int> { 2, 3, 4 }, r => Parse(r[4]) < 0));
+        }
+
         _varianceHost.Children.Add(Widgets.Hint("三个口径不同，不跨口径相加：报送/确认是外部成果结果（收入侧），预计收入来自对上收入事实，预计最终成本来自成本人员预测版本。差额为管理提示，非财务结论。"));
     }
 
