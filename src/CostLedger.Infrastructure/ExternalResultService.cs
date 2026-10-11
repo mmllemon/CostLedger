@@ -95,4 +95,67 @@ public sealed class ExternalResultService
             HasForecast: forecast != null,
             LatestAsOfDate: result.LatestAsOfDate);
     }
+
+    /// <summary>
+    /// 在某个成果结果下登记一行结算清单（可选）。对齐控制项可空——不填即为未对齐，允许。
+    /// </summary>
+    public async Task<SettlementLineItem> AddLineItemAsync(
+        int externalResultRecordId, string name, decimal amount, int? costControlItemId = null,
+        string? note = null, CancellationToken ct = default)
+    {
+        name = (name ?? "").Trim();
+        if (name.Length == 0)
+            throw new InvalidOperationException("清单行名称必填。");
+        if (amount < 0)
+            throw new InvalidOperationException("清单行金额不能为负。");
+
+        var record = await _db.ExternalResultRecords.SingleOrDefaultAsync(x => x.Id == externalResultRecordId, ct)
+            ?? throw new InvalidOperationException($"未找到外部成果结果 {externalResultRecordId}。");
+
+        if (costControlItemId is int itemId)
+        {
+            var item = await _db.CostControlItems.SingleOrDefaultAsync(x => x.Id == itemId, ct)
+                ?? throw new InvalidOperationException($"未找到成本控制项 {itemId}。");
+            if (item.ProjectId != record.ProjectId)
+                throw new InvalidOperationException("对齐的成本控制项必须与成果结果属于同一项目。");
+        }
+
+        var line = new SettlementLineItem
+        {
+            ExternalResultRecordId = record.Id,
+            Name = name,
+            Amount = amount,
+            CostControlItemId = costControlItemId,
+            Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim()
+        };
+        _db.SettlementLineItems.Add(line);
+        await _db.SaveChangesAsync(ct);
+        return line;
+    }
+
+    public Task<List<SettlementLineItem>> ListLineItemsAsync(int externalResultRecordId, CancellationToken ct = default)
+        => _db.SettlementLineItems
+            .AsNoTracking()
+            .Include(x => x.CostControlItem)
+            .Where(x => x.ExternalResultRecordId == externalResultRecordId)
+            .OrderByDescending(x => x.Amount)
+            .ToListAsync(ct);
+
+    /// <summary>按项目汇总全部结算清单行的对齐情况（对齐金额 / 未对齐金额 / 对齐率）。</summary>
+    public async Task<SettlementAlignmentSummary> SummarizeAlignmentAsync(int projectId, CancellationToken ct = default)
+    {
+        var lines = await _db.SettlementLineItems
+            .AsNoTracking()
+            .Where(x => x.ExternalResultRecord!.ProjectId == projectId)
+            .ToListAsync(ct);
+
+        var aligned = lines.Where(x => x.CostControlItemId.HasValue).Sum(x => x.Amount);
+        var total = lines.Sum(x => x.Amount);
+        return new SettlementAlignmentSummary(
+            aligned,
+            total - aligned,
+            total,
+            lines.Count,
+            lines.Count(x => x.CostControlItemId.HasValue));
+    }
 }

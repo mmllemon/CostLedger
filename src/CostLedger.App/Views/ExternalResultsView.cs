@@ -31,6 +31,7 @@ public class ExternalResultsView : UserControl, IProjectScoped
     private readonly UniformGrid _kpis = Widgets.KpiGrid();
     private readonly StackPanel _host = new();
     private readonly StackPanel _varianceHost = new();
+    private readonly StackPanel _alignmentHost = new();
 
     public ExternalResultsView(AppDbContext db)
     {
@@ -44,13 +45,15 @@ public class ExternalResultsView : UserControl, IProjectScoped
     {
         var top = Widgets.PageHeaderWithDynamicSubtitle("结算", "结算结果分析",
             "登记外部成果结果；不生成报量表/签证单/收方单/送审结算书", _title,
-            Widgets.PrimaryActionButton("＋ 登记成果结果", () => OpenRegister()));
+            Widgets.PrimaryActionButton("＋ 登记成果结果", () => OpenRegister()),
+            Widgets.ActionButton("登记结算清单行", () => OpenRegisterLine()));
 
         var root = new StackPanel { Spacing = 14, Margin = new Thickness(20) };
         root.Children.Add(top);
         root.Children.Add(_msg);
         root.Children.Add(Widgets.Card(null, _kpis));
         root.Children.Add(Widgets.Card("结算对目标/预测的差异（三口径并列，不加总）", _varianceHost));
+        root.Children.Add(Widgets.Card("结算清单可选对齐（仅在你提供清单数据时登记；未对齐金额如实显示）", _alignmentHost));
         root.Children.Add(Widgets.Card("成果结果明细（报送/确认两金额独立；差额 = 确认 − 报送）", _host));
         return new ScrollViewer { Content = root, Background = Palette.Bg };
     }
@@ -78,6 +81,7 @@ public class ExternalResultsView : UserControl, IProjectScoped
         _kpis.Children.Add(Widgets.Kpi("数据截至", UiText.Date(s.LatestAsOfDate)));
 
         await RenderVarianceAsync();
+        await RenderAlignmentAsync();
 
         _host.Children.Clear();
         if (s.Lines.Count == 0) { _host.Children.Add(Widgets.EmptyState("尚无可比的成果结果")); return; }
@@ -119,6 +123,68 @@ public class ExternalResultsView : UserControl, IProjectScoped
         _varianceHost.Children.Add(Widgets.Table(new[] { "口径", "金额" }, rows, new HashSet<int> { 1 },
             r => r[0].Contains("−") && Parse(r[1]) < 0));
         _varianceHost.Children.Add(Widgets.Hint("三个口径不同，不跨口径相加：报送/确认是外部成果结果（收入侧），预计收入来自对上收入事实，预计最终成本来自成本人员预测版本。差额为管理提示，非财务结论。"));
+    }
+
+    private async Task RenderAlignmentAsync()
+    {
+        _alignmentHost.Children.Clear();
+        if (_current is null) return;
+        var a = await _svc.SummarizeAlignmentAsync(_current.Id);
+        if (a.LineCount == 0)
+        {
+            _alignmentHost.Children.Add(Widgets.EmptyState("尚未登记结算清单行（仅在你有清单数据时才需要）"));
+            return;
+        }
+        var kpis = Widgets.KpiGrid(3);
+        kpis.Children.Add(Widgets.Kpi("对齐金额", UiText.Money(a.AlignedAmount), false, 0, $"{a.AlignedLineCount} 行"));
+        kpis.Children.Add(Widgets.Kpi("未对齐金额", UiText.Money(a.UnalignedAmount), a.UnalignedAmount > 0, 0, $"{a.LineCount - a.AlignedLineCount} 行"));
+        kpis.Children.Add(Widgets.Kpi("对齐率", (a.AlignedRate * 100m).ToString("0.0", CultureInfo.CurrentCulture) + "%", false, 0, "已对齐 / 合计"));
+        _alignmentHost.Children.Add(kpis);
+        _alignmentHost.Children.Add(Widgets.Hint("未对齐不是错误：过程控制项与结算清单本就不要求逐项对应，系统只把未对齐金额如实列出。"));
+    }
+
+    private void OpenRegisterLine()
+    {
+        if (_current is null) return;
+        var _ = OpenRegisterLineAsync();
+    }
+
+    private async Task OpenRegisterLineAsync()
+    {
+        if (_current is null) return;
+        var records = await _svc.ListAsync(_current.Id);
+        if (records.Count == 0)
+        {
+            SetMsg("请先登记至少一条外部成果结果，再添加其结算清单行。", true);
+            return;
+        }
+        var record = new ComboBox { ItemsSource = records.Select(r => new Pick<int>(r.Id, $"{r.Period} · {TypeName(r.Type)}")).ToList(), DisplayMemberBinding = new Binding("Label"), PlaceholderText = "所属成果结果", Width = 400 };
+        var name = new TextBox { Width = 400, Watermark = "清单行名称（分部分项/清单编码）" };
+        var amount = new NumericUpDown { Width = 400, FormatString = "N2", Increment = 1000, Watermark = "金额" };
+        var item = new ComboBox { ItemsSource = _items.Select(i => new Pick<int>(i.Id, $"{i.Code} · {i.Name}")).ToList(), DisplayMemberBinding = new Binding("Label"), PlaceholderText = "对齐控制项（可空 = 未对齐）", Width = 400 };
+        var note = new TextBox { Width = 400, Watermark = "备注（可空）" };
+
+        var body = new StackPanel { Spacing = 10 };
+        foreach (var (l, c) in new (string, Control)[]
+        {
+            ("所属成果结果", record), ("清单行名称", name), ("金额", amount), ("对齐控制项", item), ("备注", note)
+        })
+            body.Children.Add(Widgets.Row(l, c, 96));
+        body.Children.Add(Widgets.Hint("对齐控制项可留空——留空即记为未对齐，允许。"));
+
+        Widgets.OpenForm(this, "登记结算清单行", "清单数据可选；不强制与过程控制项逐项对应。", body, "登记", async () =>
+        {
+            if (record.SelectedItem is not Pick<int> rec) return "请选择所属成果结果。";
+            if (string.IsNullOrWhiteSpace(name.Text)) return "清单行名称必填。";
+            try
+            {
+                await _svc.AddLineItemAsync(rec.Value, name.Text!, amount.Value ?? 0m, (item.SelectedItem as Pick<int>)?.Value, note.Text);
+                await ReloadAsync();
+                SetMsg("已登记结算清单行。");
+                return null;
+            }
+            catch (Exception ex) { return ex.Message; }
+        });
     }
 
     private void OpenRegister()

@@ -74,6 +74,7 @@ public class AppDbContext : DbContext
     public DbSet<CostForecastLine> CostForecastLines => Set<CostForecastLine>();
     public DbSet<ChangeItem> ChangeItems => Set<ChangeItem>();
     public DbSet<ExternalResultRecord> ExternalResultRecords => Set<ExternalResultRecord>();
+    public DbSet<SettlementLineItem> SettlementLineItems => Set<SettlementLineItem>();
     public DbSet<SegmentRolePermission> SegmentRolePermissions => Set<SegmentRolePermission>();
 
     /// <summary>为 true 时不写审计（用于种子/系统初始化）。</summary>
@@ -211,6 +212,18 @@ public class AppDbContext : DbContext
             b.HasIndex(x => new { x.ProjectId, x.AsOfDate });
             b.HasOne(x => x.Project).WithMany()
                 .HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne(x => x.CostControlItem).WithMany()
+                .HasForeignKey(x => x.CostControlItemId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        mb.Entity<SettlementLineItem>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            b.Property(x => x.Note).HasMaxLength(500);
+            b.HasIndex(x => x.ExternalResultRecordId);
+            b.HasOne(x => x.ExternalResultRecord).WithMany()
+                .HasForeignKey(x => x.ExternalResultRecordId).OnDelete(DeleteBehavior.Cascade);
             b.HasOne(x => x.CostControlItem).WithMany()
                 .HasForeignKey(x => x.CostControlItemId).OnDelete(DeleteBehavior.SetNull);
         });
@@ -516,7 +529,7 @@ public class AppDbContext : DbContext
 public static class DbBootstrap
 {
     /// <summary>当前库结构版本。变更模型后 +1；未支持迁移的账套拒绝打开，绝不重建。</summary>
-    public const int SchemaVersion = 14;
+    public const int SchemaVersion = 15;
 
     /// <summary>当前账套文件路径（Configure 时记录，供备份等使用）。</summary>
     public static string? CurrentDbPath { get; private set; }

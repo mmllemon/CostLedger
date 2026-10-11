@@ -99,3 +99,35 @@ public sealed record SettlementVarianceSummary(
     decimal? TargetCost,
     bool HasForecast,
     DateOnly? LatestAsOfDate);
+
+/// <summary>
+/// 结算清单行（P4，**可选**）：只有用户提供清单数据时才登记。
+/// 一行可以是"已对齐"（挂到某成本控制项）或"未对齐"（不挂控制项）——不强制逐项对齐，
+/// 系统不会因为过程数据没有对应清单项而报错，只把未对齐金额如实显示出来。
+/// </summary>
+public class SettlementLineItem
+{
+    public int Id { get; set; }
+    public int ExternalResultRecordId { get; set; }
+    public ExternalResultRecord? ExternalResultRecord { get; set; }
+
+    /// <summary>清单行名称（项目/清单编码/分部分项名）。</summary>
+    public string Name { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+
+    /// <summary>对齐到的成本控制项；为空表示未对齐（允许）。</summary>
+    public int? CostControlItemId { get; set; }
+    public CostControlItem? CostControlItem { get; set; }
+    public string? Note { get; set; }
+}
+
+/// <summary>结算清单对齐汇总：对齐金额、未对齐金额、对齐率。</summary>
+public sealed record SettlementAlignmentSummary(
+    decimal AlignedAmount,
+    decimal UnalignedAmount,
+    decimal TotalAmount,
+    int LineCount,
+    int AlignedLineCount)
+{
+    public decimal AlignedRate => TotalAmount == 0 ? 0m : Math.Min(AlignedAmount / TotalAmount, 1m);
+}

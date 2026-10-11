@@ -28,7 +28,7 @@ public class AuditInterceptor : SaveChangesInterceptor
         typeof(ProjectPartyRelationship), typeof(CostControlItem),
         typeof(ExternalAmountFact), typeof(ManagementAllocation),
         typeof(CostForecastVersion), typeof(CostForecastLine), typeof(ChangeItem),
-        typeof(ExternalResultRecord),
+        typeof(ExternalResultRecord), typeof(SettlementLineItem),
         typeof(SegmentRolePermission)
     };
 

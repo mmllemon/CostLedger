@@ -63,6 +63,61 @@ public class ExternalResultTests
     }
 
     [Fact]
+    public async Task 结算清单可选对齐_未对齐允许且汇总区分对齐与未对齐()
+    {
+        using var db = CreateContext();
+        var project = new Project { Code = "P-1", Name = "项目一" };
+        db.Projects.Add(project);
+        await db.SaveChangesAsync();
+        var item = new CostControlItem { ProjectId = project.Id, Code = "01", Name = "电缆敷设劳务" };
+        db.CostControlItems.Add(item);
+        await db.SaveChangesAsync();
+
+        var svc = new ExternalResultService(db);
+        var rec = await svc.RegisterAsync(new ExternalResultRecord
+        {
+            ProjectId = project.Id, Period = "竣工结算", Type = ResultRecordType.ApprovedSettlement,
+            SubmittedAmount = 1000m, ConfirmedAmount = 900m,
+            AsOfDate = new DateOnly(2026, 10, 1), Source = "结算审定单"
+        });
+
+        // 一行对齐、一行未对齐（不挂控制项，允许）
+        await svc.AddLineItemAsync(rec.Id, "电缆敷设", 600m, item.Id);
+        await svc.AddLineItemAsync(rec.Id, "未归类零星", 300m, null);
+
+        var a = await svc.SummarizeAlignmentAsync(project.Id);
+        a.LineCount.Should().Be(2);
+        a.AlignedLineCount.Should().Be(1);
+        a.AlignedAmount.Should().Be(600m);
+        a.UnalignedAmount.Should().Be(300m);
+        a.TotalAmount.Should().Be(900m);
+        a.AlignedRate.Should().Be(600m / 900m);
+    }
+
+    [Fact]
+    public async Task 结算清单行_名称为空被拒_跨项目控制项被拒()
+    {
+        using var db = CreateContext();
+        var p1 = new Project { Code = "P-1", Name = "项目一" };
+        var p2 = new Project { Code = "P-2", Name = "项目二" };
+        db.AddRange(p1, p2);
+        await db.SaveChangesAsync();
+        var otherItem = new CostControlItem { ProjectId = p2.Id, Code = "01", Name = "他项目控制项" };
+        db.CostControlItems.Add(otherItem);
+        await db.SaveChangesAsync();
+
+        var svc = new ExternalResultService(db);
+        var rec = await svc.RegisterAsync(new ExternalResultRecord
+        {
+            ProjectId = p1.Id, Period = "P", Type = ResultRecordType.ProgressMeasurement,
+            SubmittedAmount = 1m, ConfirmedAmount = 1m, AsOfDate = new DateOnly(2026, 1, 1), Source = "S"
+        });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.AddLineItemAsync(rec.Id, "  ", 100m));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => svc.AddLineItemAsync(rec.Id, "跨项目", 100m, otherItem.Id));
+    }
+
+    [Fact]
     public async Task 外部成果结果_两金额独立_差额为确认减报送()
     {
         using var db = CreateContext();
