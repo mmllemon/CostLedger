@@ -136,11 +136,12 @@ public partial class MainWindow : Window
 
     private void SetActive(string key)
     {
-        foreach (var b in new[] { NavCompany, NavCockpit, NavCostControl, NavRegister, NavForecast, NavChangeItems, NavDashboard, NavOverview, NavLedgers, NavParties, NavCost, NavMaster, NavDocs, NavProject, NavCategory, NavReports, NavExternalResults, NavBoardDesign, NavAlerts, NavRecon, NavSettings, NavAdmin, NavObjects })
+        foreach (var b in new[] { NavCompany, NavProjects, NavCockpit, NavCostControl, NavRegister, NavForecast, NavChangeItems, NavDashboard, NavOverview, NavLedgers, NavParties, NavCost, NavMaster, NavDocs, NavProject, NavCategory, NavReports, NavExternalResults, NavBoardDesign, NavAlerts, NavRecon, NavSettings, NavAdmin, NavObjects })
             b.Classes.Remove("on");
         var target = key switch
         {
             "NavCompany" => NavCompany,
+            "NavProjects" => NavProjects,
             "NavCockpit" => NavCockpit,
             "NavCostControl" => NavCostControl,
             "NavRegister" => NavRegister,
@@ -182,6 +183,10 @@ public partial class MainWindow : Window
         {
             case "NavCompany":
                 _currentView = new CompanyCockpitView(_db);
+                MainArea.Content = _currentView;
+                break;
+            case "NavProjects":
+                _currentView = new ProjectManageView(_db);
                 MainArea.Content = _currentView;
                 break;
             case "NavAdmin":
