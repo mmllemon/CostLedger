@@ -44,17 +44,24 @@
       <Button x:Name="NavAdmin" Classes="nav" Content="后台管理" Click="OnNavClick"/>
       <Button x:Name="NavSettings" Classes="nav" Content="系统设置" Click="OnNavClick"/>
 
-      <!-- 旧模块（兼容）：默认折叠。已被新定位取代的项（成本看板/看板设计/旧项目入口）不再列出；
-           保留仍有用的：基础资料（主数据）、台账中心（导入导出）、预警中心（已接经济口径）。 -->
-      <Expander Header="旧模块（兼容）" FontSize="10.5" Foreground="{StaticResource Txt3Brush}" Margin="6,14,6,0" HorizontalAlignment="Stretch">
+      <!-- 旧模块 · 兼容（仍有用的）：台账中心提供唯一 CSV 导入导出；基础资料维护合同/往来单位主数据；
+           预警中心已接经济口径指标，能预警新模型的超目标/未归属等。 -->
+      <Expander Header="旧模块 · 兼容" FontSize="10.5" Foreground="{StaticResource Txt3Brush}" Margin="6,14,6,0" HorizontalAlignment="Stretch">
+        <StackPanel>
+          <Button x:Name="NavLedgers" Classes="nav" Content="台账中心" Click="OnNavClick"/>
+          <Button x:Name="NavMaster" Classes="nav" Content="基础资料" Click="OnNavClick"/>
+          <Button x:Name="NavAlerts" Classes="nav" Content="预警中心" Click="OnNavClick"/>
+        </StackPanel>
+      </Expander>
+
+      <!-- 旧模块 · 已冻结（旧定位，不再扩展）：保留代码与入口以免功能丢失，但不投入、不参与成本口径。
+           成本结构/成本科目属旧"清单级"定位；业务单据属对外成果（明确不做）；对账中心/项目总览为旧口径汇总。 -->
+      <Expander Header="旧模块 · 已冻结" FontSize="10.5" Foreground="{StaticResource Txt3Brush}" Margin="6,6,6,0" HorizontalAlignment="Stretch">
         <StackPanel>
           <Button x:Name="NavOverview" Classes="nav" Content="项目总览" Click="OnNavClick"/>
-          <Button x:Name="NavLedgers" Classes="nav" Content="台账中心" Click="OnNavClick"/>
           <Button x:Name="NavCost" Classes="nav" Content="成本结构" Click="OnNavClick"/>
-          <Button x:Name="NavMaster" Classes="nav" Content="基础资料" Click="OnNavClick"/>
-          <Button x:Name="NavDocs" Classes="nav" Content="业务单据" Click="OnNavClick"/>
           <Button x:Name="NavCategory" Classes="nav" Content="成本科目" Click="OnNavClick"/>
-          <Button x:Name="NavAlerts" Classes="nav" Content="预警中心" Click="OnNavClick"/>
+          <Button x:Name="NavDocs" Classes="nav" Content="业务单据" Click="OnNavClick"/>
           <Button x:Name="NavRecon" Classes="nav" Content="对账中心" Click="OnNavClick"/>
           <Button x:Name="NavObjects" Classes="nav" Content="自建对象" Click="OnNavClick"/>
         </StackPanel>
