@@ -3,31 +3,47 @@
         xmlns:views="clr-namespace:CostLedger.App.Views"
         x:Class="CostLedger.App.MainWindow"
         Title="成本台账 · CostLedger"
-        Width="1180" Height="760"
-        MinWidth="900" MinHeight="600"
+        Width="1200" Height="780"
+        MinWidth="960" MinHeight="620"
         Background="{StaticResource BgBrush}"
         FontFamily="Microsoft YaHei, Segoe UI, sans-serif"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="PreferSystemChrome"
-        ExtendClientAreaTitleBarHeightHint="42">
-  <Grid RowDefinitions="42,Auto,*" ColumnDefinitions="208,1*">
-    <!-- 自绘标题栏：拖动区 + 窗口按钮；去掉系统标题栏，让应用连成一体 -->
+        ExtendClientAreaTitleBarHeightHint="46">
+  <Grid RowDefinitions="46,*" ColumnDefinitions="208,1*">
+    <!-- 合一顶栏：左侧品牌Logo + 中间项目切换器与账期 + 右侧窗口控制按钮（消除原有两层重复栏） -->
     <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
             Background="{StaticResource CardBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1">
-      <Grid ColumnDefinitions="*,Auto">
-        <!-- 拖动区：按下拖动窗口，双击最大化/还原 -->
-        <StackPanel Grid.Column="0" x:Name="TitleDragArea" Orientation="Horizontal" Spacing="9"
-                    VerticalAlignment="Center" Margin="14,0"
-                    Background="Transparent"
-                    PointerPressed="OnTitleBarPointerPressed">
-          <Border Classes="brandmark" Width="24" Height="24" VerticalAlignment="Center">
-            <TextBlock Text="诺" FontSize="12" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-          </Border>
-          <TextBlock Text="诺亨成本" FontSize="13" FontWeight="Bold" VerticalAlignment="Center"/>
-          <TextBlock Text="综合成本管理" FontSize="11" Foreground="{StaticResource Txt3Brush}" VerticalAlignment="Center"/>
-        </StackPanel>
-        <!-- 窗口按钮 -->
-        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Stretch">
+      <Grid ColumnDefinitions="208,*,Auto">
+        <!-- 品牌标识区（与左侧边栏等宽对齐，自然融为一体） -->
+        <Border Grid.Column="0" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,1,0" Padding="14,0">
+          <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
+            <Border Classes="brandmark" Width="26" Height="26" VerticalAlignment="Center">
+              <TextBlock Text="诺" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+            </Border>
+            <StackPanel VerticalAlignment="Center" Spacing="1">
+              <TextBlock Text="诺亨成本" FontSize="13.5" FontWeight="Bold" Foreground="{StaticResource InkBrush}"/>
+              <TextBlock Text="工程经济管控" FontSize="10" Foreground="{StaticResource Txt3Brush}"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- 窗口拖拽区 + 中间项目切换器（核心交互焦点） -->
+        <Grid Grid.Column="1" ColumnDefinitions="*,Auto,*"
+              Background="Transparent" x:Name="TitleDragArea"
+              PointerPressed="OnTitleBarPointerPressed">
+          <!-- 居中的项目切换胶囊条 -->
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+            <TextBlock Text="当前项目" VerticalAlignment="Center" Foreground="{StaticResource Txt3Brush}" FontSize="12"/>
+            <ComboBox x:Name="ProjectSwitcher" Width="360" SelectionChanged="OnProjectSwitcherChanged"/>
+            <Border Background="{StaticResource BgBrush}" CornerRadius="6" Padding="8,4" VerticalAlignment="Center">
+              <TextBlock x:Name="AsOfText" Foreground="{StaticResource Txt2Brush}" FontSize="11.5"/>
+            </Border>
+          </StackPanel>
+        </Grid>
+
+        <!-- 右侧窗口按钮 -->
+        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Stretch">
           <Button x:Name="WinMin" Classes="wbtn" Click="OnMinimize"><TextBlock Text="&#xE921;" Classes="wico"/></Button>
           <Button x:Name="WinMax" Classes="wbtn" Click="OnToggleMaximize"><TextBlock x:Name="WinMaxGlyph" Text="&#xE922;" Classes="wico"/></Button>
           <Button x:Name="WinClose" Classes="wbtn close" Click="OnClose"><TextBlock Text="&#xE8BB;" Classes="wico"/></Button>
@@ -35,57 +51,45 @@
       </Grid>
     </Border>
 
-    <!-- 全局栏：公司 + 当前项目切换 + 数据截至 -->
-    <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
-            Background="{StaticResource CardBrush}" BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,0,1"
-            Padding="16,10">
-      <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
-        <TextBlock Text="公司" VerticalAlignment="Center" Foreground="{StaticResource Txt3Brush}" FontSize="12"/>
-        <TextBlock Text="诺亨造价" VerticalAlignment="Center" FontWeight="Bold" FontSize="13"/>
-        <TextBlock Text="当前项目" VerticalAlignment="Center" Foreground="{StaticResource Txt3Brush}" FontSize="12" Margin="10,0,0,0"/>
-        <ComboBox x:Name="ProjectSwitcher" Width="360" SelectionChanged="OnProjectSwitcherChanged"/>
-        <TextBlock x:Name="AsOfText" VerticalAlignment="Center" Foreground="{StaticResource Txt3Brush}" FontSize="12" Margin="10,0,0,0"/>
-      </StackPanel>
-    </Border>
-
     <!-- 侧栏（可滚动，避免下方导航在矮窗口不可达） -->
-    <ScrollViewer Grid.Row="2" Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0">
-    <StackPanel Margin="14,16">
-      <StackPanel Orientation="Horizontal" Spacing="10" Margin="6,6,6,18">
-        <Border Classes="brandmark"><TextBlock Text="诺"/></Border>
-        <TextBlock Text="诺亨成本" FontSize="15" FontWeight="Bold" VerticalAlignment="Center"/>
-      </StackPanel>
-      <TextBlock Text="公司" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Txt3Brush}" Margin="12,6,0,4"/>
+    <ScrollViewer Grid.Row="1" Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0">
+    <StackPanel Margin="12,12">
+      <!-- 1. 公司层级（全局/跨项目） -->
+      <TextBlock Text="公司经营" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Txt3Brush}" Margin="12,4,0,6" LetterSpacing="0.8"/>
       <Button x:Name="NavCompany" Classes="nav" Content="公司经营驾驶舱" Click="OnNavClick"/>
       <Button x:Name="NavProjects" Classes="nav" Content="项目管理" Click="OnNavClick"/>
-      <TextBlock Text="项目经营" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Txt3Brush}" Margin="12,10,0,4"/>
+
+      <!-- 2. 项目层级（单项目经营驾驶舱 + 核心控制） -->
+      <TextBlock Text="项目经营" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Txt3Brush}" Margin="12,14,0,6" LetterSpacing="0.8"/>
       <Button x:Name="NavCockpit" Classes="nav" Content="项目经济驾驶舱" Click="OnNavClick"/>
       <Button x:Name="NavCostControl" Classes="nav" Content="成本控制项与归属" Click="OnNavClick"/>
       <Button x:Name="NavRegister" Classes="nav" Content="板块金额登记" Click="OnNavClick"/>
       <Button x:Name="NavForecast" Classes="nav" Content="成本预测版本" Click="OnNavClick"/>
       <Button x:Name="NavChangeItems" Classes="nav" Content="变化事项" Click="OnNavClick"/>
-      <TextBlock Text="往来与报表" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Txt3Brush}" Margin="12,10,0,4"/>
+
+      <!-- 3. 往来与成果 -->
+      <TextBlock Text="往来与成果" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Txt3Brush}" Margin="12,14,0,6" LetterSpacing="0.8"/>
       <Button x:Name="NavParties" Classes="nav" Content="往来单位全景" Click="OnNavClick"/>
       <Button x:Name="NavReports" Classes="nav" Content="内部汇报报表" Click="OnNavClick"/>
       <Button x:Name="NavExternalResults" Classes="nav" Content="结算结果分析" Click="OnNavClick"/>
-      <TextBlock Text="后台" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Txt3Brush}" Margin="12,10,0,4"/>
+
+      <!-- 4. 系统与配置 -->
+      <TextBlock Text="后台与设置" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Txt3Brush}" Margin="12,14,0,6" LetterSpacing="0.8"/>
       <Button x:Name="NavAdmin" Classes="nav" Content="后台管理" Click="OnNavClick"/>
       <Button x:Name="NavSettings" Classes="nav" Content="系统设置" Click="OnNavClick"/>
 
-      <!-- 旧模块 · 兼容（仍有用的）：台账中心提供唯一 CSV 导入导出；基础资料维护合同/往来单位主数据；
-           预警中心已接经济口径指标，能预警新模型的超目标/未归属等。 -->
-      <Expander Header="旧模块 · 兼容" FontSize="10.5" Foreground="{StaticResource Txt3Brush}" Margin="6,14,6,0" HorizontalAlignment="Stretch">
-        <StackPanel>
+      <!-- 旧模块 · 兼容（收起降噪） -->
+      <Expander Header="旧模块 · 兼容工具" FontSize="11" Foreground="{StaticResource Txt3Brush}" Margin="4,16,4,0" HorizontalAlignment="Stretch">
+        <StackPanel Margin="0,4,0,0">
           <Button x:Name="NavLedgers" Classes="nav" Content="台账中心" Click="OnNavClick"/>
           <Button x:Name="NavMaster" Classes="nav" Content="基础资料" Click="OnNavClick"/>
           <Button x:Name="NavAlerts" Classes="nav" Content="预警中心" Click="OnNavClick"/>
         </StackPanel>
       </Expander>
 
-      <!-- 旧模块 · 已冻结（旧定位，不再扩展）：保留代码与入口以免功能丢失，但不投入、不参与成本口径。
-           成本结构/成本科目属旧"清单级"定位；业务单据属对外成果（明确不做）；对账中心/项目总览为旧口径汇总。 -->
-      <Expander Header="旧模块 · 已冻结" FontSize="10.5" Foreground="{StaticResource Txt3Brush}" Margin="6,6,6,0" HorizontalAlignment="Stretch">
-        <StackPanel>
+      <!-- 旧模块 · 已冻结（低频入口） -->
+      <Expander Header="历史模块 · 已冻结" FontSize="11" Foreground="{StaticResource Txt3Brush}" Margin="4,6,4,0" HorizontalAlignment="Stretch">
+        <StackPanel Margin="0,4,0,0">
           <Button x:Name="NavOverview" Classes="nav" Content="项目总览" Click="OnNavClick"/>
           <Button x:Name="NavCost" Classes="nav" Content="成本结构" Click="OnNavClick"/>
           <Button x:Name="NavCategory" Classes="nav" Content="成本科目" Click="OnNavClick"/>
@@ -98,6 +102,6 @@
     </ScrollViewer>
 
     <!-- 主区 -->
-    <ContentControl Grid.Row="2" Grid.Column="1" x:Name="MainArea" Margin="0,0,0,0"/>
+    <ContentControl Grid.Row="1" Grid.Column="1" x:Name="MainArea" Margin="0,0,0,0"/>
   </Grid>
 </Window>

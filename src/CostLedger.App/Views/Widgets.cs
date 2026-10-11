@@ -57,17 +57,18 @@ internal static class Widgets
         var v = new TextBlock
         {
             Text = value,
-            FontSize = 20,
+            FontSize = 21,
             FontWeight = FontWeight.Bold,
             Margin = new Thickness(0, 6, 0, 0),
             Foreground = bad ? Palette.Red : Palette.Ink,
-            TextTrimming = TextTrimming.CharacterEllipsis
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            FontFamily = new FontFamily("Segoe UI Variable Display, Segoe UI, Consolas, sans-serif")
         };
         var panel = new StackPanel
         {
             Children =
             {
-                new TextBlock { Text = label, FontSize = 11, FontWeight = FontWeight.SemiBold, Foreground = Palette.Txt3 },
+                new TextBlock { Text = label, FontSize = 11.5, FontWeight = FontWeight.SemiBold, Foreground = Palette.Txt3, LetterSpacing = 0.5 },
                 v
             }
         };
@@ -75,15 +76,11 @@ internal static class Widgets
             panel.Children.Add(new TextBlock
             {
                 Text = desc, FontSize = 11, Foreground = Palette.Txt3,
-                TextWrapping = TextWrapping.Wrap, LineHeight = 17, Margin = new Thickness(0, 6, 0, 0)
+                TextWrapping = TextWrapping.Wrap, LineHeight = 16, Margin = new Thickness(0, 6, 0, 0)
             });
         var border = new Border
         {
-            Background = Palette.Card,
-            BorderBrush = Palette.Line,
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(14),
-            Padding = new Thickness(15),
+            Classes = { "kpi-card" },
             Margin = new Thickness(0, 0, 12, 12),
             Child = panel
         };
@@ -159,15 +156,13 @@ internal static class Widgets
 
     public static Border Card(string? title, Control body)
     {
-        var panel = new StackPanel { Spacing = 10 };
+        var panel = new StackPanel { Spacing = 12 };
         if (!string.IsNullOrEmpty(title))
-            panel.Children.Add(new TextBlock { Text = title, FontSize = 11, FontWeight = FontWeight.Bold, Foreground = Palette.Txt3, LetterSpacing = 1.2 });
+            panel.Children.Add(new TextBlock { Text = title, FontSize = 12, FontWeight = FontWeight.Bold, Foreground = Palette.Txt3, LetterSpacing = 1.0 });
         panel.Children.Add(body);
         return new Border
         {
-            Background = Palette.Card,
-            CornerRadius = new CornerRadius(18),
-            Padding = new Thickness(20),
+            Classes = { "card" },
             Child = panel
         };
     }
@@ -212,11 +207,16 @@ internal static class Widgets
 
     private static ColumnDefinition[] BuildColumns(string[] headers, System.Collections.Generic.ISet<int>? rightAlign)
     {
-        // 首列（名称）自适应占宽，其余等分剩余空间；最小宽度保证不重叠。
+        // 首列（名称）自适应占宽（最小160px保证名称不截断），其余列依据内容类型设定合理最小宽度
         var defs = new ColumnDefinition[headers.Length];
-        defs[0] = new ColumnDefinition(GridLength.Star) { MinWidth = 130 };
+        defs[0] = new ColumnDefinition(GridLength.Star) { MinWidth = 160 };
         for (int c = 1; c < headers.Length; c++)
-            defs[c] = new ColumnDefinition(new GridLength(1, GridUnitType.Star)) { MinWidth = 80 };
+        {
+            var header = headers[c];
+            // 针对日期或短文本列与金额列设置更合理的最小宽度，防止表头拥挤粘连
+            double minW = (header.Contains("截至") || header.Contains("日期")) ? 95 : 90;
+            defs[c] = new ColumnDefinition(new GridLength(1, GridUnitType.Star)) { MinWidth = minW };
+        }
         return defs;
     }
 
@@ -227,17 +227,23 @@ internal static class Widgets
 
         for (int c = 0; c < cells.Length && c < cols.Length; c++)
         {
+            bool isRight = align.Contains(c);
             var tb = new TextBlock
             {
                 Text = c < cells.Length ? cells[c] : "",
-                FontSize = 12.5,
+                FontSize = head ? 11.5 : 12.5,
                 VerticalAlignment = VerticalAlignment.Center,
                 TextWrapping = TextWrapping.NoWrap,
                 TextTrimming = TextTrimming.CharacterEllipsis,
-                // 首列左对齐；其余按 rightAlign 集合决定，不再一律右对齐。
-                TextAlignment = c == 0 ? TextAlignment.Left : (align.Contains(c) ? TextAlignment.Right : TextAlignment.Left)
+                // 首列左对齐；其余按 rightAlign 集合决定
+                TextAlignment = c == 0 ? TextAlignment.Left : (isRight ? TextAlignment.Right : TextAlignment.Left)
             };
-            if (head) { tb.FontWeight = FontWeight.Bold; tb.Foreground = Palette.Txt3; }
+            if (isRight)
+            {
+                tb.FontFamily = new FontFamily("Segoe UI Variable Display, Segoe UI, Consolas, sans-serif");
+            }
+
+            if (head) { tb.FontWeight = FontWeight.Bold; tb.Foreground = Palette.Txt3; tb.LetterSpacing = 0.5; }
             else if (bold) { tb.FontWeight = FontWeight.Bold; tb.Foreground = Palette.Ink; }
             else if (red) { tb.FontWeight = FontWeight.SemiBold; tb.Foreground = Palette.Red; }
             else { tb.Foreground = Palette.Ink; }
@@ -248,10 +254,10 @@ internal static class Widgets
         var border = new Border
         {
             Child = grid,
-            Padding = new Thickness(10, 8, 10, 8),
-            Background = head ? new SolidColorBrush(Color.Parse("#F4EEE5")) : (alt ? new SolidColorBrush(Color.Parse("#FBF7F0")) : null),
+            Padding = new Thickness(12, head ? 9 : 10),
+            Background = head ? new SolidColorBrush(Color.Parse("#F7F2EB")) : (alt ? new SolidColorBrush(Color.Parse("#FCFAF7")) : Palette.Card),
             BorderBrush = Palette.Line,
-            BorderThickness = footerRow ? new Thickness(0, 1, 0, 0) : new Thickness(0, 0, 0, 1)
+            BorderThickness = footerRow ? new Thickness(0, 1.5, 0, 0) : new Thickness(0, 0, 0, 1)
         };
         if (footerRow)
             border.Margin = new Thickness(0, 4, 0, 0);

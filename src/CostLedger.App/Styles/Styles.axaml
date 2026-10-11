@@ -42,20 +42,49 @@
     <x:Double x:Key="BodyFontSize">13.5</x:Double>
     <x:Double x:Key="LabelFontSize">11</x:Double>
     <FontFamily x:Key="AppFontFamily">Microsoft YaHei, Segoe UI, sans-serif</FontFamily>
+    <!-- 数字与金融金额专用等宽/清晰字体，解决数字对齐和观感质感 -->
+    <FontFamily x:Key="NumberFontFamily">Segoe UI Variable Display, Segoe UI, Consolas, sans-serif</FontFamily>
   </Style.Resources>
 
   <!-- ============ 卡片 ============ -->
   <Style Selector="Border.card">
     <Setter Property="Background" Value="{StaticResource CardBrush}"/>
     <Setter Property="CornerRadius" Value="{StaticResource CardRadius}"/>
+    <Setter Property="BoxShadow" Value="{StaticResource CardShadow}"/>
     <Setter Property="Padding" Value="20"/>
+  </Style>
+  <Style Selector="Border.kpi-card">
+    <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+    <Setter Property="CornerRadius" Value="16"/>
+    <Setter Property="BoxShadow" Value="{StaticResource CardShadow}"/>
+    <Setter Property="Padding" Value="18,16"/>
   </Style>
   <Style Selector="Border.sidecard">
     <Setter Property="Background" Value="{StaticResource CardBrush}"/>
     <Setter Property="CornerRadius" Value="{StaticResource CardRadius}"/>
     <Setter Property="BorderBrush" Value="{StaticResource LineBrush}"/>
     <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="BoxShadow" Value="{StaticResource CardShadow}"/>
     <Setter Property="Padding" Value="15"/>
+  </Style>
+
+  <!-- ============ 英雄金额与排版工具类 ============ -->
+  <Style Selector="TextBlock.hero-number">
+    <Setter Property="FontFamily" Value="{StaticResource NumberFontFamily}"/>
+    <Setter Property="FontSize" Value="{StaticResource HeroFontSize}"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+    <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+  </Style>
+  <Style Selector="TextBlock.kpi-number">
+    <Setter Property="FontFamily" Value="{StaticResource NumberFontFamily}"/>
+    <Setter Property="FontSize" Value="22"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+    <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+  </Style>
+  <Style Selector="TextBlock.caption">
+    <Setter Property="FontSize" Value="11.5"/>
+    <Setter Property="Foreground" Value="{StaticResource Txt3Brush}"/>
+    <Setter Property="LineHeight" Value="17"/>
   </Style>
 
   <!-- ============ 标签文字 ============ -->
@@ -167,20 +196,27 @@
   <Style Selector="Button.nav">
     <Setter Property="Background" Value="Transparent"/>
     <Setter Property="Foreground" Value="{StaticResource Txt2Brush}"/>
-    <Setter Property="FontWeight" Value="SemiBold"/>
-    <Setter Property="FontSize" Value="13.5"/>
-    <Setter Property="Padding" Value="12,10"/>
-    <Setter Property="CornerRadius" Value="12"/>
+    <Setter Property="FontWeight" Value="Normal"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="Padding" Value="12,8"/>
+    <Setter Property="CornerRadius" Value="10"/>
     <Setter Property="HorizontalAlignment" Value="Stretch"/>
     <Setter Property="HorizontalContentAlignment" Value="Left"/>
+    <Setter Property="Margin" Value="0,1"/>
   </Style>
-  <Style Selector="Button.nav:pointerover">
-    <Setter Property="Background" Value="#0000000A"/>
+  <Style Selector="Button.nav:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="#08000000"/>
     <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
   </Style>
   <Style Selector="Button.nav.on">
     <Setter Property="Background" Value="{StaticResource CardBrush}"/>
-    <Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
+    <Setter Property="Foreground" Value="{StaticResource AccentDeepBrush}"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+  <Style Selector="Button.nav.on /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+    <Setter Property="Foreground" Value="{StaticResource AccentDeepBrush}"/>
+    <Setter Property="BoxShadow" Value="0 1 2 #30201010"/>
   </Style>
 
   <!-- ============ 键盘焦点可见环（Tab 导航用，鼠标点击不触发） ============ -->
@@ -280,6 +316,50 @@
   </Style>
   <Style Selector="ComboBox:pointerover /template/ Border#Background">
     <Setter Property="Background" Value="{StaticResource BgBrush}"/>
+  </Style>
+
+  <!-- ============ 极简现代滚动条（替换 Fluent 90年代厚重带箭头外观） ============ -->
+  <Style Selector="ScrollBar">
+    <Setter Property="AllowAutoHide" Value="True"/>
+  </Style>
+  <!-- 彻底隐藏上下/左右箭头按钮 -->
+  <Style Selector="ScrollBar /template/ RepeatButton#PART_LineUpButton">
+    <Setter Property="IsVisible" Value="False"/>
+  </Style>
+  <Style Selector="ScrollBar /template/ RepeatButton#PART_LineDownButton">
+    <Setter Property="IsVisible" Value="False"/>
+  </Style>
+  <!-- 纵向滚动条：6px 纤细轨道，无边框 -->
+  <Style Selector="ScrollBar:vertical">
+    <Setter Property="Width" Value="8"/>
+    <Setter Property="MinWidth" Value="8"/>
+    <Setter Property="Background" Value="Transparent"/>
+  </Style>
+  <Style Selector="ScrollBar:vertical /template/ Thumb">
+    <Setter Property="Background" Value="#A89E9066"/>
+    <Setter Property="CornerRadius" Value="4"/>
+    <Setter Property="Width" Value="5"/>
+    <Setter Property="MinHeight" Value="28"/>
+  </Style>
+  <Style Selector="ScrollBar:vertical:pointerover /template/ Thumb">
+    <Setter Property="Background" Value="#A24E3088"/>
+    <Setter Property="Width" Value="7"/>
+  </Style>
+  <!-- 横向滚动条 -->
+  <Style Selector="ScrollBar:horizontal">
+    <Setter Property="Height" Value="8"/>
+    <Setter Property="MinHeight" Value="8"/>
+    <Setter Property="Background" Value="Transparent"/>
+  </Style>
+  <Style Selector="ScrollBar:horizontal /template/ Thumb">
+    <Setter Property="Background" Value="#A89E9066"/>
+    <Setter Property="CornerRadius" Value="4"/>
+    <Setter Property="Height" Value="5"/>
+    <Setter Property="MinWidth" Value="28"/>
+  </Style>
+  <Style Selector="ScrollBar:horizontal:pointerover /template/ Thumb">
+    <Setter Property="Background" Value="#A24E3088"/>
+    <Setter Property="Height" Value="7"/>
   </Style>
 
   <!-- ============ 品牌块 / 头像 ============ -->

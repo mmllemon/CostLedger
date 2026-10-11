@@ -169,8 +169,13 @@ public class ProjectCockpitView : UserControl, IProjectScoped
             var over = f.VarianceTotal;
             body.Children.Add(new TextBlock { Text = $"当前预计最终成本（预测 v{f.VersionNumber} · {f.ForecastDate:yyyy-MM-dd} · {UiText.VersionStatus(f.Status)}）", FontSize = 11, Foreground = Palette.Txt3, LetterSpacing = 1.2 });
 
-            var heroText = new StackPanel { Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
-            heroText.Children.Add(new TextBlock { Text = UiText.Money(f.EstimatedFinalTotal), FontSize = 40, FontWeight = FontWeight.Bold, Foreground = Palette.Ink });
+            var heroText = new StackPanel { Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
+            heroText.Children.Add(new TextBlock
+            {
+                Text = UiText.Money(f.EstimatedFinalTotal),
+                Classes = { "hero-number" },
+                FontFamily = new FontFamily("Segoe UI Variable Display, Segoe UI, Consolas, sans-serif")
+            });
             var sub = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 14 };
             sub.Children.Add(new TextBlock { Text = $"目标成本 {UiText.Money(f.TargetTotal)}", Foreground = Palette.Txt2, FontSize = 12.5 });
             sub.Children.Add(new TextBlock { Text = $"预计超目标 {UiText.Money(over)}", Foreground = over > 0 ? Palette.Red : Palette.Txt2, FontSize = 12.5, FontWeight = FontWeight.Bold });

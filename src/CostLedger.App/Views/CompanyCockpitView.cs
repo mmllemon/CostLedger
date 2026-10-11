@@ -58,12 +58,13 @@ public class CompanyCockpitView : UserControl
         left.Children.Add(new TextBlock
         {
             Text = $"公司在管项目 {s.ProjectCount} 个 · 汇总口径截至 {UiText.Date(s.Projects.Select(p => p.AsOfDate).Where(d => d.HasValue).DefaultIfEmpty(null).Max())}",
-            FontSize = 11, Foreground = Palette.Txt3, LetterSpacing = 1.0
+            FontSize = 11.5, Foreground = Palette.Txt3, LetterSpacing = 0.8
         });
         left.Children.Add(new TextBlock
         {
             Text = s.ProjectCount == s.MissingForecastCount ? "暂无预测版本" : UiText.Money(s.EstimatedFinal),
-            FontSize = 44, FontWeight = FontWeight.Bold, Foreground = Palette.Ink
+            Classes = { "hero-number" },
+            FontFamily = new FontFamily("Segoe UI Variable Display, Segoe UI, Consolas, sans-serif")
         });
         left.Children.Add(new TextBlock
         {

@@ -38,26 +38,27 @@ public class PartyPanoramaView : UserControl
 
     private Control BuildUi()
     {
-        _partyCombo = new ComboBox { Width = 320, PlaceholderText = "选择往来单位" };
+        _partyCombo = new ComboBox { Width = 340, PlaceholderText = "选择往来单位" };
         _partyCombo.DisplayMemberBinding = new Binding("Name");
         _partyCombo.SelectionChanged += async (_, _) => { if (_partyCombo.SelectedItem is Party p) { _current = await _svc.BuildAsync(p.Id); Render(); } };
 
-        _title = new TextBlock { FontSize = 14, FontWeight = FontWeight.Bold, Foreground = Palette.Ink, VerticalAlignment = VerticalAlignment.Center };
-        var print = new Button { Content = "打印单位汇报" };
-        print.Classes.Add("pill");
-        print.Click += OnPrint;
+        _title = new TextBlock { FontSize = 12, Foreground = Palette.Txt3, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+        var print = Widgets.ActionButton("打印单位汇报", () => OnPrint(this, new Avalonia.Interactivity.RoutedEventArgs()));
 
-        var top = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-        top.Children.Add(new TextBlock { Text = "往来单位", VerticalAlignment = VerticalAlignment.Center, Foreground = Palette.Txt2 });
-        top.Children.Add(_partyCombo);
-        top.Children.Add(print);
-        top.Children.Add(_title);
+        var top = Widgets.PageHeaderWithDynamicSubtitle("往来", "往来单位全景",
+            "看清单位在全部项目上的合同、支出与资金敞口", _title,
+            print);
+
+        var selectBar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center };
+        selectBar.Children.Add(new TextBlock { Text = "选择单位", VerticalAlignment = VerticalAlignment.Center, Foreground = Palette.Txt2, FontSize = 12.5 });
+        selectBar.Children.Add(_partyCombo);
 
         _cardHost = new WrapPanel();
         _body = new StackPanel { Spacing = 14 };
 
         var root = new StackPanel { Spacing = 14, Margin = new Thickness(20) };
         root.Children.Add(top);
+        root.Children.Add(Widgets.Card(null, selectBar));
         root.Children.Add(Widgets.Card(null, _cardHost));
         root.Children.Add(_body);
         return new ScrollViewer { Content = root, Background = Palette.Bg };

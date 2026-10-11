@@ -50,41 +50,47 @@ public class InternalReportView : UserControl
 
     private Control BuildUi()
     {
-        _projCombo = new ComboBox { Width = 260, PlaceholderText = "选择项目" };
+        _projCombo = new ComboBox { Width = 280, PlaceholderText = "选择项目" };
         _projCombo.DisplayMemberBinding = new Binding("Name");
         _projCombo.SelectionChanged += async (_, _) => await RenderPreviewAsync();
-        _partyCombo = new ComboBox { Width = 260, PlaceholderText = "选择单位" };
+        _partyCombo = new ComboBox { Width = 280, PlaceholderText = "选择单位" };
         _partyCombo.DisplayMemberBinding = new Binding("Name");
         _partyCombo.SelectionChanged += async (_, _) => await RenderPreviewAsync();
 
-        var print = new Button { Content = "打印 / 另存 PDF" };
-        print.Classes.Add("pill");
-        print.Click += OnPrint;
+        var print = Widgets.PrimaryActionButton("打印 / 另存 PDF", () => OnPrint(this, new Avalonia.Interactivity.RoutedEventArgs()));
 
-        var top = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-        top.Children.Add(new TextBlock { Text = "内部汇报报表（A4）", FontSize = 15, FontWeight = FontWeight.Bold, Foreground = Palette.Ink, VerticalAlignment = VerticalAlignment.Center });
-        top.Children.Add(print);
+        var top = Widgets.PageHeader("报表", "内部汇报报表",
+            "A4 版式 · 自带口径声明与截至日期 · 对内管理汇报专用",
+            print);
 
         var chipRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         for (int i = 0; i < _templates.Length; i++)
         {
             int idx = i;
             var b = new Button { Content = _templates[i] };
-            b.Classes.Add("pill");
-            b.Click += async (_, _) => { _templateIndex = idx; await RenderPreviewAsync(); };
+            b.Classes.Add("seg");
+            if (idx == _templateIndex) b.Classes.Add("on");
+            b.Click += async (_, _) =>
+            {
+                _templateIndex = idx;
+                foreach (var child in chipRow.Children)
+                    if (child is Button btn) btn.Classes.Remove("on");
+                b.Classes.Add("on");
+                await RenderPreviewAsync();
+            };
             chipRow.Children.Add(b);
         }
 
-        var selectors = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-        selectors.Children.Add(new TextBlock { Text = "项目", VerticalAlignment = VerticalAlignment.Center, Foreground = Palette.Txt2 });
+        var selectors = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, VerticalAlignment = VerticalAlignment.Center };
+        selectors.Children.Add(new TextBlock { Text = "项目范围", VerticalAlignment = VerticalAlignment.Center, Foreground = Palette.Txt2, FontSize = 12.5 });
         selectors.Children.Add(_projCombo);
-        selectors.Children.Add(new TextBlock { Text = "单位", VerticalAlignment = VerticalAlignment.Center, Foreground = Palette.Txt2 });
+        selectors.Children.Add(new TextBlock { Text = "往来单位", VerticalAlignment = VerticalAlignment.Center, Foreground = Palette.Txt2, FontSize = 12.5, Margin = new Thickness(10, 0, 0, 0) });
         selectors.Children.Add(_partyCombo);
 
         var root = new StackPanel { Spacing = 14, Margin = new Thickness(20) };
         root.Children.Add(top);
-        root.Children.Add(Widgets.Card("选择模板", chipRow));
-        root.Children.Add(Widgets.Card("选择数据范围", selectors));
+        root.Children.Add(Widgets.Card("汇报模板", chipRow));
+        root.Children.Add(Widgets.Card("数据范围", selectors));
         root.Children.Add(_status);
         root.Children.Add(_preview);
         return new ScrollViewer { Content = root, Background = Palette.Bg };

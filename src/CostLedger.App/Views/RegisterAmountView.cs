@@ -65,30 +65,41 @@ public class RegisterAmountView : UserControl, IProjectScoped
             "先定业务板块 → 认定角色 → 方向由板块决定", _title,
             Widgets.ActionButton("登记业务关系", () => OpenRelationship()));
 
-        var body = new StackPanel { Spacing = 0 };
-        body.Children.Add(Widgets.FormField("业务板块", _segHost));
-        body.Children.Add(Widgets.FormField("对方单位", PartyBlock()));
-        body.Children.Add(Widgets.FormField("金额方向", DirectionBlock()));
-        body.Children.Add(Widgets.FormField("金额", _amount));
-        body.Children.Add(Widgets.FormField("来源", _source));
-        body.Children.Add(Widgets.FormField("提供方", _by));
-        body.Children.Add(Widgets.FormField("数据截至", _asOf));
-        body.Children.Add(Widgets.FormField("数据状态", StatusSeg()));
-        body.Children.Add(Widgets.FormField("管理精度", PrecisionSeg()));
+        // 左列：核心金额录入
+        var leftFields = new StackPanel { Spacing = 0 };
+        leftFields.Children.Add(Widgets.FormField("业务板块", _segHost, 80));
+        leftFields.Children.Add(Widgets.FormField("对方单位", PartyBlock(), 80));
+        leftFields.Children.Add(Widgets.FormField("金额方向", DirectionBlock(), 80));
+        leftFields.Children.Add(Widgets.FormField("金额", _amount, 80));
+        leftFields.Children.Add(Widgets.FormField("数据状态", StatusSeg(), 80));
+        leftFields.Children.Add(Widgets.FormField("管理精度", PrecisionSeg(), 80));
 
-        var card = new StackPanel { Spacing = 0 };
-        card.Children.Add(new TextBlock { Text = "登记外部金额事实", FontSize = 14.5, FontWeight = FontWeight.Bold, Foreground = Palette.Ink, Margin = new Thickness(0, 0, 0, 6) });
-        card.Children.Add(body);
-        card.Children.Add(Widgets.Hint("系统只记录你获知的金额、它从哪来、截至哪天；财务是否已入账、是否合规，不由成本岗判定。"));
+        var leftCard = new StackPanel { Spacing = 8 };
+        leftCard.Children.Add(new TextBlock { Text = "金额与板块要素", FontSize = 13.5, FontWeight = FontWeight.Bold, Foreground = Palette.Ink, Margin = new Thickness(0, 0, 0, 4) });
+        leftCard.Children.Add(leftFields);
 
-        var submit = Widgets.PrimaryActionButton("登记金额", () => _ = SubmitAsync());
-        var actionRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Margin = new Thickness(0, 14, 0, 0) };
+        // 右列：来源与凭据追溯
+        var rightFields = new StackPanel { Spacing = 0 };
+        rightFields.Children.Add(Widgets.FormField("来源依据", _source, 80));
+        rightFields.Children.Add(Widgets.FormField("提供方", _by, 80));
+        rightFields.Children.Add(Widgets.FormField("数据截至", _asOf, 80));
+        rightFields.Children.Add(Widgets.FormField("备注说明", _desc, 80));
+
+        var rightCard = new StackPanel { Spacing = 8 };
+        rightCard.Children.Add(new TextBlock { Text = "来源追溯与状态", FontSize = 13.5, FontWeight = FontWeight.Bold, Foreground = Palette.Ink, Margin = new Thickness(0, 0, 0, 4) });
+        rightCard.Children.Add(rightFields);
+        rightCard.Children.Add(Widgets.Hint("系统只记录你获知的外部金额、它从哪来、截至哪天；财务是否已入账，不由成本岗判定。"));
+
+        var grid = Widgets.TwoCol(Widgets.Card(null, leftCard), Widgets.Card(null, rightCard));
+
+        var submit = Widgets.PrimaryActionButton("确认登记金额", () => _ = SubmitAsync());
+        var actionRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Margin = new Thickness(0, 4, 0, 0) };
         actionRow.Children.Add(submit);
 
         var root = new StackPanel { Spacing = 14, Margin = new Thickness(20) };
         root.Children.Add(top);
         root.Children.Add(_msg);
-        root.Children.Add(Widgets.Card(null, card));
+        root.Children.Add(grid);
         root.Children.Add(actionRow);
         return new ScrollViewer { Content = root, Background = Palette.Bg };
     }

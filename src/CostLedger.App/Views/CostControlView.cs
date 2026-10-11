@@ -57,12 +57,12 @@ public class CostControlView : UserControl, IProjectScoped
         var top = Widgets.PageHeaderWithDynamicSubtitle("口径", "成本控制项与归属",
             "过程管理口径：不要求与合同清单逐项对齐", _title,
             Widgets.PrimaryActionButton("＋ 新建控制项", () => OpenAddItem()),
-            Widgets.ActionButton("登记业务关系", () => OpenRegisterRelationship()),
+            Widgets.ActionButton("分配到控制项", () => OpenAllocate()),
             Widgets.ActionButton("登记外部金额", () => OpenRegisterFact()),
-            Widgets.ActionButton("分配到控制项", () => OpenAllocate()));
+            Widgets.ActionButton("登记业务关系", () => OpenRegisterRelationship()));
 
-        var itemCard = Widgets.Card("成本控制项（汇总结论的可信颗粒度取该控制项所有来源中最粗的一档）", _itemHost);
-        var allocCard = Widgets.Card("分配明细（更正 = 追加反向冲销，原分配不被删除或改写）", _allocHost);
+        var itemCard = Widgets.Card("成本控制项汇总（汇总结论的可信颗粒度取该控制项所有来源中最粗的一档）", _itemHost);
+        var allocCard = Widgets.Card("分配明细流水（更正 = 追加反向冲销，原分配不被删除或改写）", _allocHost);
 
         var root = new StackPanel { Spacing = 14, Margin = new Thickness(20) };
         root.Children.Add(top);
@@ -126,13 +126,29 @@ public class CostControlView : UserControl, IProjectScoped
     private static Control AllocHeader()
     {
         var g = new Grid { ColumnDefinitions = new ColumnDefinitions("2*,2*,*,Auto,Auto") };
-        foreach (var (t, c) in new[] { ("来源", 0), ("控制项", 1), ("金额", 2), ("状态", 3) })
+        foreach (var (t, c) in new[] { ("来源依据", 0), ("目标控制项", 1), ("分配金额", 2), ("状态", 3), ("操作", 4) })
         {
-            var tb = new TextBlock { Text = t, FontSize = 11.5, FontWeight = FontWeight.Bold, Foreground = Palette.Txt3 };
+            var isRight = c == 2;
+            var tb = new TextBlock
+            {
+                Text = t,
+                FontSize = 11.5,
+                FontWeight = FontWeight.Bold,
+                Foreground = Palette.Txt3,
+                LetterSpacing = 0.5,
+                TextAlignment = isRight ? TextAlignment.Right : TextAlignment.Left
+            };
             Grid.SetColumn(tb, c);
             g.Children.Add(tb);
         }
-        return new Border { Child = g, Padding = new Thickness(10, 8, 10, 8), Background = new SolidColorBrush(Color.Parse("#F4EEE5")) };
+        return new Border
+        {
+            Child = g,
+            Padding = new Thickness(12, 9),
+            Background = new SolidColorBrush(Color.Parse("#F7F2EB")),
+            BorderBrush = Palette.Line,
+            BorderThickness = new Thickness(0, 0, 0, 1)
+        };
     }
 
     private Control AllocRow(ManagementAllocation a, bool alt, bool reversed)
@@ -140,17 +156,19 @@ public class CostControlView : UserControl, IProjectScoped
         var isReversal = a.Amount < 0;
         var g = new Grid { ColumnDefinitions = new ColumnDefinitions("2*,2*,*,Auto,Auto") };
 
-        var src = new TextBlock { Text = a.ExternalAmountFact?.Source ?? a.ExternalAmountFactId.ToString(), FontSize = 12.5, Foreground = Palette.Ink, TextTrimming = TextTrimming.CharacterEllipsis };
-        var item = new TextBlock { Text = a.CostControlItem is null ? a.CostControlItemId.ToString() : $"{a.CostControlItem.Code} {a.CostControlItem.Name}", FontSize = 12.5, Foreground = Palette.Ink, TextTrimming = TextTrimming.CharacterEllipsis };
+        var src = new TextBlock { Text = a.ExternalAmountFact?.Source ?? a.ExternalAmountFactId.ToString(), FontSize = 12.5, Foreground = Palette.Ink, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
+        var item = new TextBlock { Text = a.CostControlItem is null ? a.CostControlItemId.ToString() : $"{a.CostControlItem.Code} {a.CostControlItem.Name}", FontSize = 12.5, Foreground = Palette.Ink, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
         var amt = new TextBlock
         {
             Text = UiText.Money(a.Amount),
             FontSize = 12.5,
             FontWeight = FontWeight.SemiBold,
             Foreground = isReversal ? Palette.Red : Palette.Ink,
-            TextAlignment = TextAlignment.Right
+            TextAlignment = TextAlignment.Right,
+            FontFamily = new FontFamily("Segoe UI Variable Display, Segoe UI, Consolas, sans-serif"),
+            VerticalAlignment = VerticalAlignment.Center
         };
-        var st = new TextBlock { Text = isReversal ? "冲销" : (reversed ? "已冲销" : UiText.AllocationStatus(a.Status)), FontSize = 12, Foreground = isReversal || reversed ? Palette.Red : Palette.Txt2, Margin = new Thickness(14, 0, 14, 0), VerticalAlignment = VerticalAlignment.Center };
+        var st = new TextBlock { Text = isReversal ? "冲销" : (reversed ? "已冲销" : UiText.AllocationStatus(a.Status)), FontSize = 11.5, Foreground = isReversal || reversed ? Palette.Red : Palette.Txt2, Margin = new Thickness(14, 0, 14, 0), VerticalAlignment = VerticalAlignment.Center };
 
         Grid.SetColumn(src, 0); Grid.SetColumn(item, 1); Grid.SetColumn(amt, 2); Grid.SetColumn(st, 3);
         g.Children.Add(src); g.Children.Add(item); g.Children.Add(amt); g.Children.Add(st);
@@ -158,7 +176,7 @@ public class CostControlView : UserControl, IProjectScoped
         // 仅正向且未被冲销的行可冲销
         if (!isReversal && !reversed)
         {
-            var btn = new Button { Content = "冲销", FontSize = 11.5 };
+            var btn = new Button { Content = "冲销", FontSize = 11.5, Padding = new Thickness(8, 3) };
             btn.Classes.Add("pill");
             btn.Click += (_, _) => OpenReverse(a);
             Grid.SetColumn(btn, 4);
@@ -168,8 +186,8 @@ public class CostControlView : UserControl, IProjectScoped
         return new Border
         {
             Child = g,
-            Padding = new Thickness(10, 8, 10, 8),
-            Background = alt ? new SolidColorBrush(Color.Parse("#FBF7F0")) : null,
+            Padding = new Thickness(12, 10),
+            Background = alt ? new SolidColorBrush(Color.Parse("#FCFAF7")) : Palette.Card,
             BorderBrush = Palette.Line,
             BorderThickness = new Thickness(0, 0, 0, 1)
         };

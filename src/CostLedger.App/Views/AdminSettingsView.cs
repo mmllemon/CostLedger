@@ -34,10 +34,11 @@ public class AdminSettingsView : UserControl
 
     private Control BuildUi()
     {
-        var title = new TextBlock { Text = "后台管理", FontSize = 15, FontWeight = FontWeight.Bold, Foreground = Palette.Ink };
+        var top = Widgets.PageHeader("后台", "后台管理",
+            "集中管理项目业务角色、板块角色授权与账套参数；核心口径骨架强类型锁定");
 
         var root = new StackPanel { Spacing = 14, Margin = new Thickness(20) };
-        root.Children.Add(title);
+        root.Children.Add(top);
         root.Children.Add(Widgets.Card(null, new TextBlock
         {
             Text = "这里集中「可增补项」：项目业务角色、板块角色授权、字典、字段、系统参数与账套。业务板块、金额方向、管理精度、数据状态属于口径骨架，是强类型，此页不提供新增或放宽入口。",
