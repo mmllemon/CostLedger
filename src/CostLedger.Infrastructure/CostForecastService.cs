@@ -86,6 +86,9 @@ public sealed class CostForecastService
     /// </summary>
     public async Task<CostForecastVersion> FreezeAsync(int versionId, CancellationToken ct = default)
     {
+        // 冻结必须把“重算已知金额 + 精度封顶 + 状态切换”放在同一事务中，
+        // 否则草稿编辑后来源分配发生变化，冻结快照可能仍保存旧金额。
+        await using var transaction = await _db.Database.BeginTransactionAsync(ct);
         var version = await GetEditableVersionAsync(versionId, ct);
         var lines = await _db.CostForecastLines
             .Where(x => x.CostForecastVersionId == versionId)
@@ -94,6 +97,20 @@ public sealed class CostForecastService
             throw new InvalidOperationException("预测版本没有任何控制项预测行，不能冻结。");
         if (string.IsNullOrWhiteSpace(version.Basis))
             throw new InvalidOperationException("冻结预测版本必须写明编制假设（价格水平、剩余工程量依据、未确认事项处理方式）。");
+
+        // 在冻结前逐行刷新派生值。目标、剩余估计和风险调整属于编制输入；
+        // 已知金额和最粗来源精度只能由当前分配事实推导。
+        foreach (var line in lines)
+        {
+            var item = await _db.CostControlItems
+                .SingleOrDefaultAsync(x => x.Id == line.CostControlItemId, ct)
+                ?? throw new InvalidOperationException($"预测行引用的成本控制项 {line.CostControlItemId} 已不存在。");
+            if (item.ProjectId != version.ProjectId)
+                throw new InvalidOperationException("预测行中的成本控制项与预测版本不属于同一项目，不能冻结。");
+
+            line.KnownAmount = await KnownAmountAsync(version.ProjectId, line.CostControlItemId, ct);
+            line.PrecisionCap = await PrecisionCapAsync(version.ProjectId, line.CostControlItemId, ct);
+        }
 
         var economy = await new EconomicFactsService(_db).SummarizeProjectAsync(version.ProjectId, ct);
         if (economy.UnallocatedAmount > 0)
@@ -107,6 +124,7 @@ public sealed class CostForecastService
 
         version.Status = ForecastVersionStatus.Frozen;
         await _db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
         return version;
     }
 
