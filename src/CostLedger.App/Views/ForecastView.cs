@@ -221,16 +221,49 @@ public class ForecastView : UserControl, IProjectScoped
         });
     }
 
-    private async void OnFreeze()
+    private void OnFreeze()
     {
         if (_summary is null) return;
-        try
+        if (_summary.Status == ForecastVersionStatus.Frozen)
         {
-            var v = await _svc.FreezeAsync(_summary.VersionId);
-            await ReloadAsync();
-            SetMsg($"已冻结版本 v{v.VersionNumber}；此后修订请新建版本。");
+            SetMsg("当前版本已冻结；如需修订，请新建版本。", true);
+            return;
         }
-        catch (Exception ex) { SetMsg(ex.Message, true); }
+
+        // 冻结是不可逆的版本边界，先把当前影响与限制展示给用户。
+        // 服务端仍会在事务内再次重算已知金额与精度，预览不作为冻结时的权威快照。
+        var snapshot = _summary;
+        var body = new StackPanel { Spacing = 10 };
+        body.Children.Add(Widgets.Hint(
+            $"即将冻结预测 v{snapshot.VersionNumber}（预测日期 {snapshot.ForecastDate:yyyy-MM-dd}）。冻结后不能改写，后续修订必须新建版本。"));
+        var totals = new StackPanel { Spacing = 4 };
+        totals.Children.Add(Widgets.Field("目标成本", UiText.Money(snapshot.TargetTotal)));
+        totals.Children.Add(Widgets.Field("当前预计最终成本", UiText.Money(snapshot.EstimatedFinalTotal), snapshot.VarianceTotal > 0));
+        totals.Children.Add(Widgets.Field("预计超目标", UiText.Money(snapshot.VarianceTotal), snapshot.VarianceTotal > 0));
+        totals.Children.Add(Widgets.Field("已知金额（当前分配推算）", UiText.Money(snapshot.KnownTotal)));
+        totals.Children.Add(Widgets.Field("未归属金额", UiText.Money(snapshot.UnallocatedAmount), snapshot.UnallocatedAmount > 0));
+        totals.Children.Add(Widgets.Field("未纳入预测的变化", UiText.Money(snapshot.UnincludedChangeAmount), snapshot.UnincludedChangeAmount > 0));
+        totals.Children.Add(Widgets.Field("可信度", UiText.Confidence(snapshot.Confidence)));
+        totals.Children.Add(Widgets.Field("预测行数", snapshot.Lines.Count.ToString()));
+        body.Children.Add(Widgets.Card("冻结前摘要", totals));
+
+        if (snapshot.UnallocatedAmount > 0)
+            body.Children.Add(Widgets.Hint("注意：仍存在未归属金额。冻结时系统会按规则下调可信度，但未归属金额不会自动摊入控制项。"));
+        if (snapshot.Lines.Any(x => x.PrecisionCap == ManagementPrecision.Project))
+            body.Children.Add(Widgets.Hint("至少一个控制项的来源精度封顶为项目级；冻结版不会把粗颗粒来源显示成更细精度。"));
+        body.Children.Add(Widgets.Hint("确认后，系统会在同一事务中重新读取分配关系，刷新每行已知金额与最粗来源精度，再保存冻结快照。若校验失败，版本不会被标记为已冻结。"));
+
+        Widgets.OpenForm(this, "确认冻结预测版本", "请核对当前金额、未归属风险与来源精度；冻结后只能通过新版本修订。", body, "确认冻结", async () =>
+        {
+            try
+            {
+                var v = await _svc.FreezeAsync(snapshot.VersionId);
+                await ReloadAsync();
+                SetMsg($"已冻结版本 v{v.VersionNumber}；此后修订请新建版本。");
+                return null;
+            }
+            catch (Exception ex) { return ex.Message; }
+        });
     }
 
     private static decimal Parse(string s) => decimal.TryParse(s, NumberStyles.Any, CultureInfo.CurrentCulture, out var v) ? v : 0m;
