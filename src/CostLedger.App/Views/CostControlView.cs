@@ -27,6 +27,7 @@ public class CostControlView : UserControl, IProjectScoped
 
     private readonly StackPanel _itemHost = new();
     private readonly StackPanel _allocHost = new();
+    private readonly StackPanel _factHost = new();
     private readonly TextBlock _msg = new();
     private readonly TextBlock _title = new() { FontSize = 11.5, Foreground = Palette.Txt3, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
 
@@ -63,12 +64,14 @@ public class CostControlView : UserControl, IProjectScoped
             Widgets.ActionButton("登记业务关系", () => OpenRegisterRelationship()));
 
         var itemCard = Widgets.Card("成本控制项汇总（汇总结论的可信颗粒度取该控制项所有来源中最粗的一档）", _itemHost);
+        var factCard = Widgets.Card("外部金额事实（来源、提供方、截至日期、状态与管理精度）", _factHost);
         var allocCard = Widgets.Card("分配明细流水（更正 = 追加反向冲销，原分配不被删除或改写）", _allocHost);
 
         var root = new StackPanel { Spacing = 14, Margin = new Thickness(20) };
         root.Children.Add(top);
         root.Children.Add(_msg);
         root.Children.Add(itemCard);
+        root.Children.Add(factCard);
         root.Children.Add(allocCard);
         return new ScrollViewer { Content = root, Background = Palette.Bg };
     }
@@ -95,12 +98,44 @@ public class CostControlView : UserControl, IProjectScoped
         _items = await _db.CostControlItems.AsNoTracking()
             .Where(x => x.ProjectId == _current.Id).OrderBy(x => x.SortOrder).ThenBy(x => x.Code).ToListAsync();
         _facts = await _db.ExternalAmountFacts.AsNoTracking()
+            .Include(x => x.Party)
             .Where(x => x.ProjectId == _current.Id).OrderByDescending(x => x.AsOfDate).ToListAsync();
 
         var summary = await _svc.SummarizeControlItemsAsync(_current.Id);
         RenderItems(summary);
+        RenderFacts();
         await RenderAllocationsAsync();
         _msg.Text = summary.Count == 0 ? "该项目还没有已归属金额。" : "";
+    }
+
+    /// <summary>
+    /// 展示外部金额事实的管理元数据，避免只看到金额而丢失来源、提供方、截至日期和精度口径。
+    /// 这些信息是成本岗管理依据，不代表财务核验。
+    /// </summary>
+    private void RenderFacts()
+    {
+        _factHost.Children.Clear();
+        if (_facts.Count == 0)
+        {
+            _factHost.Children.Add(Widgets.EmptyState("尚无外部金额事实；登记后可分配到成本控制项。"));
+            return;
+        }
+
+        var headers = new[] { "来源依据", "提供方", "业务板块", "方向", "金额", "截至日期", "状态", "管理精度" };
+        var right = new HashSet<int> { 4 };
+        var rows = _facts.Select(f => new[]
+        {
+            f.Source,
+            f.Party?.Name ?? "未指定",
+            UiText.Segment(f.Segment),
+            UiText.Direction(f.Direction),
+            UiText.Money(f.Amount),
+            UiText.Date(f.AsOfDate),
+            UiText.Status(f.Status),
+            UiText.Precision(f.Precision)
+        });
+        _factHost.Children.Add(Widgets.Table(headers, rows, right));
+        _factHost.Children.Add(Widgets.Hint("截至日期与管理精度描述来源信息的时效和颗粒度；登记外部金额不等于财务确认。"));
     }
 
     private async Task RenderAllocationsAsync()
