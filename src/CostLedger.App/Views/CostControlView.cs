@@ -57,6 +57,7 @@ public class CostControlView : UserControl, IProjectScoped
         var top = Widgets.PageHeaderWithDynamicSubtitle("口径", "成本控制项与归属",
             "过程管理口径：不要求与合同清单逐项对齐", _title,
             Widgets.PrimaryActionButton("＋ 新建控制项", () => OpenAddItem()),
+            Widgets.ActionButton("调整控制项", () => OpenEditItem()),
             Widgets.ActionButton("分配到控制项", () => OpenAllocate()),
             Widgets.ActionButton("登记外部金额", () => OpenRegisterFact()),
             Widgets.ActionButton("登记业务关系", () => OpenRegisterRelationship()));
@@ -258,6 +259,62 @@ public class CostControlView : UserControl, IProjectScoped
                 await _svc.CreateControlItemAsync(_current.Id, code.Text ?? "", name.Text ?? "", s);
                 await RefreshAsync();
                 SetMsg($"已新建控制项 {code.Text?.Trim()} {name.Text?.Trim()}。");
+                return null;
+            }
+            catch (Exception ex) { return ex.Message; }
+        });
+    }
+
+    // ==================== 弹层：调整控制项 ====================
+    private void OpenEditItem()
+    {
+        if (_current is null) return;
+        if (_items.Count == 0)
+        {
+            SetMsg("当前项目还没有控制项，请先新建控制项或到「项目管理」初始化模板。", true);
+            return;
+        }
+
+        var picks = _items.Select(i => new Pick<int>(i.Id, $"{i.Code} · {i.Name}")).ToList();
+        var picker = new ComboBox
+        {
+            ItemsSource = picks,
+            DisplayMemberBinding = new Binding("Label"),
+            SelectedIndex = 0,
+            Width = 460
+        };
+        var code = new TextBox { Width = 460, Watermark = "控制项编号（项目内唯一）" };
+        var name = new TextBox { Width = 460, Watermark = "控制项名称" };
+        var sort = new TextBox { Width = 460, Watermark = "排序（数字）" };
+
+        void LoadSelected()
+        {
+            if (picker.SelectedItem is not Pick<int> selected) return;
+            var item = _items.FirstOrDefault(x => x.Id == selected.Value);
+            if (item is null) return;
+            code.Text = item.Code;
+            name.Text = item.Name;
+            sort.Text = item.SortOrder.ToString();
+        }
+        picker.SelectionChanged += (_, _) => LoadSelected();
+        LoadSelected();
+
+        var body = new StackPanel { Spacing = 10 };
+        body.Children.Add(Widgets.Row("选择控制项", picker, 90));
+        body.Children.Add(Widgets.Row("控制项编号", code, 90));
+        body.Children.Add(Widgets.Row("控制项名称", name, 90));
+        body.Children.Add(Widgets.Row("排序", sort, 90));
+        body.Children.Add(Widgets.Hint("只调整控制项的编号、名称与显示顺序；既有金额事实和分配通过内部 ID 保持关联。"));
+
+        Widgets.OpenForm(this, "调整成本控制项", "编号在本项目内唯一，编号与名称必填。", body, "保存调整", async () =>
+        {
+            if (picker.SelectedItem is not Pick<int> selected) return "请选择要调整的控制项。";
+            if (!int.TryParse(sort.Text, out var order)) return "排序必须是整数。";
+            try
+            {
+                await _svc.UpdateControlItemAsync(selected.Value, code.Text ?? "", name.Text ?? "", order);
+                await RefreshAsync();
+                SetMsg($"已更新控制项 {code.Text?.Trim()} {name.Text?.Trim()}。");
                 return null;
             }
             catch (Exception ex) { return ex.Message; }
