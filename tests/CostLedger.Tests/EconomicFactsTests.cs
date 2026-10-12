@@ -556,4 +556,39 @@ public class EconomicFactsTests
         SeedData.SeedIfEmpty(db);
         db.LookupDefs.Count(d => d.Code == PartyRoleCodes.RoleLookupCode).Should().Be(1);
     }
+
+    [Fact]
+    public async Task 成本控制项可调整编号名称与排序()
+    {
+        using var db = CreateContext();
+        var project = new Project { Code = "P-EDIT", Name = "控制项编辑项目" };
+        db.Projects.Add(project);
+        await db.SaveChangesAsync();
+
+        var service = new EconomicFactsService(db);
+        var item = await service.CreateControlItemAsync(project.Id, "MAT-01", "旧名称", 1);
+
+        var updated = await service.UpdateControlItemAsync(item.Id, "MAT-02", "钢材与金属材料", 20);
+
+        updated.Id.Should().Be(item.Id);
+        updated.Code.Should().Be("MAT-02");
+        updated.Name.Should().Be("钢材与金属材料");
+        updated.SortOrder.Should().Be(20);
+    }
+
+    [Fact]
+    public async Task 成本控制项修改时拒绝重复编号()
+    {
+        using var db = CreateContext();
+        var project = new Project { Code = "P-DUP", Name = "重复编号项目" };
+        db.Projects.Add(project);
+        await db.SaveChangesAsync();
+
+        var service = new EconomicFactsService(db);
+        var first = await service.CreateControlItemAsync(project.Id, "MAT-01", "钢材");
+        var second = await service.CreateControlItemAsync(project.Id, "MAT-02", "电缆");
+
+        Func<Task> update = () => service.UpdateControlItemAsync(second.Id, first.Code, "重复编号", 0);
+        await update.Should().ThrowAsync<InvalidOperationException>().WithMessage("*已存在*");
+    }
 }
