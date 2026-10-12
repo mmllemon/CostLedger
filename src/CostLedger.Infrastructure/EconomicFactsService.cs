@@ -250,6 +250,28 @@ public sealed class EconomicFactsService
         return item;
     }
 
+    /// <summary>调整成本控制项的编号、名称与排序；保留实体 ID，既有分配关系不会断开。</summary>
+    public async Task<CostControlItem> UpdateControlItemAsync(
+        int itemId, string code, string name, int sortOrder = 0, CancellationToken ct = default)
+    {
+        code = (code ?? "").Trim();
+        name = (name ?? "").Trim();
+        if (code.Length == 0 || name.Length == 0)
+            throw new InvalidOperationException("控制项编号与名称必填。");
+
+        var item = await _db.CostControlItems.SingleOrDefaultAsync(x => x.Id == itemId, ct)
+            ?? throw new InvalidOperationException($"未找到成本控制项 {itemId}。");
+        if (await _db.CostControlItems.AnyAsync(
+            x => x.ProjectId == item.ProjectId && x.Id != itemId && x.Code == code, ct))
+            throw new InvalidOperationException($"控制项编号 {code} 在本项目已存在。");
+
+        item.Code = code;
+        item.Name = name;
+        item.SortOrder = sortOrder;
+        await _db.SaveChangesAsync(ct);
+        return item;
+    }
+
     /// <summary>
     /// 按成本控制项汇总已分配金额。同一项目允许粗颗粒过程数据与细颗粒结算数据并存：
     /// 每行保留最粗的来源精度，不提升为清单级。
